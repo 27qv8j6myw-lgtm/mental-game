@@ -9,21 +9,23 @@ import {
 import { isSupabaseConfigured, supabase } from "./supabase";
 
 export type AuthMode = "loading" | "signed-in" | "guest" | "signed-out";
+export type OAuthProvider = "google" | "kakao";
 
 export interface AuthUser {
   uid: string;
   displayName: string | null;
   photoURL: string | null;
   email: string | null;
+  isAnonymous: boolean;
 }
 
 interface AuthCtx {
   mode: AuthMode;
   user: AuthUser | null;
   configured: boolean;
-  signIn: () => Promise<void>;
+  signIn: (provider: OAuthProvider) => Promise<void>;
   signOutUser: () => Promise<void>;
-  continueAsGuest: () => void;
+  continueAsGuest: () => Promise<void>;
   error: string | null;
 }
 
@@ -33,15 +35,21 @@ const GUEST_KEY = "mentalgame-guest";
 function mapUser(u: {
   id: string;
   email?: string | null;
+  is_anonymous?: boolean;
   user_metadata?: Record<string, unknown>;
 }): AuthUser {
   const meta = u.user_metadata ?? {};
+  const isAnonymous = !!u.is_anonymous;
   return {
     uid: u.id,
-    displayName:
-      (meta.full_name as string) || (meta.name as string) || u.email || null,
-    photoURL: (meta.avatar_url as string) || (meta.picture as string) || null,
+    displayName: isAnonymous
+      ? null
+      : (meta.full_name as string) || (meta.name as string) || u.email || null,
+    photoURL: isAnonymous
+      ? null
+      : (meta.avatar_url as string) || (meta.picture as string) || null,
     email: u.email ?? null,
+    isAnonymous,
   };
 }
 
@@ -88,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       configured: isSupabaseConfigured,
       error,
-      signIn: async () => {
+      signIn: async (provider) => {
         setError(null);
         if (!isSupabaseConfigured || !supabase) {
           setError(
@@ -98,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         localStorage.removeItem(GUEST_KEY);
         const { error: e } = await supabase.auth.signInWithOAuth({
-          provider: "google",
+          provider,
           options: { redirectTo: window.location.origin },
         });
         if (e) {
@@ -112,7 +120,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setMode("signed-out");
       },
-      continueAsGuest: () => {
+      continueAsGuest: async () => {
+        setError(null);
+        // Supabase가 연결돼 있으면 익명 로그인으로 온라인 라운드에 참여할 수 있게 한다.
+        if (isSupabaseConfigured && supabase) {
+          const { error: e } = await supabase.auth.signInAnonymously();
+          if (e) {
+            console.error(e);
+            setError(
+              "게스트 참여를 시작할 수 없어요. 관리자에게 익명 로그인 활성화를 요청하세요."
+            );
+          }
+          return;
+        }
+        // 오프라인(백엔드 미설정) 폴백: 로컬 단일 기기 모드
         localStorage.setItem(GUEST_KEY, "1");
         setMode("guest");
       },

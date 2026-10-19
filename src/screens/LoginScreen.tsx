@@ -1,4 +1,5 @@
 import { useAuth } from "../auth";
+import { Icon } from "../icons";
 
 export default function LoginScreen() {
   const { signIn, continueAsGuest, configured, error } = useAuth();
@@ -6,7 +7,9 @@ export default function LoginScreen() {
   return (
     <div className="auth-screen">
       <div className="rings" />
-      <div className="auth-logo">⛳</div>
+      <div className="auth-logo">
+        <Icon name="flag" size={40} strokeWidth={1.8} />
+      </div>
       <div className="auth-title">멘탈게임</div>
       <div className="auth-sub">
         골프 내기, 계산은 앱이 하고
@@ -15,21 +18,26 @@ export default function LoginScreen() {
       </div>
 
       <div className="auth-actions">
-        <button className="btn-google" onClick={signIn}>
+        <button className="btn-kakao" onClick={() => void signIn("kakao")}>
+          <KakaoBubble />
+          카카오로 시작하기
+        </button>
+
+        <button className="btn-google" onClick={() => void signIn("google")}>
           <GoogleG />
           Google 계정으로 시작
         </button>
 
         <div className="divider-or">또는</div>
 
-        <button className="btn-text" onClick={continueAsGuest}>
-          로그인 없이 바로 시작하기
+        <button className="btn-text" onClick={() => void continueAsGuest()}>
+          로그인 없이 참여하기
         </button>
 
         <p className="auth-note">
-          로그인하면 <b>내가 참여한 라운드 기록</b>이 자동 저장돼요.
+          로그인하면 <b>프로필 사진과 이름</b>이 자동으로 적용돼요.
           <br />
-          로그인 없이 진행하면 기록은 저장·조회되지 않습니다.
+          로그인 없이도 <b>초대 코드</b>로 라운드에 참여할 수 있어요. (성별로 표시)
         </p>
 
         {!configured && (
@@ -42,6 +50,17 @@ export default function LoginScreen() {
         {error && <div className="auth-err">{error}</div>}
       </div>
     </div>
+  );
+}
+
+function KakaoBubble() {
+  return (
+    <svg className="k-logo" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 3C6.48 3 2 6.54 2 10.9c0 2.82 1.87 5.3 4.69 6.7-.15.53-.97 3.4-1 3.62 0 0-.02.17.09.24.11.06.24.01.24.01.32-.04 3.7-2.42 4.28-2.83.55.08 1.12.12 1.7.12 5.52 0 10-3.54 10-7.9S17.52 3 12 3z"
+      />
+    </svg>
   );
 }
 

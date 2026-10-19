@@ -23,7 +23,10 @@ npm run build    # 타입체크 + 프로덕션 빌드
 - **버디 추가 정산**: 버디 시 항상 한 타를 더 잡아줌(배판 홀은 2배), 별도 표시
 - **게임 화면**: 홀 이동, PAR 선택, 스코어(-2~+5) 입력, 실시간 자동 정산
 - **정산 결과**: ① 게임 순수 → ② 버디 → ③ 핸디캡 → ④ 최종 송금 순
-- **아카이브**: Google 로그인 시 내가 만든 라운드가 자동 저장, 목록/불러오기/삭제
+- **멀티플레이어 라운드**: 로그인 후 한 명이 라운드를 만들면 **6자리 초대 코드**가 발급되고,
+  다른 참여자는 코드로 참여. 각자 대기실에서 본인 정보(이름·성별·평균타수·핸디)를 입력하고
+  방장이 게임을 시작. 스코어 입력은 **실시간 동기화**(Supabase Realtime)
+- **내 라운드**: 참여한 라운드 목록(대기중/진행중/완료) 확인 및 다시 열기
 
 ## 백엔드(Supabase) 연결
 
@@ -34,7 +37,17 @@ npm run build    # 타입체크 + 프로덕션 빌드
    - Google Cloud Console에서 OAuth 클라이언트를 만들고 Client ID/Secret 입력
    - **Authentication → URL Configuration** 에서 Site URL과 Redirect URLs 에
      로컬(`http://localhost:5173`, `5174`)과 배포 도메인(`https://<앱>.vercel.app`)을 등록
-3. **SQL Editor** 에서 `supabase/schema.sql` 을 실행 (games 테이블 + RLS 생성)
+   - **카카오 로그인**: [Kakao Developers](https://developers.kakao.com)에서 앱 생성 후
+     - **앱 설정 → 앱 → 플랫폼 키 → REST API 키** 에서 카카오 로그인 Redirect URI 에
+       `https://<프로젝트>.supabase.co/auth/v1/callback` 등록, Client Secret 활성화 후 복사
+     - **제품 설정 → 카카오 로그인** 사용 설정 ON, **동의항목**에서 닉네임·프로필 사진 설정
+       (이메일은 비즈 앱 전환이 필요)
+     - REST API 키(Client ID)와 Client Secret 을 Supabase **Providers → Kakao** 에 입력
+     - 이메일 권한이 없다면 Supabase Kakao 설정의 **Allow users without an email** 을 켜기
+3. **SQL Editor** 에서 `supabase/schema.sql` 을 실행
+   (rounds / round_players / round_holes / round_scores 테이블 + RLS + RPC + Realtime publication)
+   - 마지막 `alter publication ... add table` 구문은 이미 추가돼 있으면 에러가 날 수 있으니
+     그 경우 무시하거나 개별 실행하세요.
 4. **Project Settings → API** 의 값을 `.env` 에 입력 (`.env.example` 참고)
 
 ```bash
@@ -43,8 +56,8 @@ cp .env.example .env
 npm run dev
 ```
 
-RLS 정책으로 **본인(owner_uid = auth.uid()) 행만** 읽기/쓰기/삭제할 수 있어,
-내가 만든 라운드만 기록에 노출됩니다.
+RLS 정책으로 **라운드 멤버(방장 또는 참여자)만** 해당 라운드 데이터를 읽고 쓸 수 있어,
+초대 코드를 받은 사람만 라운드에 접근할 수 있습니다.
 
 > `.env` 를 설정하지 않아도 "로그인 없이 시작"으로 계산 기능은 모두 사용할 수 있습니다.
 > 단, 기록 저장·조회는 로그인 시에만 가능합니다.

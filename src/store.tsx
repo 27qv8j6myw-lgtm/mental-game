@@ -117,3 +117,17 @@ export function useApp() {
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
 }
+
+/** 게스트(로컬 store)용 세션 어댑터 */
+export function useLocalSession(): import("./types").Session | null {
+  const { state, setPar, setScore, goHole } = useApp();
+  if (!state.config) return null;
+  return {
+    config: state.config,
+    holes: state.holes,
+    currentHole: state.currentHole,
+    goHole,
+    setPar,
+    setScore,
+  };
+}

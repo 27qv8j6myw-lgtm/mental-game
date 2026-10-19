@@ -8,7 +8,8 @@ import type {
   Player,
   SettleTiming,
 } from "../types";
-import { genderEmoji, uid, won } from "../util";
+import { uid, won } from "../util";
+import { Avatar, Icon } from "../icons";
 import { handicapNet } from "../betting";
 
 const UNITS = [1000, 2000, 5000];
@@ -22,7 +23,7 @@ const mkPlayer = (): Player => ({
   handicap: 90 - BASE_PAR,
 });
 
-const defaultRules: BetRules = { parPenalty: true, tie: false };
+const defaultRules: BetRules = { parPenalty: true, tie: false, birdieDouble: false };
 
 export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
   const { state, saveConfig } = useApp();
@@ -129,7 +130,7 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
           <label>골프장 이름</label>
           <input
             className="input"
-            placeholder="예) 스카이72 골프클럽"
+            placeholder="예) 베어크리크 춘천"
             value={courseName}
             onChange={(e) => setCourseName(e.target.value)}
           />
@@ -138,7 +139,7 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
           <label>코스</label>
           <input
             className="input"
-            placeholder="예) 오션 코스 · OUT"
+            placeholder="예) OUT 코스"
             value={courseTee}
             onChange={(e) => setCourseTee(e.target.value)}
           />
@@ -206,6 +207,9 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
             />
           </div>
         )}
+        <p className="warn-note">
+          ⚠️ 과도한 금액 설정은 인간관계에 지장을 줄 수 있습니다.
+        </p>
       </div>
 
       <div className="section-title">참여자 · 핸디</div>
@@ -213,7 +217,7 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
         {players.map((p) => (
           <div className="player-card" key={p.id}>
             <div className="player-top">
-              <span className="emoji">{genderEmoji(p.gender)}</span>
+              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
               <input
                 className="name-input"
                 placeholder="이름"
@@ -233,7 +237,7 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
               </div>
               {players.length > 2 && (
                 <button className="del-btn" onClick={() => removePlayer(p.id)}>
-                  ✕
+                  <Icon name="close" size={16} />
                 </button>
               )}
             </div>
@@ -343,11 +347,15 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
                 return (
                   <div className="transfer" key={i}>
                     <span className="from">
-                      {genderEmoji(from.gender)} {from.name || "?"}
+                      <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+                      {from.name || "?"}
                     </span>
-                    <span className="arrow">→</span>
+                    <span className="arrow">
+                      <Icon name="chevronRight" size={16} />
+                    </span>
                     <span className="to">
-                      {genderEmoji(to.gender)} {to.name || "?"}
+                      <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+                      {to.name || "?"}
                     </span>
                     <span className="amt">{won(t.amount)}</span>
                   </div>
@@ -367,14 +375,21 @@ export default function SetupScreen({ onSaved }: { onSaved: () => void }) {
           onToggle={() => setRules((r) => ({ ...r, parPenalty: !r.parPenalty }))}
         />
         <RuleToggle
+          title="버디 배판"
+          sub="버디(-1) 이상이 나온 홀은 배판 (버디 한 타 추가 정산은 미적용)"
+          on={rules.birdieDouble}
+          onToggle={() => setRules((r) => ({ ...r, birdieDouble: !r.birdieDouble }))}
+        />
+        <RuleToggle
           title="동타 배판"
           sub={`${players.length <= 3 ? "2명" : "3명"} 이상 같은 스코어면 배판`}
           on={rules.tie}
           onToggle={() => setRules((r) => ({ ...r, tie: !r.tie }))}
         />
         <p className="hint" style={{ marginTop: 10 }}>
-          🐦 <b>버디</b>는 배판과 별개로, 홀마다 <b>한 타를 더 잡아주는 추가 정산</b>이
-          자동 적용됩니다. (배판 홀 2배) · 여러 배판 조건이 겹치면 중첩됩니다.
+          <Icon name="birdie" size={13} className="inline-ic" /> 배판은 서로 중복되지
+          않고 <b>최대 2배</b>까지만 적용됩니다. 버디 배판을 끄면 <b>버디 시 한 타 추가
+          정산</b>이 적용돼요. 전원 동타 홀은 다음 홀로 이월되어 배판이 됩니다.
         </p>
       </div>
 

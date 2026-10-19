@@ -1,37 +1,42 @@
 import { useMemo } from "react";
-import { useApp } from "../store";
-import { birdieHoleNet, holeNet } from "../betting";
-import { genderEmoji, relLabel, scoreLabel, won, wonSigned } from "../util";
-import type { ParValue, Transfer } from "../types";
+import { birdieHoleNet, carryMultipliers, holeNet } from "../betting";
+import { relLabel, scoreLabel, won, wonSigned } from "../util";
+import { Avatar, Icon } from "../icons";
+import type { ParValue, Session, Transfer } from "../types";
 
 const SCORE_OPTS = [-2, -1, 0, 1, 2, 3, 4, 5];
 
-export default function GameScreen() {
-  const { state, setPar, setScore, goHole } = useApp();
-  const config = state.config!;
-  const idx = state.currentHole;
-  const hole = state.holes[idx];
+export default function GameScreen({ session }: { session: Session }) {
+  const { config, holes, currentHole: idx, goHole, setPar, setScore } = session;
+  const hole = holes[idx];
+  const readOnly = session.status === "done" && !session.isHost;
+
+  const carries = useMemo(
+    () => carryMultipliers(holes, config.players),
+    [holes, config.players]
+  );
+  const carry = carries[idx] ?? 1;
 
   const game = useMemo(
-    () => holeNet(hole, config.players, config.unit, config.rules),
-    [hole, config]
+    () => holeNet(hole, config.players, config.unit, config.rules, carry),
+    [hole, config, carry]
   );
   const birdie = useMemo(
-    () => birdieHoleNet(hole, config.players, config.unit, config.rules),
-    [hole, config]
+    () => birdieHoleNet(hole, config.players, config.unit, config.rules, carry),
+    [hole, config, carry]
   );
 
-  // 현재까지 누적(게임+버디, 핸디 제외)
   const running = useMemo(() => {
     const net: Record<string, number> = {};
     for (const p of config.players) net[p.id] = 0;
-    for (const h of state.holes) {
-      const g = holeNet(h, config.players, config.unit, config.rules).net;
-      const b = birdieHoleNet(h, config.players, config.unit, config.rules).net;
+    holes.forEach((h, j) => {
+      const c = carries[j] ?? 1;
+      const g = holeNet(h, config.players, config.unit, config.rules, c).net;
+      const b = birdieHoleNet(h, config.players, config.unit, config.rules, c).net;
       for (const id of Object.keys(net)) net[id] += g[id] + b[id];
-    }
+    });
     return net;
-  }, [state.holes, config]);
+  }, [holes, config, carries]);
 
   const scoreClass = (rel: number) =>
     rel < 0 ? "under" : rel > 0 ? "over" : "even";
@@ -45,11 +50,15 @@ export default function GameScreen() {
       return (
         <div className={`transfer ${birdieStyle ? "birdie" : ""}`} key={i}>
           <span className="from">
-            {genderEmoji(from.gender)} {from.name || "?"}
+            <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+            {from.name || "?"}
           </span>
-          <span className="arrow">→</span>
+          <span className="arrow">
+            <Icon name="chevronRight" size={16} />
+          </span>
           <span className="to">
-            {genderEmoji(to.gender)} {to.name || "?"}
+            <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+            {to.name || "?"}
           </span>
           <span className="amt">{won(t.amount)}</span>
         </div>
@@ -59,34 +68,36 @@ export default function GameScreen() {
   return (
     <>
       <div className="hole-nav">
-        <button
-          className="navbtn"
-          disabled={idx === 0}
-          onClick={() => goHole(idx - 1)}
-        >
-          ‹
+        <button className="navbtn" disabled={idx === 0} onClick={() => goHole(idx - 1)}>
+          <Icon name="chevronLeft" size={22} />
         </button>
         <div className="center">
           <div className="num">{idx + 1}번 홀</div>
           <div className="lbl">
-            PAR {hole.par} · {idx + 1} / {state.holes.length}
+            PAR {hole.par} · {idx + 1} / {holes.length}
           </div>
         </div>
         <button
           className="navbtn"
-          disabled={idx === state.holes.length - 1}
+          disabled={idx === holes.length - 1}
           onClick={() => goHole(idx + 1)}
         >
-          ›
+          <Icon name="chevronRight" size={22} />
         </button>
       </div>
 
       <div className="sheet">
+        {readOnly && (
+          <div className="ro-banner">
+            정산이 확정된 라운드입니다. 방장만 수정할 수 있어요.
+          </div>
+        )}
         <div className="par-seg">
           {([3, 4, 5] as ParValue[]).map((p) => (
             <button
               key={p}
               className={hole.par === p ? "active" : ""}
+              disabled={readOnly}
               onClick={() => setPar(idx, p)}
             >
               PAR {p}
@@ -101,7 +112,7 @@ export default function GameScreen() {
               <span className="bt">배판 적용!</span>
               <span className="bs">{game.reasons.join(" · ")}</span>
             </div>
-            <span className="fire">🔥</span>
+            <Icon name="spark" size={22} className="fire" />
           </div>
         )}
 
@@ -113,11 +124,9 @@ export default function GameScreen() {
             return (
               <div className="pscore-block" key={p.id}>
                 <div className="player-head">
-                  <span className="emoji">{genderEmoji(p.gender)}</span>
+                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
                   <span className="pname">{p.name || "?"}</span>
-                  <span
-                    className={`pnet ${net > 0 ? "pos" : net < 0 ? "neg" : ""}`}
-                  >
+                  <span className={`pnet ${net > 0 ? "pos" : net < 0 ? "neg" : ""}`}>
                     {net === 0 ? "±0" : wonSigned(net)}
                   </span>
                 </div>
@@ -125,9 +134,8 @@ export default function GameScreen() {
                   {SCORE_OPTS.map((s) => (
                     <button
                       key={s}
-                      className={`sbtn ${
-                        rel === s ? `active ${scoreClass(s)}` : ""
-                      }`}
+                      className={`sbtn ${rel === s ? `active ${scoreClass(s)}` : ""}`}
+                      disabled={readOnly}
                       onClick={() => setScore(idx, p.id, rel === s ? null : s)}
                     >
                       {relLabel(s)}
@@ -143,7 +151,9 @@ export default function GameScreen() {
         {game.transfers.length === 0 ? (
           <div className="card">
             <div className="empty-note">
-              스코어를 입력하면 자동으로 정산돼요.
+              {carry > 1
+                ? "전원 동타로 정산이 이월되어 다음 홀이 배판이 됩니다."
+                : "스코어를 입력하면 자동으로 정산돼요."}
             </div>
           </div>
         ) : (
@@ -152,7 +162,9 @@ export default function GameScreen() {
 
         {birdie.transfers.length > 0 && (
           <>
-            <div className="section-title">🐦 버디 추가 정산</div>
+            <div className="section-title">
+              <Icon name="birdie" size={15} className="inline-ic" /> 버디 추가 정산
+            </div>
             {renderTransfers(birdie.transfers, true)}
           </>
         )}
@@ -165,9 +177,9 @@ export default function GameScreen() {
             const rel = hole.scores[p.id];
             return (
               <div className="gplayer" key={p.id} style={{ justifyContent: "space-between" }}>
-                <span>
-                  {genderEmoji(p.gender)}{" "}
-                  <b style={{ marginLeft: 4 }}>{p.name || "?"}</b>
+                <span className="gp-name">
+                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                  <b>{p.name || "?"}</b>
                 </span>
                 <span
                   style={{

@@ -1,0 +1,306 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useAuth } from "./auth";
+import {
+  getRoundBundle,
+  leaveOrDeleteRound,
+  setPar as apiSetPar,
+  setRoundStatus,
+  setScore as apiSetScore,
+  subscribeRound,
+  updateMyPlayer,
+  type RoundBundle,
+} from "./rounds";
+import type {
+  GameConfig,
+  HoleScore,
+  ParValue,
+  Player,
+  RoundPlayerRow,
+  RoundStatus,
+  Session,
+} from "./types";
+
+interface RoundCtx {
+  activeRoundId: string | null;
+  bundle: RoundBundle | null;
+  loading: boolean;
+  myUid: string | null;
+  isHost: boolean;
+  status: RoundStatus | null;
+  session: Session | null;
+  openRound: (id: string) => void;
+  closeRound: () => void;
+  refresh: () => Promise<void>;
+  updateMe: (
+    patch: Partial<
+      Pick<
+        RoundPlayerRow,
+        "name" | "gender" | "avg_score" | "handicap" | "photo_url" | "is_guest"
+      >
+    >
+  ) => Promise<void>;
+  start: () => Promise<void>;
+  finish: () => Promise<void>;
+  leave: () => Promise<void>;
+}
+
+const Ctx = createContext<RoundCtx | null>(null);
+
+export function RoundProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const myUid = user?.uid ?? null;
+  const [activeRoundId, setActiveRoundId] = useState<string | null>(null);
+  const [bundle, setBundle] = useState<RoundBundle | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [currentHole, setCurrentHole] = useState(0);
+  const refreshing = useRef(false);
+
+  const refresh = useCallback(async () => {
+    if (!activeRoundId || refreshing.current) return;
+    refreshing.current = true;
+    try {
+      const b = await getRoundBundle(activeRoundId);
+      setBundle(b);
+    } catch (e) {
+      console.error("라운드 조회 실패", e);
+    } finally {
+      refreshing.current = false;
+    }
+  }, [activeRoundId]);
+
+  const openRound = useCallback((id: string) => {
+    setActiveRoundId(id);
+    setBundle(null);
+    setCurrentHole(0);
+    setLoading(true);
+  }, []);
+
+  const closeRound = useCallback(() => {
+    setActiveRoundId(null);
+    setBundle(null);
+    setCurrentHole(0);
+  }, []);
+
+  useEffect(() => {
+    if (!activeRoundId) return;
+    let alive = true;
+    (async () => {
+      await refresh();
+      if (alive) setLoading(false);
+    })();
+    const unsub = subscribeRound(activeRoundId, () => {
+      void refresh();
+    });
+    return () => {
+      alive = false;
+      unsub();
+    };
+  }, [activeRoundId, refresh]);
+
+  const isHost = !!bundle && !!myUid && bundle.round.host_uid === myUid;
+  const status = bundle?.round.status ?? null;
+
+  // 로그인(구글) 사용자: 내 참가자 정보에 프로필 사진/이름 자동 동기화.
+  // 익명(게스트) 사용자: is_guest 플래그를 표시.
+  const syncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!bundle || !myUid || !user) return;
+    const me = bundle.players.find((p) => p.user_uid === myUid);
+    if (!me) return;
+    const key = `${bundle.round.id}:${myUid}`;
+    if (syncedRef.current === key) return;
+
+    const patch: Record<string, unknown> = {};
+    if (user.isAnonymous) {
+      if (!me.is_guest) patch.is_guest = true;
+    } else {
+      if (user.photoURL && me.photo_url !== user.photoURL)
+        patch.photo_url = user.photoURL;
+      if (user.displayName && (!me.name || me.name === "나"))
+        patch.name = user.displayName;
+    }
+    if (Object.keys(patch).length > 0 && activeRoundId) {
+      syncedRef.current = key;
+      updateMyPlayer(activeRoundId, myUid, patch).catch((e) =>
+        console.error("프로필 동기화 실패", e)
+      );
+    } else {
+      syncedRef.current = key;
+    }
+  }, [bundle, myUid, user, activeRoundId]);
+
+  // ---- derive config + holes ----
+  const config = useMemo<GameConfig | null>(() => {
+    if (!bundle) return null;
+    const r = bundle.round;
+    const players: Player[] = bundle.players.map((p) => ({
+      id: p.user_uid,
+      name: p.name,
+      gender: p.gender,
+      avgScore: p.avg_score ?? 0,
+      handicap: p.handicap,
+      photoUrl: p.photo_url,
+    }));
+    return {
+      courseName: r.course_name,
+      courseTee: r.course_tee,
+      date: r.date,
+      teeTime: r.tee_time,
+      unit: r.unit,
+      players,
+      handicapSettle: r.handicap_settle,
+      handicapOverrides: {},
+      rules: r.rules,
+    };
+  }, [bundle]);
+
+  const holes = useMemo<HoleScore[]>(() => {
+    if (!bundle) return [];
+    const parMap = new Map(bundle.holes.map((h) => [h.hole_index, h.par]));
+    const scoreMap = new Map<string, number>();
+    for (const s of bundle.scores)
+      scoreMap.set(`${s.hole_index}:${s.player_uid}`, s.rel);
+    return Array.from({ length: bundle.round.hole_count }, (_, i) => {
+      const scores: Record<string, number | null> = {};
+      for (const p of bundle.players) {
+        const v = scoreMap.get(`${i}:${p.user_uid}`);
+        scores[p.user_uid] = v === undefined ? null : v;
+      }
+      return { par: (parMap.get(i) ?? 4) as ParValue, scores };
+    });
+  }, [bundle]);
+
+  // ---- optimistic mutations ----
+  const setScore = useCallback(
+    (holeIndex: number, playerId: string, value: number | null) => {
+      if (!activeRoundId) return;
+      // 종료된 라운드는 방장만 수정 가능
+      if (bundle?.round.status === "done" && bundle.round.host_uid !== myUid) return;
+      setBundle((prev) => {
+        if (!prev) return prev;
+        const rest = prev.scores.filter(
+          (s) => !(s.hole_index === holeIndex && s.player_uid === playerId)
+        );
+        const scores =
+          value === null
+            ? rest
+            : [...rest, { hole_index: holeIndex, player_uid: playerId, rel: value }];
+        return { ...prev, scores };
+      });
+      apiSetScore(activeRoundId, holeIndex, playerId, value).catch((e) => {
+        console.error(e);
+        void refresh();
+      });
+    },
+    [activeRoundId, refresh, bundle, myUid]
+  );
+
+  const setPar = useCallback(
+    (holeIndex: number, par: ParValue) => {
+      if (!activeRoundId) return;
+      if (bundle?.round.status === "done" && bundle.round.host_uid !== myUid) return;
+      setBundle((prev) => {
+        if (!prev) return prev;
+        const rest = prev.holes.filter((h) => h.hole_index !== holeIndex);
+        return { ...prev, holes: [...rest, { hole_index: holeIndex, par }] };
+      });
+      apiSetPar(activeRoundId, holeIndex, par).catch((e) => {
+        console.error(e);
+        void refresh();
+      });
+    },
+    [activeRoundId, refresh, bundle, myUid]
+  );
+
+  const session = useMemo<Session | null>(() => {
+    if (!config) return null;
+    return {
+      config,
+      holes,
+      currentHole,
+      goHole: (i) =>
+        setCurrentHole(Math.max(0, Math.min((bundle?.round.hole_count ?? 18) - 1, i))),
+      setPar,
+      setScore,
+      status: status ?? undefined,
+      isHost,
+    };
+  }, [config, holes, currentHole, setPar, setScore, status, isHost, bundle]);
+
+  const updateMe = useCallback(
+    async (
+      patch: Partial<
+        Pick<
+          RoundPlayerRow,
+          "name" | "gender" | "avg_score" | "handicap" | "photo_url" | "is_guest"
+        >
+      >
+    ) => {
+      if (!activeRoundId || !myUid) return;
+      setBundle((prev) =>
+        prev
+          ? {
+              ...prev,
+              players: prev.players.map((p) =>
+                p.user_uid === myUid ? { ...p, ...patch } : p
+              ),
+            }
+          : prev
+      );
+      await updateMyPlayer(activeRoundId, myUid, patch);
+    },
+    [activeRoundId, myUid]
+  );
+
+  const start = useCallback(async () => {
+    if (!activeRoundId) return;
+    await setRoundStatus(activeRoundId, "playing");
+    await refresh();
+  }, [activeRoundId, refresh]);
+
+  const finish = useCallback(async () => {
+    if (!activeRoundId) return;
+    await setRoundStatus(activeRoundId, "done");
+    await refresh();
+  }, [activeRoundId, refresh]);
+
+  const leave = useCallback(async () => {
+    if (!activeRoundId || !myUid) return;
+    await leaveOrDeleteRound(activeRoundId, myUid, isHost);
+    closeRound();
+  }, [activeRoundId, myUid, isHost, closeRound]);
+
+  const value: RoundCtx = {
+    activeRoundId,
+    bundle,
+    loading,
+    myUid,
+    isHost,
+    status,
+    session,
+    openRound,
+    closeRound,
+    refresh,
+    updateMe,
+    start,
+    finish,
+    leave,
+  };
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useRound() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useRound must be used within RoundProvider");
+  return ctx;
+}

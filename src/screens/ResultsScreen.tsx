@@ -1,32 +1,35 @@
 import { useMemo } from "react";
-import { useApp } from "../store";
 import {
   birdieNet,
   gameNet,
   handicapNet,
   totalNet,
 } from "../betting";
-import { genderEmoji, won, wonSigned } from "../util";
-import type { Transfer } from "../types";
+import { relLabel, won, wonSigned } from "../util";
+import { Avatar, Icon } from "../icons";
+import type { Session, Transfer } from "../types";
 
-export default function ResultsScreen() {
-  const { state } = useApp();
-  const config = state.config!;
+export default function ResultsScreen({ session }: { session: Session }) {
+  const { config, holes } = session;
   const isPost = config.handicapSettle === "post";
 
-  const game = useMemo(() => gameNet(config, state.holes), [config, state.holes]);
-  const bird = useMemo(() => birdieNet(config, state.holes), [config, state.holes]);
+  const game = useMemo(() => gameNet(config, holes), [config, holes]);
+  const bird = useMemo(() => birdieNet(config, holes), [config, holes]);
   const hc = useMemo(() => handicapNet(config), [config]);
   const final = useMemo(
-    () => totalNet(config, state.holes, isPost),
-    [config, state.holes, isPost]
+    () => totalNet(config, holes, isPost),
+    [config, holes, isPost]
   );
 
   const nameOf = (id: string) => config.players.find((p) => p.id === id)!;
 
-  const playedHoles = state.holes.filter((h) =>
+  const playedHoles = holes.filter((h) =>
     Object.values(h.scores).some((s) => s !== null)
   ).length;
+
+  // 플레이어별 누적 스코어(파 대비)
+  const totalRelOf = (id: string) =>
+    holes.reduce((s, h) => s + (h.scores[id] != null ? (h.scores[id] as number) : 0), 0);
 
   const standings = [...config.players]
     .map((p) => ({ p, net: final.net[p.id] ?? 0 }))
@@ -42,8 +45,9 @@ export default function ResultsScreen() {
             key={p.id}
             style={{ justifyContent: "space-between" }}
           >
-            <span>
-              {genderEmoji(p.gender)} <b style={{ marginLeft: 4 }}>{p.name || "?"}</b>
+            <span className="gp-name">
+              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+              <b>{p.name || "?"}</b>
             </span>
             <span
               className={v > 0 ? "pos" : v < 0 ? "neg" : ""}
@@ -70,11 +74,15 @@ export default function ResultsScreen() {
           return (
             <div className={`transfer ${birdie ? "birdie" : ""}`} key={i}>
               <span className="from">
-                {genderEmoji(from.gender)} {from.name || "?"}
+                <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+                {from.name || "?"}
               </span>
-              <span className="arrow">→</span>
+              <span className="arrow">
+                <Icon name="chevronRight" size={16} />
+              </span>
               <span className="to">
-                {genderEmoji(to.gender)} {to.name || "?"}
+                <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+                {to.name || "?"}
               </span>
               <span className="amt">{won(t.amount)}</span>
             </div>
@@ -86,7 +94,9 @@ export default function ResultsScreen() {
   return (
     <>
       <div className="result-hero">
-        <div className="big">🏆 최종 정산</div>
+        <div className="big">
+          <Icon name="trophy" size={22} className="inline-ic" /> 최종 정산
+        </div>
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
           {playedHoles}개 홀 진행 · 타당 {won(config.unit)}
         </div>
@@ -99,8 +109,9 @@ export default function ResultsScreen() {
             <div className={`rank ${i === 0 && s.net > 0 ? "top" : ""}`}>
               {i + 1}
             </div>
-            <span className="emoji">{genderEmoji(s.p.gender)}</span>
+            <Avatar photoUrl={s.p.photoUrl} gender={s.p.gender} size={26} />
             <span className="nm">{s.p.name || "?"}</span>
+            <span className="sc">{relLabel(totalRelOf(s.p.id))}</span>
             <span className={`val ${s.net > 0 ? "pos" : s.net < 0 ? "neg" : ""}`}>
               {s.net === 0 ? "±0원" : wonSigned(s.net)}
             </span>
@@ -126,7 +137,36 @@ export default function ResultsScreen() {
         ) : (
           <Transfers list={hc.transfers} />
         )}
-        <NetList net={hc.net} />
+        <p className="hint" style={{ margin: "0 2px 10px" }}>
+          “핸디 N +M타”는 <b>핸디캡 대비 실제 성적</b>이에요. (−일수록 핸디보다 잘 친 것 —
+          돈을 잃었어도 위안이 되라고 🙂)
+        </p>
+        <div className="card">
+          {config.players.map((p) => {
+            const v = hc.net[p.id] ?? 0;
+            const rel = totalRelOf(p.id);
+            const vsHc = rel - p.handicap; // 양수: 핸디보다 못 침 / 음수: 잘 침
+            return (
+              <div className="hc-line" key={p.id}>
+                <span className="gp-name">
+                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                  <b>{p.name || "?"}</b>
+                </span>
+                <span className="hc-info">
+                  <span className="hc-hd">핸디 {p.handicap}</span>
+                  <span
+                    className={`hc-stroke ${vsHc < 0 ? "pos" : vsHc > 0 ? "neg" : ""}`}
+                  >
+                    {vsHc > 0 ? `+${vsHc}` : vsHc === 0 ? "±0" : vsHc}타
+                  </span>
+                </span>
+                <span className={`hc-amt ${v > 0 ? "pos" : v < 0 ? "neg" : ""}`}>
+                  {v === 0 ? "±0원" : wonSigned(v)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
         {!isPost && (
           <p className="hint" style={{ margin: "-6px 2px 12px" }}>
             사전 정산을 선택하여 최종 송금에는 포함되지 않았습니다.
