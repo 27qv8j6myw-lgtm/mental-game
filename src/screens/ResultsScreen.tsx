@@ -83,6 +83,9 @@ export default function ResultsScreen({
 
   const grossOf = (id: string) =>
     holes.reduce((s, h) => (h.scores[id] != null ? s + h.par + (h.scores[id] as number) : s), 0);
+  /** 그 사람이 친 홀들의 파 합계 (18홀 기본 72, 파 설정에 따라 71 등으로 자동 계산) */
+  const parOf = (id: string) => holes.reduce((s, h) => (h.scores[id] != null ? s + h.par : s), 0);
+  const coursePar = holes.reduce((s, h) => s + h.par, 0);
 
   const standings = [...config.players]
     .map((p) => ({ p, net: final.net[p.id] ?? 0 }))
@@ -202,7 +205,7 @@ export default function ResultsScreen({
               <span className="nm">{s.p.name || "?"}</span>
               <span className="st-pill">
                 <b>{played ? `${grossOf(s.p.id)}타` : "-"}</b>
-                <small>{hcLabel(s.p.handicap)}</small>
+                <small>{played ? relLabel(grossOf(s.p.id) - parOf(s.p.id)) : "-"}</small>
               </span>
               <span className={`val ${tone(s.net)}`}>
                 {s.net === 0 ? "±0원" : wonSigned(s.net)}
@@ -212,7 +215,8 @@ export default function ResultsScreen({
         })}
         </div>
         <p className="hint" style={{ margin: "2px 2px 0" }}>
-          타원 안의 왼쪽은 타수, 오른쪽은 핸디캡이에요.
+          타원 안의 왼쪽은 타수, 오른쪽은 오늘 핸디캡(타수 − 파 {coursePar}타 기준)이에요.
+          덜 친 홀이 있으면 친 홀의 파만 합산해요.
         </p>
 
         {/* 1) 게임 순수 정산 */}
