@@ -1145,10 +1145,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .btn-google:active {
   background: var(--paper-2);
 }
-.g-logo {
-  width: 19px;
-  height: 19px;
-}
 .btn-kakao {
   width: 100%;
   padding: 15px;
@@ -1168,11 +1164,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .btn-kakao:active {
   filter: brightness(0.95);
-}
-.k-logo {
-  width: 20px;
-  height: 20px;
-  color: #000;
 }
 .btn-text {
   width: 100%;
@@ -1307,7 +1298,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   position: absolute;
   right: 0;
   top: 42px;
-  min-width: 200px;
+  min-width: 240px;
   background: var(--paper);
   border: var(--border);
   border-radius: var(--radius-sm);
@@ -1344,6 +1335,93 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .menu-item:active {
   background: var(--paper-2);
+}
+.menu-links {
+  padding: 4px 4px 8px;
+  border-bottom: var(--border);
+  margin-bottom: 4px;
+}
+.ml-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  padding: 4px 6px 6px;
+}
+.ml-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  min-height: 36px;
+}
+.ml-ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.ml-ic.kakao {
+  background: #fee500;
+}
+.ml-ic.google {
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.ml-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.ml-on {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gain);
+}
+.ml-btn {
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--olive);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.ml-btn.ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+}
+.ml-btn:disabled {
+  opacity: 0.5;
+}
+
+.notice-err {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.notice-err span {
+  flex: 1;
+}
+.notice-err button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
 }
 
 /* 큰 CTA (새 라운드 만들기) */

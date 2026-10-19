@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../auth";
+import { useAuth, type OAuthProvider } from "../auth";
 import { useRound } from "../round";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
-import { Avatar, Icon } from "../icons";
+import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundRow } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -11,8 +11,14 @@ const STATUS_LABEL: Record<string, string> = {
   done: "완료",
 };
 
+const LINKABLE: { id: OAuthProvider; label: string }[] = [
+  { id: "kakao", label: "카카오" },
+  { id: "google", label: "Google" },
+];
+
 export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void }) {
-  const { user, signOutUser } = useAuth();
+  const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
+    useAuth();
   const { openRound } = useRound();
   const [rounds, setRounds] = useState<RoundRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +26,7 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
   const [joining, setJoining] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -37,6 +44,25 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
   }, []);
 
   const isAnon = !!user?.isAnonymous;
+  const providers = user?.providers ?? [];
+
+  const link = async (p: OAuthProvider) => {
+    setLinkBusy(p);
+    await linkProvider(p);
+    setLinkBusy(null);
+  };
+
+  const unlink = async (p: OAuthProvider, label: string) => {
+    if (
+      !window.confirm(
+        `${label} 연결을 해제할까요? 해제하면 ${label}로는 이 계정에 로그인할 수 없어요.`
+      )
+    )
+      return;
+    setLinkBusy(p);
+    await unlinkProvider(p);
+    setLinkBusy(null);
+  };
 
   const removeRound = async (r: RoundRow) => {
     const iAmHost = r.host_uid === user?.uid;
@@ -95,6 +121,42 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
                 <div className="mn">{isAnon ? "게스트" : user?.displayName ?? "사용자"}</div>
                 <div className="me">{isAnon ? "로그인 없이 참여 중" : user?.email}</div>
               </div>
+              {!isAnon && (
+                <div className="menu-links">
+                  <div className="ml-title">로그인 계정 연결</div>
+                  {LINKABLE.map(({ id, label }) => {
+                    const linked = providers.includes(id);
+                    return (
+                      <div className="ml-row" key={id}>
+                        <span className={`ml-ic ${id}`}>
+                          {id === "kakao" ? <KakaoLogo size={14} /> : <GoogleLogo size={14} />}
+                        </span>
+                        <span className="ml-name">{label}</span>
+                        {linked && <span className="ml-on">연결됨</span>}
+                        {linked ? (
+                          providers.length > 1 && (
+                            <button
+                              className="ml-btn ghost"
+                              disabled={linkBusy !== null}
+                              onClick={() => void unlink(id, label)}
+                            >
+                              해제
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            className="ml-btn"
+                            disabled={linkBusy !== null}
+                            onClick={() => void link(id)}
+                          >
+                            {linkBusy === id ? "…" : "연결"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <button
                 className="menu-item"
                 onClick={() => {
@@ -111,6 +173,15 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
       </div>
 
       <div className="sheet">
+        {error && (
+          <div className="notice-err" role="alert">
+            <span>{error}</span>
+            <button aria-label="닫기" onClick={clearError}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        )}
+
         <button className="big-cta" onClick={onCreate}>
           <span className="ic">
             <Icon name="plus" size={24} />

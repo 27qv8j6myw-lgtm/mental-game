@@ -44,6 +44,8 @@ npm run build    # 타입체크 + 프로덕션 빌드
        (앱이 이메일을 요청하지 않으므로 비즈 앱 전환·이메일 동의항목은 필요 없음)
      - REST API 키(Client ID)와 Client Secret 을 Supabase **Providers → Kakao** 에 입력
      - Supabase Kakao 설정의 **Allow users without an email** 을 반드시 켜기
+   - **구글·카카오 계정 연결**: **Authentication → Sign In / Providers** 에서
+     **Allow manual linking** 을 켜기 (홈 화면 프로필 메뉴의 "로그인 계정 연결"에 필요)
 3. **SQL Editor** 에서 `supabase/schema.sql` 을 실행
    (rounds / round_players / round_holes / round_scores 테이블 + RLS + RPC + Realtime publication)
    - 마지막 `alter publication ... add table` 구문은 이미 추가돼 있으면 에러가 날 수 있으니
