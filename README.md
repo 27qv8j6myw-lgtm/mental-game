@@ -41,9 +41,9 @@ npm run build    # 타입체크 + 프로덕션 빌드
      - **앱 설정 → 앱 → 플랫폼 키 → REST API 키** 에서 카카오 로그인 Redirect URI 에
        `https://<프로젝트>.supabase.co/auth/v1/callback` 등록, Client Secret 활성화 후 복사
      - **제품 설정 → 카카오 로그인** 사용 설정 ON, **동의항목**에서 닉네임·프로필 사진 설정
-       (이메일은 비즈 앱 전환이 필요)
+       (앱이 이메일을 요청하지 않으므로 비즈 앱 전환·이메일 동의항목은 필요 없음)
      - REST API 키(Client ID)와 Client Secret 을 Supabase **Providers → Kakao** 에 입력
-     - 이메일 권한이 없다면 Supabase Kakao 설정의 **Allow users without an email** 을 켜기
+     - Supabase Kakao 설정의 **Allow users without an email** 을 반드시 켜기
 3. **SQL Editor** 에서 `supabase/schema.sql` 을 실행
    (rounds / round_players / round_holes / round_scores 테이블 + RLS + RPC + Realtime publication)
    - 마지막 `alter publication ... add table` 구문은 이미 추가돼 있으면 에러가 날 수 있으니

@@ -107,7 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(GUEST_KEY);
         const { error: e } = await supabase.auth.signInWithOAuth({
           provider,
-          options: { redirectTo: window.location.origin },
+          options: {
+            redirectTo: window.location.origin,
+            // Supabase 기본 scope에는 account_email이 있어, 비즈 앱이 아니면 카카오가 KOE205로 거절한다.
+            ...(provider === "kakao" && {
+              queryParams: { scope: "profile_nickname profile_image" },
+            }),
+          },
         });
         if (e) {
           setError("로그인에 실패했어요. 다시 시도해 주세요.");
