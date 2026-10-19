@@ -4,6 +4,7 @@ import { relLabel, scoreLabel, won, wonSigned } from "../util";
 import { Avatar, Icon } from "../icons";
 import type { ParValue, Session, Transfer } from "../types";
 
+// 홀 최대 타수는 더블파(파 대비 +par)까지라 그 위 버튼은 PAR 에 맞춰 숨긴다
 const SCORE_OPTS = [-2, -1, 0, 1, 2, 3, 4, 5];
 
 export default function GameScreen({ session }: { session: Session }) {
@@ -13,10 +14,11 @@ export default function GameScreen({ session }: { session: Session }) {
   const readOnly = session.status === "done" && !session.editing;
 
   const carries = useMemo(
-    () => carryMultipliers(holes, config.players),
-    [holes, config.players]
+    () => carryMultipliers(holes, config.players, config.rules),
+    [holes, config.players, config.rules]
   );
   const carry = carries[idx] ?? 1;
+  const nextCarry = idx < holes.length - 1 ? carries[idx + 1] : null;
 
   const game = useMemo(
     () => holeNet(hole, config.players, config.unit, config.rules, carry),
@@ -110,7 +112,17 @@ export default function GameScreen({ session }: { session: Session }) {
           ))}
         </div>
 
-        {game.multiplier > 1 && (
+        {game.allTie ? (
+          <div className="bet-banner carry">
+            <div className="mult">{nextCarry ? `×${nextCarry}` : "–"}</div>
+            <div className="bb-txt">
+              <span className="bt">전원 동타 · 이 홀은 정산 없음</span>
+              <span className="bs">
+                {nextCarry ? `다음 홀로 ×${nextCarry} 이월돼요` : "마지막 홀이라 이월은 사라져요"}
+              </span>
+            </div>
+          </div>
+        ) : game.multiplier > 1 && (
           <div className="bet-banner">
             <div className="mult">×{game.multiplier}</div>
             <div className="bb-txt">
@@ -136,7 +148,7 @@ export default function GameScreen({ session }: { session: Session }) {
                   </span>
                 </div>
                 <div className="score-grid">
-                  {SCORE_OPTS.map((s) => (
+                  {SCORE_OPTS.filter((s) => s <= hole.par).map((s) => (
                     <button
                       key={s}
                       className={`sbtn ${rel === s ? `active ${scoreClass(s)}` : ""}`}
@@ -156,8 +168,8 @@ export default function GameScreen({ session }: { session: Session }) {
         {game.transfers.length === 0 ? (
           <div className="card">
             <div className="empty-note">
-              {carry > 1
-                ? "전원 동타로 정산이 이월되어 다음 홀이 배판이 됩니다."
+              {game.allTie
+                ? "전원 동타라 이 홀은 정산이 없어요."
                 : "스코어를 입력하면 자동으로 정산돼요."}
             </div>
           </div>

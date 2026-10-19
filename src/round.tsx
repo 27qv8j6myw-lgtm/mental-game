@@ -314,12 +314,14 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     const scoreMap = new Map<string, number>();
     for (const s of bundle.scores) scoreMap.set(`${s.hole_index}:${s.player_uid}`, s.rel);
     return Array.from({ length: bundle.round.hole_count }, (_, i) => {
+      const par = (parMap.get(i) ?? 4) as ParValue;
       const scores: Record<string, number | null> = {};
       for (const p of bundle.players) {
         const v = scoreMap.get(`${i}:${p.user_uid}`);
-        scores[p.user_uid] = v === undefined ? null : v;
+        // 홀 최대 타수는 더블파(파 대비 +par)까지만 반영
+        scores[p.user_uid] = v === undefined ? null : Math.min(v, par);
       }
-      return { par: (parMap.get(i) ?? 4) as ParValue, scores };
+      return { par, scores };
     });
   }, [bundle]);
 

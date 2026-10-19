@@ -19,7 +19,8 @@ type IconName =
   | "birdie"
   | "spark"
   | "gear"
-  | "trash";
+  | "trash"
+  | "info";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -102,6 +103,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M4 7h16M10 4h4M6 7l1 13h10l1-13" />
       <path d="M10 11v6M14 11v6" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 7.5h.01" />
     </>
   ),
 };

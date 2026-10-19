@@ -173,7 +173,7 @@ export default function LobbyScreen() {
         <div className="section-title">참여자 {bundle.players.length}명</div>
         {handicapMode === "stroke" && (
           <div className={`card base-pick ${needBase ? "missing" : ""}`}>
-            <div className="bp-title">기준 인원</div>
+            <div className="bp-title">최저핸디 인원</div>
             {isHost ? (
               <>
                 <div className="chips">
@@ -189,15 +189,15 @@ export default function LobbyScreen() {
                 </div>
                 <p className="hint" style={{ marginTop: 8 }}>
                   {needBase
-                    ? "기준 인원을 정해야 게임을 시작할 수 있어요."
-                    : "나머지는 기준 인원보다 몇 타를 더 받을지 각자 고릅니다."}
+                    ? "최저핸디 인원을 정해야 게임을 시작할 수 있어요."
+                    : "나머지는 최저핸디 인원보다 몇 타를 더 받을지 각자 고릅니다."}
                 </p>
               </>
             ) : (
               <p className="hint">
                 {baseUid
-                  ? `${nameOf(baseUid).name || "이름 미정"} 님이 기준이에요. 기준보다 몇 타를 더 받을지 고르세요.`
-                  : "방장이 기준 인원을 정하면 게임을 시작할 수 있어요."}
+                  ? `${nameOf(baseUid).name || "이름 미정"} 님이 최저핸디예요. 그보다 몇 타를 더 받을지 고르세요.`
+                  : "방장이 최저핸디 인원을 정하면 게임을 시작할 수 있어요."}
               </p>
             )}
           </div>
@@ -218,7 +218,7 @@ export default function LobbyScreen() {
                   <span className="lp-name-static">{p.name || "이름 미정"}</span>
                 )}
                 {round.host_uid === p.user_uid && <span className="host-tag">방장</span>}
-                {baseUid === p.user_uid && <span className="base-tag">기준</span>}
+                {baseUid === p.user_uid && <span className="base-tag">최저핸디</span>}
                 {mine && <span className="me-tag">나</span>}
                 {!p.photo_url && p.is_guest && !mine && (
                   <span className="guest-tag">게스트</span>
@@ -271,11 +271,11 @@ export default function LobbyScreen() {
                     </div>
                   ) : baseUid === p.user_uid ? (
                     <p className="hint" style={{ marginTop: 8 }}>
-                      기준 인원이에요. 다른 사람들이 나보다 몇 타를 더 받을지 정해요.
+                      최저핸디 인원이에요. 다른 사람들이 나보다 몇 타를 더 받을지 정해요.
                     </p>
                   ) : (
                     <div className="stroke-hc">
-                      <label>기준 인원 대비 받을 타수</label>
+                      <label>최저핸디 대비 받을 타수</label>
                       <div className="stroke-row">
                         {STROKE_PRESETS.map((v) => (
                           <button
@@ -317,8 +317,8 @@ export default function LobbyScreen() {
                   {handicapMode === "avg"
                     ? `${p.avg_score != null ? `평균 ${p.avg_score}타 · ` : ""}핸디 ${p.handicap}`
                     : baseUid === p.user_uid
-                    ? "기준 인원"
-                    : `기준 대비 ${hcLabel(p.handicap)}타`}
+                    ? "최저핸디 인원"
+                    : `최저핸디 대비 ${hcLabel(p.handicap)}타`}
                   {payment === "transfer" && (
                     <span className={`acct-state ${p.bank_account ? "ok" : ""}`}>
                       {p.bank_account ? "계좌 입력됨" : "계좌 미입력"}
@@ -383,7 +383,7 @@ export default function LobbyScreen() {
               : bundle.players.length < 2
               ? "참여자를 기다리는 중…"
               : needBase
-              ? "기준 인원을 정해 주세요"
+              ? "최저핸디 인원을 정해 주세요"
               : "게임 시작"}
           </button>
         ) : (

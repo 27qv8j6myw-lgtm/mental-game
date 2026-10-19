@@ -6,54 +6,24 @@ import type {
   Transfer,
 } from "./types";
 
-/**
- * 한 홀의 배판 배수를 계산한다.
- * 여러 규칙이 동시에 만족되어도 배판은 중복되지 않고 최대 ×2 까지만 적용된다.
- * ※ 버디 배판이 꺼져 있으면 버디는 배판이 아니라 별도 추가 정산으로 처리한다.
+/*
+ * 배판 고정 룰
+ * 1. 배판 조건은 홀당 1회씩만 센다 (트리플 2명이어도 ×2 한 번)
+ * 2. 조건이 겹치면 곱한다 (트리플 ×2 × 3명 동타 ×2 = ×4) — 총 상한 적용
+ * 3. 전원 동타 홀은 조건 없이 정산 없음 → 다음 홀로 ×2 이월
+ * 4. 전원 동타가 이어지면 이월이 계속 곱해지되 총 상한까지
+ * 5. 돈이 움직인 홀 다음은 이월 종료(×1)
+ * 6. 3명 동타 조건은 전원 동타가 아닐 때만 → 3인 플레이에서는 성립하지 않음
+ * 7. 마지막 홀 뒤에 남은 이월은 소멸
+ * 8. 버디 추가 정산은 버디 1타·이글 2타, 버디 배판에서는 이글도 버디와 같이 ×2
+ * 9. 홀 최대 타수는 더블파 (round.tsx 에서 파 대비 +par 로 자른다)
+ * 10. 판정은 핸디 없이 실제 타수 (핸디는 별도 정산)
  */
-export function holeMultiplier(
-  hole: HoleScore,
-  rules: BetRules,
-  playerCount: number
-): { multiplier: number; reasons: string[] } {
-  const scores = Object.values(hole.scores).filter(
-    (s): s is number => s !== null
-  );
-  const reasons: string[] = [];
-  if (scores.length === 0) return { multiplier: 1, reasons };
 
-  const worst = Math.max(...scores);
-  const best = Math.min(...scores);
-
-  // 파 페널티(동시 규칙): 파3 더블+ / 파4·5 트리플+
-  if (rules.parPenalty) {
-    if (hole.par === 3 && worst >= 2) {
-      reasons.push("파3 더블+");
-    } else if (hole.par >= 4 && worst >= 3) {
-      reasons.push("파4·5 트리플+");
-    }
-  }
-
-  // 더블파: 파의 2배 타수 = 파 대비 +par
-  if (rules.doublePar && worst >= hole.par) {
-    reasons.push("더블파");
-  }
-
-  if (rules.tie) {
-    const threshold = playerCount <= 3 ? 2 : 3;
-    const counts = new Map<number, number>();
-    for (const s of scores) counts.set(s, (counts.get(s) ?? 0) + 1);
-    if ([...counts.values()].some((c) => c >= threshold)) {
-      reasons.push(threshold === 2 ? "2인 동타" : "3인 동타");
-    }
-  }
-
-  if (rules.birdieDouble && best <= -1) {
-    reasons.push("버디 배판");
-  }
-
-  // 배판은 중복 없이 최대 2배
-  return { multiplier: reasons.length > 0 ? 2 : 1, reasons };
+/** 배수 총 상한. 예전 라운드(값 없음)는 ×2, null 은 무제한 */
+export function multiplierCap(rules: BetRules): number {
+  if (rules.maxMultiplier === null) return Infinity;
+  return rules.maxMultiplier ?? 2;
 }
 
 /** 모든 참가자가 스코어를 입력했고, 전원 동타(같은 스코어)인 홀인지 */
@@ -69,24 +39,79 @@ function isPlayed(hole: HoleScore, players: Player[]): boolean {
   return players.filter((p) => hole.scores[p.id] != null).length >= 2;
 }
 
-/**
- * 전원 동타로 정산이 없었던 홀은 그 금액이 다음 홀로 이월되어 배판이 된다.
- * 연속으로 전원 동타면 ×2씩 누적된다. 정산이 발생한 홀 다음부터는 1로 초기화.
- * 각 홀 인덱스에 적용할 이월 배수를 반환한다.
- */
-export function carryMultipliers(holes: HoleScore[], players: Player[]): number[] {
+/** 이 홀에서 성립한 배판 조건들 (홀당 1회씩). 전원 동타 홀은 조건을 보지 않는다. */
+export function holeConditions(
+  hole: HoleScore,
+  rules: BetRules,
+  players: Player[]
+): string[] {
+  const scores = players
+    .map((p) => hole.scores[p.id])
+    .filter((s): s is number => s != null);
+  if (scores.length === 0 || isAllTie(hole, players)) return [];
+
+  const worst = Math.max(...scores);
+  const best = Math.min(...scores);
+  const reasons: string[] = [];
+
+  if (rules.parPenalty) {
+    if (hole.par === 3 && worst >= 2) reasons.push("파3 더블보기+");
+    else if (hole.par >= 4 && worst >= 3) reasons.push("트리플보기+");
+  }
+  if (rules.doublePar && worst >= hole.par) reasons.push("더블파");
+  if (rules.tie) {
+    const counts = new Map<number, number>();
+    for (const s of scores) counts.set(s, (counts.get(s) ?? 0) + 1);
+    if ([...counts.values()].some((c) => c >= 3 && c < players.length)) {
+      reasons.push("3명 동타");
+    }
+  }
+  if (rules.birdieDouble && best <= -1) reasons.push("버디 배판");
+  return reasons;
+}
+
+/** 각 홀에 들어오는 이월 배수 */
+export function carryMultipliers(
+  holes: HoleScore[],
+  players: Player[],
+  rules: BetRules
+): number[] {
+  const cap = multiplierCap(rules);
   const res: number[] = [];
   let carry = 1;
   for (let i = 0; i < holes.length; i++) {
     res[i] = carry;
     if (isAllTie(holes[i], players)) {
-      carry = 2; // 전원 동타 → 다음 홀 이월 배판 (중복 없이 최대 2배)
+      carry = Math.min(cap, carry * 2);
     } else if (isPlayed(holes[i], players)) {
-      carry = 1; // 정산이 난 홀 → 이월 종료
+      carry = 1;
     }
     // 아직 입력이 부족한 홀은 carry 유지
   }
   return res;
+}
+
+export interface HoleMultiplier {
+  multiplier: number;
+  reasons: string[];
+  allTie: boolean;
+}
+
+/** 이 홀의 최종 배수 = 이월 × 2^(조건 수), 총 상한 적용 */
+export function holeMultiplier(
+  hole: HoleScore,
+  players: Player[],
+  rules: BetRules,
+  carry: number
+): HoleMultiplier {
+  const conditions = holeConditions(hole, rules, players);
+  const raw = carry * 2 ** conditions.length;
+  const cap = multiplierCap(rules);
+  const multiplier = Math.min(cap, raw);
+  const reasons = [...conditions];
+  if (carry > 1) reasons.push(`이월 ×${carry}`);
+  if (raw > multiplier) reasons.push(`상한 ×${cap}`);
+  return { multiplier, reasons, allTie: isAllTie(hole, players) };
 }
 
 /** 순 잔액(net)을 최소 송금 건수로 단순화한다. (그리디 최소 현금흐름) */
@@ -125,7 +150,7 @@ const addInto = (target: Record<string, number>, src: Record<string, number>) =>
 
 /**
  * 한 홀 게임 순수 정산(버디 보너스 제외).
- * 두 명씩 비교해 스코어가 나쁜(높은) 사람이 좋은 사람에게 (타수차 × 타당금액×배판)을 준다.
+ * 두 명씩 비교해 스코어가 나쁜(높은) 사람이 좋은 사람에게 (타수차 × 타당금액 × 배수)를 준다.
  */
 export function holeNet(
   hole: HoleScore,
@@ -138,13 +163,10 @@ export function holeNet(
   transfers: Transfer[];
   multiplier: number;
   reasons: string[];
+  allTie: boolean;
 } {
   const entered = players.filter((p) => hole.scores[p.id] != null);
-  const base = holeMultiplier(hole, rules, players.length);
-  // 배판은 중복되지 않고 최대 2배
-  const multiplier = Math.min(2, base.multiplier * carry);
-  const reasons =
-    carry > 1 ? [...base.reasons, "이월 배판"] : base.reasons;
+  const { multiplier, reasons, allTie } = holeMultiplier(hole, players, rules, carry);
   const net: Record<string, number> = {};
   for (const p of players) net[p.id] = 0;
 
@@ -158,7 +180,7 @@ export function holeNet(
     }
   }
 
-  return { net, transfers: settleNet(net), multiplier, reasons };
+  return { net, transfers: settleNet(net), multiplier, reasons, allTie };
 }
 
 /** 한 명의 버디(-1 이하) 추가 정산 내역 */
@@ -166,10 +188,12 @@ export interface BirdieEvent {
   holeIndex: number;
   playerId: string;
   rel: number;
+  /** 버디 1타, 이글 2타 */
+  strokes: number;
   /** 돈을 내는 상대 인원 */
   payers: string[];
   multiplier: number;
-  /** 상대 한 명이 내는 금액 (타당 × 배판) */
+  /** 상대 한 명이 내는 금액 (타당 × 배수 × 타) */
   perPayer: number;
   /** 버디한 사람이 받는 총액 */
   amount: number;
@@ -187,17 +211,19 @@ function birdieHoleEvents(
   if (rules.birdieDouble) return [];
   const entered = players.filter((p) => hole.scores[p.id] != null);
   if (entered.length < 2) return [];
-  const { multiplier: base } = holeMultiplier(hole, rules, players.length);
-  const multiplier = Math.min(2, base * carry);
-  const perPayer = unit * multiplier;
+  const { multiplier } = holeMultiplier(hole, players, rules, carry);
   return entered
     .filter((b) => (hole.scores[b.id] as number) <= -1)
     .map((b) => {
+      const rel = hole.scores[b.id] as number;
+      const strokes = -rel;
+      const perPayer = unit * multiplier * strokes;
       const payers = entered.filter((q) => q.id !== b.id).map((q) => q.id);
       return {
         holeIndex,
         playerId: b.id,
-        rel: hole.scores[b.id] as number,
+        rel,
+        strokes,
         payers,
         multiplier,
         perPayer,
@@ -207,9 +233,8 @@ function birdieHoleEvents(
 }
 
 /**
- * 버디 추가 정산: 버디(-1) 이상을 잡으면 "한 타를 더 잡아준다".
- * 즉 버디한 사람은 다른 모든 참가자에게서 (타당금액 × 배판)을 추가로 받는다.
- * 배판 홀이면 2배로 적용된다.
+ * 버디 추가 정산: 버디는 1타, 이글은 2타를 더 잡아준다.
+ * 버디한 사람은 다른 모든 참가자에게서 (타당금액 × 그 홀 배수 × 타)를 추가로 받는다.
  */
 export function birdieHoleNet(
   hole: HoleScore,
@@ -229,7 +254,7 @@ export function birdieHoleNet(
 
 /** 라운드 전체 버디 추가 정산 내역 (홀 순서) */
 export function birdieEvents(config: GameConfig, holes: HoleScore[]): BirdieEvent[] {
-  const carries = carryMultipliers(holes, config.players);
+  const carries = carryMultipliers(holes, config.players, config.rules);
   return holes.flatMap((hole, i) =>
     birdieHoleEvents(hole, i, config.players, config.unit, config.rules, carries[i])
   );
@@ -239,13 +264,16 @@ export function birdieEvents(config: GameConfig, holes: HoleScore[]): BirdieEven
 export interface HoleBreakdown {
   multiplier: number;
   reasons: string[];
+  allTie: boolean;
+  /** 전원 동타일 때 다음 홀로 넘어가는 이월 배수 (마지막 홀이면 null = 소멸) */
+  nextCarry: number | null;
   game: Record<string, number>;
   birdie: Record<string, number>;
   cumulative: Record<string, number>;
 }
 
 export function holeBreakdowns(config: GameConfig, holes: HoleScore[]): HoleBreakdown[] {
-  const carries = carryMultipliers(holes, config.players);
+  const carries = carryMultipliers(holes, config.players, config.rules);
   const cum: Record<string, number> = {};
   for (const p of config.players) cum[p.id] = 0;
   return holes.map((hole, i) => {
@@ -255,6 +283,8 @@ export function holeBreakdowns(config: GameConfig, holes: HoleScore[]): HoleBrea
     return {
       multiplier: g.multiplier,
       reasons: g.reasons,
+      allTie: g.allTie,
+      nextCarry: i < holes.length - 1 ? carries[i + 1] : null,
       game: g.net,
       birdie: b.net,
       cumulative: { ...cum },
@@ -290,7 +320,7 @@ export function handicapNet(config: GameConfig): {
 export function gameNet(config: GameConfig, holes: HoleScore[]) {
   const net: Record<string, number> = {};
   for (const p of config.players) net[p.id] = 0;
-  const carries = carryMultipliers(holes, config.players);
+  const carries = carryMultipliers(holes, config.players, config.rules);
   holes.forEach((hole, i) => {
     addInto(
       net,
@@ -304,7 +334,7 @@ export function gameNet(config: GameConfig, holes: HoleScore[]) {
 export function birdieNet(config: GameConfig, holes: HoleScore[]) {
   const net: Record<string, number> = {};
   for (const p of config.players) net[p.id] = 0;
-  const carries = carryMultipliers(holes, config.players);
+  const carries = carryMultipliers(holes, config.players, config.rules);
   holes.forEach((hole, i) => {
     addInto(
       net,

@@ -229,8 +229,8 @@ export default function ResultsScreen({
         <div className="section-title">② 버디 추가 정산</div>
         {!config.rules.birdieDouble && (
           <p className="hint" style={{ margin: "0 2px 10px" }}>
-            버디(이글 포함)를 하면 그 홀 다른 참여자 모두에게서 <b>1타 값</b>(타당 금액, 배판
-            홀은 2배)씩 받아요. 합계 = 내 버디로 받은 돈 − 다른 사람 버디로 낸 돈.
+            버디는 <b>1타</b>, 이글은 <b>2타</b> 값(타당 금액 × 그 홀 배수)을 그 홀 다른 참여자
+            모두에게서 받아요. 합계 = 내 버디로 받은 돈 − 다른 사람 버디로 낸 돈.
           </p>
         )}
         <div className="card">
@@ -266,9 +266,10 @@ export default function ResultsScreen({
                       {got.map((e, i) => (
                         <div className="bd-item" key={i}>
                           <span>
-                            {e.holeIndex + 1}번홀 {scoreLabel(holes[e.holeIndex].par, e.rel)} ·{" "}
-                            {e.payers.length}명 × {won(e.perPayer)}
-                            {e.multiplier > 1 ? " (배판)" : ""}
+                            {e.holeIndex + 1}번홀 {scoreLabel(holes[e.holeIndex].par, e.rel)}
+                            {e.strokes > 1 ? `(${e.strokes}타)` : ""} · {e.payers.length}명 ×{" "}
+                            {won(e.perPayer)}
+                            {e.multiplier > 1 ? ` (×${e.multiplier})` : ""}
                           </span>
                           <span>+{won(e.amount)}</span>
                         </div>
@@ -286,7 +287,8 @@ export default function ResultsScreen({
                           <span>
                             {e.holeIndex + 1}번홀 {nameOf(e.playerId).name || "?"}{" "}
                             {scoreLabel(holes[e.holeIndex].par, e.rel)}
-                            {e.multiplier > 1 ? " (배판)" : ""}
+                            {e.strokes > 1 ? `(${e.strokes}타)` : ""}
+                            {e.multiplier > 1 ? ` (×${e.multiplier})` : ""}
                           </span>
                           <span>-{won(e.perPayer)}</span>
                         </div>
@@ -398,12 +400,23 @@ export default function ResultsScreen({
           </div>
 
           <div className="vf-rate">
-            1타당 {won(config.unit * vBd.multiplier)}
-            {vBd.multiplier > 1 && (
+            {vBd.allTie ? (
               <>
-                {" "}
-                (타당 {won(config.unit)} × 배판 {vBd.multiplier})
-                <span className="vf-reasons">{vBd.reasons.join(" · ")}</span>
+                전원 동타 · 이 홀은 정산 없음
+                <span className="vf-reasons">
+                  {vBd.nextCarry ? `다음 홀로 ×${vBd.nextCarry} 이월` : "마지막 홀이라 이월 소멸"}
+                </span>
+              </>
+            ) : (
+              <>
+                1타당 {won(config.unit * vBd.multiplier)}
+                {vBd.multiplier > 1 && (
+                  <>
+                    {" "}
+                    (타당 {won(config.unit)} × 배수 {vBd.multiplier})
+                    <span className="vf-reasons">{vBd.reasons.join(" · ")}</span>
+                  </>
+                )}
               </>
             )}
           </div>

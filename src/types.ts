@@ -34,13 +34,18 @@ export interface BetRules {
    * 켜지면 "버디 시 한 타 추가" 보너스 정산은 적용되지 않는다.
    */
   birdieDouble: boolean;
+  /**
+   * 배수 총 상한 (배판 조건 × 이월 모두에 적용). 2·4·8, null 은 무제한.
+   * 값이 없는 예전 라운드는 ×2 로 본다.
+   */
+  maxMultiplier?: number | null;
 }
 
 /** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
 export interface StoredRules extends BetRules {
   payment?: PaymentMethod;
   handicapMode?: HandicapMode;
-  /** 기준인원 대비 방식에서 방장이 정한 기준 인원(user_uid). 이 사람의 핸디는 0 */
+  /** 최저핸디 대비 방식에서 방장이 정한 기준 인원(user_uid). 이 사람의 핸디는 0 */
   baseUid?: string;
   /** 게임 시작 후 방장이 고친 핸디캡 (user_uid → 핸디). 참여자 행의 값보다 우선 */
   hcOverrides?: Record<string, number>;
@@ -68,7 +73,7 @@ export interface GameConfig {
   players: Player[];
   payment: PaymentMethod;
   handicapMode: HandicapMode;
-  /** 기준인원 대비 방식의 기준 인원 (현재 참여자 중 한 명일 때만) */
+  /** 최저핸디 대비 방식의 기준 인원 (현재 참여자 중 한 명일 때만) */
   baseUid: string | null;
   /** 핸디캡 정산 시점 */
   handicapSettle: SettleTiming;

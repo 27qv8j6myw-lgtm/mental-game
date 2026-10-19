@@ -5,7 +5,7 @@ import { createRound } from "../rounds";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
-import { PaymentFields, RuleToggles } from "./RoundFields";
+import { MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
 
 const UNITS = [1000, 2000, 5000];
 
@@ -26,6 +26,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
     doublePar: false,
     tie: false,
     birdieDouble: false,
+    maxMultiplier: 2,
   });
 
   const [holeCount, setHoleCount] = useState(18);
@@ -196,14 +197,22 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               className={handicapMode === "stroke" ? "active" : ""}
               onClick={() => setHandicapMode("stroke")}
             >
-              기준인원 대비 +타
+              최저핸디 대비 +타
             </button>
           </div>
           <p className="hint" style={{ marginTop: 10 }}>
             {handicapMode === "avg"
               ? "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요."
-              : "방장이 대기실에서 기준 인원을 정하고, 나머지는 기준보다 몇 타를 받을지(+5·+10·직접 입력) 고릅니다. 기준 인원을 정해야 시작할 수 있어요."}
+              : "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 고릅니다. 최저핸디 인원을 정해야 시작할 수 있어요."}
           </p>
+        </div>
+
+        <div className="section-title">배수 총 상한</div>
+        <div className="card">
+          <MaxMultiplierField
+            value={rules.maxMultiplier ?? null}
+            onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
+          />
         </div>
 
         <div className="section-title">배판 규칙</div>

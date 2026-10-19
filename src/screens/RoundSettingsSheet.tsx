@@ -3,6 +3,7 @@ import { useRound } from "../round";
 import { Avatar } from "../icons";
 import {
   appendEditLog,
+  capLabel,
   hcLabel,
   onOff,
   PAYMENT_LABEL,
@@ -16,7 +17,7 @@ import type {
   SettleTiming,
   StoredRules,
 } from "../types";
-import { PaymentFields, RuleToggles } from "./RoundFields";
+import { MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
 
 /** 방장 전용: 게임 시작·정산 확정 후에도 지불 방법·핸디캡·배판 규칙을 고친다. */
 export default function RoundSettingsSheet({
@@ -35,6 +36,8 @@ export default function RoundSettingsSheet({
     doublePar: !!cfg.rules.doublePar,
     tie: cfg.rules.tie,
     birdieDouble: cfg.rules.birdieDouble,
+    // 값이 없는 예전 라운드는 ×2
+    maxMultiplier: cfg.rules.maxMultiplier === undefined ? 2 : cfg.rules.maxMultiplier,
   });
   const [hc, setHc] = useState<Record<string, number>>(() =>
     Object.fromEntries(cfg.players.map((p) => [p.id, p.handicap]))
@@ -104,6 +107,8 @@ export default function RoundSettingsSheet({
       if ((hc[p.id] ?? 0) !== p.handicap)
         items.push(`${name} 핸디: ${hcLabel(p.handicap)} → ${hcLabel(hc[p.id] ?? 0)}`);
     }
+    if (rules.maxMultiplier !== (cfg.rules.maxMultiplier === undefined ? 2 : cfg.rules.maxMultiplier))
+      items.push(`배수 총 상한: ${capLabel(cfg.rules.maxMultiplier)} → ${capLabel(rules.maxMultiplier)}`);
     for (const [key, label] of RULE_LABELS) {
       if (!!rules[key] !== !!cfg.rules[key])
         items.push(`${label}: ${onOff(cfg.rules[key])} → ${onOff(rules[key])}`);
@@ -185,7 +190,7 @@ export default function RoundSettingsSheet({
         </div>
 
         <div className="section-title">
-          핸디캡{cfg.handicapMode === "stroke" ? " (기준 인원 대비)" : ""}
+          핸디캡{cfg.handicapMode === "stroke" ? " (최저핸디 대비)" : ""}
         </div>
         <div className="card">
           {isAvg && (
@@ -228,6 +233,14 @@ export default function RoundSettingsSheet({
               평균타수를 바꾸면 핸디가 평균−72로 다시 계산되고, ±로 조정할 수 있어요.
             </p>
           )}
+        </div>
+
+        <div className="section-title">배수 총 상한</div>
+        <div className="card">
+          <MaxMultiplierField
+            value={rules.maxMultiplier ?? null}
+            onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
+          />
         </div>
 
         <div className="section-title">배판 규칙</div>

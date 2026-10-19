@@ -1,4 +1,4 @@
-import type { BetRules, Gender, PaymentMethod, SettleTiming, StoredRules } from "./types";
+import type { Gender, PaymentMethod, SettleTiming, StoredRules } from "./types";
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "현금 지급",
@@ -55,7 +55,9 @@ export const SETTLE_LABEL: Record<SettleTiming, string> = {
   post: "사후 정산",
 };
 
-export const RULE_LABELS: [keyof BetRules, string][] = [
+export type RuleToggleKey = "parPenalty" | "doublePar" | "birdieDouble" | "tie";
+
+export const RULE_LABELS: [RuleToggleKey, string][] = [
   ["parPenalty", "파 페널티 배판"],
   ["doublePar", "더블파 배판"],
   ["birdieDouble", "버디 배판"],
@@ -63,6 +65,10 @@ export const RULE_LABELS: [keyof BetRules, string][] = [
 ];
 
 export const onOff = (v: boolean | undefined) => (v ? "켜짐" : "꺼짐");
+
+/** 배수 총 상한 표기: 값 없음(예전 라운드)은 ×2, null 은 무제한 */
+export const capLabel = (v: number | null | undefined) =>
+  v === null ? "무제한" : `×${v ?? 2}`;
 
 /** 한 홀 스코어 표기: 5타(+1) / 미입력 */
 export const scoreText = (par: number, rel: number | null) =>

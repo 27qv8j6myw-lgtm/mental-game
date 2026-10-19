@@ -81,8 +81,22 @@ function RoundPlay({ session }: { session: Session }) {
         ...session,
         holes: draft,
         editing: true,
+        // PAR 를 낮추면 더블파를 넘는 스코어는 더블파로 맞춘다
         setPar: (i, par) =>
-          setDraft((d) => d && d.map((h, j) => (j === i ? { ...h, par } : h))),
+          setDraft(
+            (d) =>
+              d &&
+              d.map((h, j) =>
+                j === i
+                  ? {
+                      par,
+                      scores: Object.fromEntries(
+                        Object.entries(h.scores).map(([k, v]) => [k, v == null ? v : Math.min(v, par)])
+                      ),
+                    }
+                  : h
+              )
+          ),
         setScore: (i, pid, v) =>
           setDraft(
             (d) => d && d.map((h, j) => (j === i ? { ...h, scores: { ...h.scores, [pid]: v } } : h))
