@@ -3,7 +3,7 @@ import { useAuth, type OAuthProvider } from "../auth";
 import { useRound } from "../round";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
 import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
-import type { RoundRow } from "../types";
+import type { RoundListItem, RoundRow } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
@@ -20,7 +20,7 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
   const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
     useAuth();
   const { openRound } = useRound();
-  const [rounds, setRounds] = useState<RoundRow[]>([]);
+  const [rounds, setRounds] = useState<RoundListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
@@ -84,9 +84,8 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
     setJoining(true);
     setErr(null);
     try {
-      const firstName = (user?.displayName ?? "").split(" ")[0] || "나";
       const round = await joinRoundByCode(code, {
-        name: firstName,
+        name: user?.displayName?.trim() || "나",
         gender: "male",
         avgScore: null,
         handicap: 0,
@@ -238,6 +237,14 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
                   {r.date} · {r.tee_time}
                   {r.host_uid === user?.uid ? " · 방장" : ""}
                 </div>
+                {r.round_players.length > 0 && (
+                  <div className="ri-players">
+                    {[...r.round_players]
+                      .sort((a, b) => a.seat_order - b.seat_order)
+                      .map((p) => p.name || "이름 미정")
+                      .join(", ")}
+                  </div>
+                )}
               </button>
               <div className="ri-right">
                 <span className={`badge st-${r.status}`}>

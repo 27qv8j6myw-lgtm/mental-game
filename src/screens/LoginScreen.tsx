@@ -2,7 +2,7 @@ import { useAuth } from "../auth";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 
 export default function LoginScreen() {
-  const { signIn, continueAsGuest, configured, error } = useAuth();
+  const { signIn, configured, error } = useAuth();
 
   return (
     <div className="auth-screen">
@@ -28,23 +28,15 @@ export default function LoginScreen() {
           Google 계정으로 시작
         </button>
 
-        <div className="divider-or">또는</div>
-
-        <button className="btn-text" onClick={() => void continueAsGuest()}>
-          로그인 없이 참여하기
-        </button>
-
         <p className="auth-note">
           로그인하면 <b>프로필 사진과 이름</b>이 자동으로 적용돼요.
           <br />
-          로그인 없이도 <b>초대 코드</b>로 라운드에 참여할 수 있어요. (성별로 표시)
+          라운드는 방장이 만든 <b>초대 코드</b>로 참여할 수 있어요.
         </p>
 
         {!configured && (
           <div className="auth-err">
-            ⚠️ 백엔드(Supabase)가 아직 연결되지 않았어요.
-            <br />
-            지금은 “로그인 없이 시작”으로 이용해 주세요. (설정법은 README 참고)
+            ⚠️ 백엔드(Supabase)가 아직 연결되지 않았어요. (설정법은 README 참고)
           </div>
         )}
         {error && <div className="auth-err">{error}</div>}

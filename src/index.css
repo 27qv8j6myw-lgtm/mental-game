@@ -853,9 +853,9 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .standing {
   display: grid;
-  grid-template-columns: 26px auto auto auto 1fr;
+  grid-template-columns: 28px 26px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 14px;
   border-radius: 14px;
   background: var(--paper);
@@ -888,18 +888,44 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 40vw;
 }
-.standing .sc {
-  font-weight: 800;
-  font-size: 13px;
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-  padding: 2px 8px;
+/* 타수 | 핸디캡 타원 배지 (홀별 검증과 같은 모양) */
+.st-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 78px;
+  height: 26px;
   border-radius: 999px;
   background: var(--paper-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.st-pill b {
+  width: 36px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+}
+.st-pill small {
+  width: 26px;
   text-align: center;
-  justify-self: start;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--ink-faint);
+}
+@supports (grid-template-columns: subgrid) {
+  /* subgrid 에서는 행의 좌우 padding(14px)이 첫·마지막 열 안쪽 여백이 되므로 첫 열을 그만큼 넓힌다 */
+  .standings {
+    display: grid;
+    grid-template-columns: 42px 26px minmax(0, 1fr) auto auto;
+    column-gap: 8px;
+  }
+  .standing {
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
 }
 .standing .val {
   justify-self: end;
@@ -909,7 +935,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* 핸디캡 정산: 이름 | 핸디+타수(왼쪽) | 금액(오른쪽) — 그리드로 세로 정렬 */
 .hc-line {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: minmax(0, 1fr) 64px 92px;
   align-items: center;
   gap: 12px;
   padding: 12px 0;
@@ -926,22 +952,10 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.hc-info {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  justify-self: start;
-}
 .hc-hd {
   font-size: 12.5px;
   color: var(--ink-faint);
   font-weight: 600;
-}
-.hc-stroke {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
 }
 .hc-amt {
   font-weight: 800;
@@ -996,6 +1010,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   display: flex;
   gap: 10px;
   margin-top: 18px;
+}
+.modal .modal-actions > button {
+  flex: 1;
+  width: auto;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+/* 취소(btn-ghost)의 1px 테두리만큼 맞춰 두 버튼 폭을 같게 */
+.modal .modal-actions > .btn-primary {
+  border: 1px solid var(--olive);
 }
 .btn-ghost {
   flex: 1;
@@ -1794,4 +1819,386 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* avatar-btn 안의 라인 아이콘 색 */
 .avatar-btn svg {
   color: var(--ink-soft);
+}
+
+/* 라운드 만들기: 지불 방법 아래 핸디캡 정산 */
+.sub-field {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.sub-field > label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+/* 대기실: 이름 저장 버튼 / 최고수 대비 핸디 */
+.lp-head .name-save {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 13.5px;
+  border-radius: 10px;
+}
+.stroke-hc {
+  margin-top: 12px;
+}
+.stroke-hc > label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.stroke-hc .stepper {
+  margin-top: 10px;
+  max-width: 200px;
+}
+.stroke-hc .stepper span {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--olive);
+}
+
+/* 내 라운드: 참여자 이름 */
+.ri-players {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+
+/* 정산: 버디 인별 (받은 돈 / 낸 돈 내역) */
+.bd-player {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.bd-player:last-child {
+  border-bottom: none;
+}
+.bd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bd-head b {
+  font-weight: 700;
+  font-size: 14.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bd-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--paper-3);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.bd-total {
+  margin-left: auto;
+  font-weight: 900;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.bd-group {
+  margin: 8px 0 0 34px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--paper-2);
+}
+.bd-gt,
+.bd-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bd-gt {
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.bd-item {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.bd-item span:last-child {
+  white-space: nowrap;
+}
+
+/* 정산: 홀별 검증 */
+.verify .vf-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.verify .navbtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.verify .navbtn:disabled {
+  opacity: 0.35;
+}
+.vf-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+.vf-title b {
+  font-size: 19px;
+  font-weight: 800;
+}
+.vf-title span {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.vf-strip {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  margin: 12px -2px 10px;
+  padding: 2px;
+  scrollbar-width: none;
+}
+.vf-strip::-webkit-scrollbar {
+  display: none;
+}
+.vf-strip button {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--paper-2);
+  color: var(--ink-faint);
+  border: 1px solid transparent;
+}
+.vf-strip button.played {
+  color: var(--ink);
+  border-color: var(--line);
+}
+.vf-strip button.active {
+  background: var(--olive);
+  color: #fff;
+  border-color: var(--olive);
+}
+.vf-rate {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.vf-reasons {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mustard);
+}
+.vf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.vf-table th {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: right;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.vf-table td {
+  text-align: right;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.vf-table th:first-child,
+.vf-table td.vf-name {
+  text-align: left;
+}
+.vf-table td.vf-name {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 타수: 같은 크기의 타원 배지 (숫자 | 파 대비) */
+.vf-table th:nth-child(2),
+.vf-table td.vf-score {
+  text-align: center;
+}
+.vf-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 54px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+.vf-pill b {
+  width: 16px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 13px;
+}
+.vf-pill small {
+  width: 20px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.8;
+}
+.vf-pill.under {
+  background: var(--terra-soft);
+  color: var(--terra);
+}
+.vf-pill.over {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.vf-pill.none {
+  background: transparent;
+  color: var(--ink-faint);
+}
+.vf-table .vf-cum {
+  font-weight: 900;
+}
+
+.segmented button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 대기실: 기준 인원 */
+.base-pick .bp-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.base-pick.missing {
+  border-color: var(--mustard);
+  background: var(--mustard-soft);
+}
+.base-tag {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}
+.stroke-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.stroke-row .stepper {
+  margin-top: 0;
+  margin-left: 4px;
+  max-width: none;
+  gap: 4px;
+}
+.stroke-row .stepper span {
+  min-width: 34px;
+  text-align: center;
+}
+
+/* 정산: 방장 수정 버튼 / 설정 시트 */
+.host-edit {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.host-edit button {
+  flex: 1;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.settings-modal {
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--sand);
+}
+.stepper.sm {
+  gap: 4px;
+}
+.stepper.sm span {
+  min-width: 36px;
+  text-align: center;
+  font-weight: 800;
+  color: var(--olive);
+}
+
+/* 정산 설정 수정: 평균타수 방식은 이름 | 평균타수 | 핸디캡 */
+.hc-edit-head,
+.gplayer.hc-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 112px;
+  align-items: center;
+  gap: 8px;
+}
+.hc-edit-head {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.hc-edit-head span:not(:first-child) {
+  text-align: center;
+}
+.hc-edit-row .gp-name {
+  min-width: 0;
+}
+.hc-edit-row .gp-name b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.avg-mini {
+  padding: 8px 4px;
+  text-align: center;
+  font-weight: 800;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* 숫자 입력의 증감 버튼 자리가 오른쪽을 차지해 가운데 정렬이 틀어지지 않게 */
+.avg-mini::-webkit-inner-spin-button,
+.avg-mini::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.avg-mini::placeholder {
+  text-align: center;
+}
+.hc-edit-row .stepper {
+  justify-content: space-between;
 }

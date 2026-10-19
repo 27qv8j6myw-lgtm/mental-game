@@ -1,5 +1,11 @@
 import { supabase } from "./supabase";
-import type { BetRules, Gender, RoundPlayerRow, RoundRow } from "./types";
+import type {
+  Gender,
+  RoundListItem,
+  RoundPlayerRow,
+  RoundRow,
+  StoredRules,
+} from "./types";
 
 export interface PlayerInfo {
   name: string;
@@ -22,11 +28,10 @@ function requireDb() {
 
 export interface CreateRoundParams {
   courseName: string;
-  courseTee: string;
   date: string;
   teeTime: string;
   unit: number;
-  rules: BetRules;
+  rules: StoredRules;
   handicapSettle: "pre" | "post";
   holeCount: number;
   me: PlayerInfo;
@@ -36,7 +41,7 @@ export async function createRound(p: CreateRoundParams): Promise<RoundRow> {
   const db = requireDb();
   const { data, error } = await db.rpc("create_round", {
     p_course_name: p.courseName,
-    p_course_tee: p.courseTee,
+    p_course_tee: "",
     p_date: p.date,
     p_tee_time: p.teeTime,
     p_unit: p.unit,
@@ -72,15 +77,15 @@ export async function joinRoundByCode(
   return data as RoundRow;
 }
 
-export async function listMyRounds(): Promise<RoundRow[]> {
+export async function listMyRounds(): Promise<RoundListItem[]> {
   const db = requireDb();
   // RLS: 내가 host 이거나 참여자인 라운드만 반환됨
   const { data, error } = await db
     .from("rounds")
-    .select("*")
+    .select("*, round_players(name, seat_order)")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data as RoundRow[]) ?? [];
+  return (data as RoundListItem[]) ?? [];
 }
 
 export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
@@ -125,6 +130,16 @@ export async function updateMyPlayer(
     .update(patch)
     .eq("round_id", roundId)
     .eq("user_uid", userUid);
+  if (error) throw error;
+}
+
+/** 방장 전용(RLS): 라운드 규칙·핸디 정산 시점 수정 */
+export async function updateRound(
+  roundId: string,
+  patch: Partial<Pick<RoundRow, "rules" | "handicap_settle">>
+): Promise<void> {
+  const db = requireDb();
+  const { error } = await db.from("rounds").update(patch).eq("id", roundId);
   if (error) throw error;
 }
 

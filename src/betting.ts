@@ -34,6 +34,11 @@ export function holeMultiplier(
     }
   }
 
+  // 더블파: 파의 2배 타수 = 파 대비 +par
+  if (rules.doublePar && worst >= hole.par) {
+    reasons.push("더블파");
+  }
+
   if (rules.tie) {
     const threshold = playerCount <= 3 ? 2 : 3;
     const counts = new Map<number, number>();
@@ -156,6 +161,51 @@ export function holeNet(
   return { net, transfers: settleNet(net), multiplier, reasons };
 }
 
+/** 한 명의 버디(-1 이하) 추가 정산 내역 */
+export interface BirdieEvent {
+  holeIndex: number;
+  playerId: string;
+  rel: number;
+  /** 돈을 내는 상대 인원 */
+  payers: string[];
+  multiplier: number;
+  /** 상대 한 명이 내는 금액 (타당 × 배판) */
+  perPayer: number;
+  /** 버디한 사람이 받는 총액 */
+  amount: number;
+}
+
+function birdieHoleEvents(
+  hole: HoleScore,
+  holeIndex: number,
+  players: Player[],
+  unit: number,
+  rules: BetRules,
+  carry: number
+): BirdieEvent[] {
+  // 버디 배판이 켜져 있으면 버디는 배판으로 처리되고, 추가(한 타) 정산은 없음
+  if (rules.birdieDouble) return [];
+  const entered = players.filter((p) => hole.scores[p.id] != null);
+  if (entered.length < 2) return [];
+  const { multiplier: base } = holeMultiplier(hole, rules, players.length);
+  const multiplier = Math.min(2, base * carry);
+  const perPayer = unit * multiplier;
+  return entered
+    .filter((b) => (hole.scores[b.id] as number) <= -1)
+    .map((b) => {
+      const payers = entered.filter((q) => q.id !== b.id).map((q) => q.id);
+      return {
+        holeIndex,
+        playerId: b.id,
+        rel: hole.scores[b.id] as number,
+        payers,
+        multiplier,
+        perPayer,
+        amount: perPayer * payers.length,
+      };
+    });
+}
+
 /**
  * 버디 추가 정산: 버디(-1) 이상을 잡으면 "한 타를 더 잡아준다".
  * 즉 버디한 사람은 다른 모든 참가자에게서 (타당금액 × 배판)을 추가로 받는다.
@@ -170,28 +220,46 @@ export function birdieHoleNet(
 ): { net: Record<string, number>; transfers: Transfer[] } {
   const net: Record<string, number> = {};
   for (const p of players) net[p.id] = 0;
-
-  // 버디 배판이 켜져 있으면 버디는 배판으로 처리되고, 추가(한 타) 정산은 없음
-  if (rules.birdieDouble) return { net, transfers: [] };
-
-  const entered = players.filter((p) => hole.scores[p.id] != null);
-  const { multiplier: base } = holeMultiplier(hole, rules, players.length);
-  const multiplier = Math.min(2, base * carry);
-  const effUnit = unit * multiplier;
-
-  if (entered.length >= 2) {
-    for (const b of entered) {
-      const sc = hole.scores[b.id] as number;
-      if (sc <= -1) {
-        for (const q of entered) {
-          if (q.id === b.id) continue;
-          net[b.id] += effUnit;
-          net[q.id] -= effUnit;
-        }
-      }
-    }
+  for (const e of birdieHoleEvents(hole, 0, players, unit, rules, carry)) {
+    net[e.playerId] += e.amount;
+    for (const id of e.payers) net[id] -= e.perPayer;
   }
   return { net, transfers: settleNet(net) };
+}
+
+/** 라운드 전체 버디 추가 정산 내역 (홀 순서) */
+export function birdieEvents(config: GameConfig, holes: HoleScore[]): BirdieEvent[] {
+  const carries = carryMultipliers(holes, config.players);
+  return holes.flatMap((hole, i) =>
+    birdieHoleEvents(hole, i, config.players, config.unit, config.rules, carries[i])
+  );
+}
+
+/** 홀별 검증용 내역: 배판, 게임·버디 정산, 해당 홀까지의 누적(핸디 제외) */
+export interface HoleBreakdown {
+  multiplier: number;
+  reasons: string[];
+  game: Record<string, number>;
+  birdie: Record<string, number>;
+  cumulative: Record<string, number>;
+}
+
+export function holeBreakdowns(config: GameConfig, holes: HoleScore[]): HoleBreakdown[] {
+  const carries = carryMultipliers(holes, config.players);
+  const cum: Record<string, number> = {};
+  for (const p of config.players) cum[p.id] = 0;
+  return holes.map((hole, i) => {
+    const g = holeNet(hole, config.players, config.unit, config.rules, carries[i]);
+    const b = birdieHoleNet(hole, config.players, config.unit, config.rules, carries[i]);
+    for (const p of config.players) cum[p.id] += g.net[p.id] + b.net[p.id];
+    return {
+      multiplier: g.multiplier,
+      reasons: g.reasons,
+      game: g.net,
+      birdie: b.net,
+      cumulative: { ...cum },
+    };
+  });
 }
 
 /**
@@ -202,7 +270,7 @@ export function handicapNet(config: GameConfig): {
   net: Record<string, number>;
   transfers: Transfer[];
 } {
-  const { players, unit, handicapOverrides } = config;
+  const { players, unit } = config;
   const net: Record<string, number> = {};
   for (const p of players) net[p.id] = 0;
 
@@ -210,12 +278,7 @@ export function handicapNet(config: GameConfig): {
     for (let b = a + 1; b < players.length; b++) {
       const pa = players[a];
       const pb = players[b];
-      const key = `${pa.id}->${pb.id}`;
-      const diff =
-        handicapOverrides[key] != null
-          ? handicapOverrides[key]
-          : pb.handicap - pa.handicap;
-      const amt = diff * unit;
+      const amt = (pb.handicap - pa.handicap) * unit;
       net[pa.id] -= amt;
       net[pb.id] += amt;
     }

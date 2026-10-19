@@ -12,13 +12,18 @@ export interface Player {
 }
 
 export type SettleTiming = "pre" | "post";
+export type PaymentMethod = "cash" | "transfer";
+/** avg: 평균 타수로 핸디 산출 / stroke: 최고수 대비 +N타로 직접 설정 */
+export type HandicapMode = "avg" | "stroke";
 
 export interface BetRules {
   /**
    * 파 페널티 배판(동시 규칙): 파3 더블보기(+2)↑ / 파4·5 트리플보기(+3)↑ 이면 배판.
-   * 두 조건은 항상 하나로 묶여 동작한다.
+   * 두 조건은 항상 하나로 묶여 동작한다. doublePar 와 동시에 켜지지 않는다.
    */
   parPenalty: boolean;
+  /** 더블파(파의 2배 타수)↑ 가 나오면 배판. 이전에 만든 라운드에는 값이 없다. */
+  doublePar?: boolean;
   /** 3명 이상 동타(3인 플레이 시 2명)이면 배판 */
   tie: boolean;
   /**
@@ -28,21 +33,31 @@ export interface BetRules {
   birdieDouble: boolean;
 }
 
+/** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
+export interface StoredRules extends BetRules {
+  payment?: PaymentMethod;
+  handicapMode?: HandicapMode;
+  /** 기준인원 대비 방식에서 방장이 정한 기준 인원(user_uid). 이 사람의 핸디는 0 */
+  baseUid?: string;
+  /** 게임 시작 후 방장이 고친 핸디캡 (user_uid → 핸디). 참여자 행의 값보다 우선 */
+  hcOverrides?: Record<string, number>;
+  /** 게임 시작 후 방장이 고친 평균 타수 (user_uid → 평균, 빈칸이면 null) */
+  avgOverrides?: Record<string, number | null>;
+}
+
 export interface GameConfig {
   courseName: string;
-  courseTee: string;
   date: string;
   teeTime: string;
   /** 타당 금액 (원) */
   unit: number;
   players: Player[];
+  payment: PaymentMethod;
+  handicapMode: HandicapMode;
+  /** 기준인원 대비 방식의 기준 인원 (현재 참여자 중 한 명일 때만) */
+  baseUid: string | null;
   /** 핸디캡 정산 시점 */
   handicapSettle: SettleTiming;
-  /**
-   * 핸디캡 차이(수동 오버라이드) 매트릭스.
-   * key = `${fromId}->${toId}` 를 사용하며, 값이 있으면 자동 계산 대신 사용.
-   */
-  handicapOverrides: Record<string, number>;
   rules: BetRules;
 }
 
@@ -52,15 +67,6 @@ export interface HoleScore {
   par: ParValue;
   /** playerId -> 파 대비 타수 (-2 ~ +5). null 이면 미입력 */
   scores: Record<string, number | null>;
-}
-
-export interface GameState {
-  config: GameConfig | null;
-  started: boolean;
-  holes: HoleScore[];
-  currentHole: number;
-  /** 아카이브(백엔드) 문서 id. 저장되면 채워진다. */
-  archiveId?: string;
 }
 
 /** 한 명이 다른 한 명에게 보내는 송금 */
@@ -84,12 +90,17 @@ export interface RoundRow {
   date: string;
   tee_time: string;
   unit: number;
-  rules: BetRules;
+  rules: StoredRules;
   handicap_settle: SettleTiming;
   hole_count: number;
   status: RoundStatus;
   created_at: string;
   updated_at: string;
+}
+
+/** 내 라운드 목록용: 참여자 이름을 함께 가져온다 */
+export interface RoundListItem extends RoundRow {
+  round_players: { name: string; seat_order: number }[];
 }
 
 /** round_players 테이블 행 */
@@ -107,8 +118,7 @@ export interface RoundPlayerRow {
 }
 
 /**
- * 게임/결과 화면이 소비하는 공통 세션 인터페이스.
- * 게스트(로컬 store) / 로그인(라운드+realtime) 두 어댑터가 동일 형태를 제공한다.
+ * 게임/결과 화면이 소비하는 라운드 세션 (round.tsx 가 realtime 데이터로 만든다).
  */
 export interface Session {
   config: GameConfig;
@@ -117,7 +127,6 @@ export interface Session {
   goHole: (index: number) => void;
   setPar: (holeIndex: number, par: ParValue) => void;
   setScore: (holeIndex: number, playerId: string, value: number | null) => void;
-  /** 로그인 라운드일 때만 의미: 진행 상태/방장 여부 */
-  status?: RoundStatus;
-  isHost?: boolean;
+  status: RoundStatus;
+  isHost: boolean;
 }

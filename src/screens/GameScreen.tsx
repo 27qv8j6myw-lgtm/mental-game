@@ -87,9 +87,11 @@ export default function GameScreen({ session }: { session: Session }) {
       </div>
 
       <div className="sheet">
-        {readOnly && (
+        {session.status === "done" && (
           <div className="ro-banner">
-            정산이 확정된 라운드입니다. 방장만 수정할 수 있어요.
+            {readOnly
+              ? "정산이 확정된 라운드입니다. 방장만 수정할 수 있어요."
+              : "정산이 확정된 라운드예요. 방장은 스코어를 고칠 수 있고, 정산에 바로 반영돼요."}
           </div>
         )}
         <div className="par-seg">

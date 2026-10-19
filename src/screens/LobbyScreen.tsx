@@ -3,12 +3,14 @@ import { useRound } from "../round";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
-import { won } from "../util";
-import type { GameConfig, Gender, Player } from "../types";
+import { hcLabel, PAYMENT_LABEL, settleNote, won } from "../util";
+import type { Gender } from "../types";
+
+const STROKE_PRESETS = [5, 10];
 
 /**
- * 이름 입력칸. 로컬 상태로 값을 관리해 한글 IME 조합 중 리렌더로 값이
- * 초기화(자모 분리/삭제)되는 문제를 방지한다. 외부 값은 편집 중이 아닐 때만 반영.
+ * 이름 입력칸. 입력 중에는 로컬 상태만 바꾸고, 포커스를 잃거나 저장/엔터를 누를 때
+ * 한 번만 저장한다. 글자마다 저장하면 요청 순서가 뒤섞여 마지막 글자가 사라질 수 있다.
  */
 function NameField({
   value,
@@ -18,66 +20,79 @@ function NameField({
   onCommit: (v: string) => void;
 }) {
   const [local, setLocal] = useState(value);
-  const focused = useRef(false);
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    if (!focused.current) setLocal(value);
-  }, [value]);
+    if (!editing) setLocal(value);
+  }, [value, editing]);
+
+  // 한글 조합 중인 마지막 글자까지 포함하도록 DOM 값을 읽는다
+  const commit = () => {
+    const name = (inputRef.current?.value ?? local).trim();
+    if (name && name !== value) onCommit(name);
+  };
+
   return (
-    <input
-      className="input lp-name"
-      value={local}
-      placeholder="이름"
-      onFocus={() => (focused.current = true)}
-      onBlur={() => (focused.current = false)}
-      onChange={(e) => {
-        setLocal(e.target.value);
-        onCommit(e.target.value);
-      }}
-    />
+    <>
+      <input
+        ref={inputRef}
+        className="input lp-name"
+        value={local}
+        placeholder="이름"
+        enterKeyHint="done"
+        onFocus={() => setEditing(true)}
+        onBlur={() => {
+          commit();
+          setEditing(false);
+        }}
+        onChange={(e) => setLocal(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) e.currentTarget.blur();
+        }}
+      />
+      {editing && (
+        <button
+          className="btn-primary sm name-save"
+          onClick={() => {
+            commit();
+            inputRef.current?.blur();
+          }}
+        >
+          저장
+        </button>
+      )}
+    </>
   );
 }
 
 export default function LobbyScreen() {
-  const { bundle, myUid, isHost, updateMe, start, leave, closeRound } = useRound();
+  const {
+    bundle,
+    session,
+    myUid,
+    isHost,
+    updateMe,
+    updateRound,
+    start,
+    leave,
+    closeRound,
+  } = useRound();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  const players: Player[] = useMemo(
-    () =>
-      (bundle?.players ?? []).map((p) => ({
-        id: p.user_uid,
-        name: p.name,
-        gender: p.gender,
-        avgScore: p.avg_score ?? 0,
-        handicap: p.handicap,
-        photoUrl: p.photo_url,
-      })),
-    [bundle]
-  );
-
-  const hcConfig = useMemo<GameConfig | null>(() => {
-    if (!bundle) return null;
-    return {
-      courseName: bundle.round.course_name,
-      courseTee: bundle.round.course_tee,
-      date: bundle.round.date,
-      teeTime: bundle.round.tee_time,
-      unit: bundle.round.unit,
-      players,
-      handicapSettle: bundle.round.handicap_settle,
-      handicapOverrides: {},
-      rules: bundle.round.rules,
-    };
-  }, [bundle, players]);
-
   const hcPreview = useMemo(
-    () => (hcConfig ? handicapNet(hcConfig) : null),
-    [hcConfig]
+    () => (session ? handicapNet(session.config) : null),
+    [session]
   );
 
-  if (!bundle) return null;
+  if (!bundle || !session) return null;
   const round = bundle.round;
+  const { players, handicapMode, payment, baseUid } = session.config;
+  const needBase = handicapMode === "stroke" && !baseUid;
+  const setBase = (uid: string) =>
+    void updateRound({ rules: { ...round.rules, baseUid: uid } });
   const me = bundle.players.find((p) => p.user_uid === myUid);
   const iAmLoggedIn = !!user && !user.isAnonymous;
   const nameOf = (id: string) => players.find((p) => p.id === id)!;
@@ -147,17 +162,45 @@ export default function LobbyScreen() {
             <Icon name="share" size={15} className="inline-ic" />
             {copied ? "복사됨!" : "코드 공유하기"}
           </button>
-          <div className="cc-course">
-            {round.course_name || "이름 없는 라운드"}
-            {round.course_tee ? ` · ${round.course_tee}` : ""}
-          </div>
+          <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
           <div className="cc-meta">
             {round.date} · {round.tee_time} · {round.hole_count}홀 · 타당{" "}
-            {round.unit.toLocaleString()}원
+            {round.unit.toLocaleString()}원 · {PAYMENT_LABEL[payment]}
           </div>
         </div>
 
         <div className="section-title">참여자 {bundle.players.length}명</div>
+        {handicapMode === "stroke" && (
+          <div className={`card base-pick ${needBase ? "missing" : ""}`}>
+            <div className="bp-title">기준 인원</div>
+            {isHost ? (
+              <>
+                <div className="chips">
+                  {bundle.players.map((p) => (
+                    <button
+                      key={p.user_uid}
+                      className={`chip ${baseUid === p.user_uid ? "active" : ""}`}
+                      onClick={() => setBase(p.user_uid)}
+                    >
+                      {p.name || "이름 미정"}
+                    </button>
+                  ))}
+                </div>
+                <p className="hint" style={{ marginTop: 8 }}>
+                  {needBase
+                    ? "기준 인원을 정해야 게임을 시작할 수 있어요."
+                    : "나머지는 기준 인원보다 몇 타를 더 받을지 각자 고릅니다."}
+                </p>
+              </>
+            ) : (
+              <p className="hint">
+                {baseUid
+                  ? `${nameOf(baseUid).name || "이름 미정"} 님이 기준이에요. 기준보다 몇 타를 더 받을지 고르세요.`
+                  : "방장이 기준 인원을 정하면 게임을 시작할 수 있어요."}
+              </p>
+            )}
+          </div>
+        )}
         {bundle.players.map((p) => {
           const mine = p.user_uid === myUid;
           const canEditGender = mine && !iAmLoggedIn;
@@ -174,6 +217,7 @@ export default function LobbyScreen() {
                   <span className="lp-name-static">{p.name || "이름 미정"}</span>
                 )}
                 {round.host_uid === p.user_uid && <span className="host-tag">방장</span>}
+                {baseUid === p.user_uid && <span className="base-tag">기준</span>}
                 {mine && <span className="me-tag">나</span>}
                 {!p.photo_url && p.is_guest && !mine && (
                   <span className="guest-tag">게스트</span>
@@ -202,31 +246,61 @@ export default function LobbyScreen() {
                       프로필 사진은 로그인 계정을 사용하고, 이름은 수정할 수 있어요.
                     </p>
                   )}
-                  <div className="row2" style={{ marginTop: 10 }}>
-                    <div className="stepper-field">
-                      <label>평균 타수</label>
-                      <input
-                        className="input avg-input"
-                        type="number"
-                        inputMode="numeric"
-                        placeholder="예: 90"
-                        value={p.avg_score ?? ""}
-                        onChange={(e) => onAvgChange(e.target.value)}
-                      />
-                    </div>
-                    <div className="stepper-field">
-                      <label>핸디캡</label>
-                      <div className="stepper">
-                        <button onClick={() => setHandicap(p.handicap - 1)}>−</button>
-                        <span>{p.handicap}</span>
-                        <button onClick={() => setHandicap(p.handicap + 1)}>＋</button>
+                  {handicapMode === "avg" ? (
+                    <div className="row2" style={{ marginTop: 10 }}>
+                      <div className="stepper-field">
+                        <label>평균 타수</label>
+                        <input
+                          className="input avg-input"
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="예: 90"
+                          value={p.avg_score ?? ""}
+                          onChange={(e) => onAvgChange(e.target.value)}
+                        />
+                      </div>
+                      <div className="stepper-field">
+                        <label>핸디캡</label>
+                        <div className="stepper">
+                          <button onClick={() => setHandicap(p.handicap - 1)}>−</button>
+                          <span>{p.handicap}</span>
+                          <button onClick={() => setHandicap(p.handicap + 1)}>＋</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : baseUid === p.user_uid ? (
+                    <p className="hint" style={{ marginTop: 8 }}>
+                      기준 인원이에요. 다른 사람들이 나보다 몇 타를 더 받을지 정해요.
+                    </p>
+                  ) : (
+                    <div className="stroke-hc">
+                      <label>기준 인원 대비 받을 타수</label>
+                      <div className="stroke-row">
+                        {STROKE_PRESETS.map((v) => (
+                          <button
+                            key={v}
+                            className={`chip ${p.handicap === v ? "active" : ""}`}
+                            onClick={() => setHandicap(v)}
+                          >
+                            +{v}타
+                          </button>
+                        ))}
+                        <div className="stepper">
+                          <button onClick={() => setHandicap(p.handicap - 1)}>−</button>
+                          <span>{hcLabel(p.handicap)}</span>
+                          <button onClick={() => setHandicap(p.handicap + 1)}>＋</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="lp-stats">
-                  {p.avg_score != null ? `평균 ${p.avg_score}타 · ` : ""}핸디 {p.handicap}
+                  {handicapMode === "avg"
+                    ? `${p.avg_score != null ? `평균 ${p.avg_score}타 · ` : ""}핸디 ${p.handicap}`
+                    : baseUid === p.user_uid
+                    ? "기준 인원"
+                    : `기준 대비 ${hcLabel(p.handicap)}타`}
                 </div>
               )}
             </div>
@@ -243,8 +317,8 @@ export default function LobbyScreen() {
           핸디캡 정산 미리보기 {round.handicap_settle === "pre" ? "(사전)" : "(사후)"}
         </div>
         <p className="hint" style={{ margin: "0 2px 10px" }}>
-          각자 핸디캡을 조정하면 아래 정산이 실시간으로 갱신됩니다. 핸디가 낮은(잘 치는)
-          사람이 주는 쪽입니다.
+          <b>{settleNote(round.handicap_settle)}</b> 각자 핸디캡을 조정하면 아래 정산이
+          실시간으로 갱신됩니다. 핸디가 낮은(잘 치는) 사람이 주는 쪽입니다.
         </p>
         {!hcPreview || hcPreview.transfers.length === 0 ? (
           <div className="card">
@@ -278,13 +352,15 @@ export default function LobbyScreen() {
         {isHost ? (
           <button
             className="btn-primary"
-            disabled={bundle.players.length < 2 || starting}
+            disabled={bundle.players.length < 2 || needBase || starting}
             onClick={doStart}
           >
             {starting
               ? "시작 중…"
               : bundle.players.length < 2
               ? "참여자를 기다리는 중…"
+              : needBase
+              ? "기준 인원을 정해 주세요"
               : "게임 시작"}
           </button>
         ) : (
