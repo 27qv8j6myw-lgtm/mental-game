@@ -254,7 +254,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
         : null;
     const players: Player[] = bundle.players.map((p) => ({
       id: p.user_uid,
-      name: p.name,
+      name: r.rules.nameOverrides?.[p.user_uid] ?? p.name,
       gender: p.gender,
       avgScore:
         (r.rules.avgOverrides && p.user_uid in r.rules.avgOverrides
@@ -275,6 +275,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       baseUid,
       handicapSettle: r.handicap_settle,
       rules: r.rules,
+      editLog: r.rules.editLog ?? [],
     };
   }, [bundle]);
 

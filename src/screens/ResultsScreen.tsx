@@ -9,6 +9,7 @@ import {
 } from "../betting";
 import {
   hcLabel,
+  logTime,
   PAYMENT_LABEL,
   relLabel,
   scoreLabel,
@@ -117,6 +118,11 @@ export default function ResultsScreen({
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
           {playedHoles}개 홀 진행 · 타당 {won(config.unit)} · {PAYMENT_LABEL[config.payment]}
         </div>
+        {config.editLog.length > 0 && (
+          <div className="hero-edited">
+            정산 확정 후 {config.editLog.length}번 수정됨 · 맨 아래 수정 내역에서 확인
+          </div>
+        )}
       </div>
 
       <div className="sheet">
@@ -372,6 +378,35 @@ export default function ResultsScreen({
             ①+② 결과와 같아요. (핸디캡 제외)
           </p>
         </div>
+
+        {/* 6) 정산 확정 후 수정 내역: 모든 참여자에게 공개 */}
+        {(session.status === "done" || config.editLog.length > 0) && (
+          <>
+            <div className="section-title" style={{ marginTop: 20 }}>
+              ⑥ 정산 확정 후 수정 내역
+              {config.editLog.length > 0 ? ` (${config.editLog.length}건)` : ""}
+            </div>
+            {config.editLog.length === 0 ? (
+              <div className="card">
+                <div className="empty-note">정산 확정 후 수정된 내용이 없어요.</div>
+              </div>
+            ) : (
+              [...config.editLog].reverse().map((e, i) => (
+                <div className="card edit-log" key={`${e.at}-${i}`}>
+                  <div className="el-head">
+                    <b>{logTime(e.at)}</b>
+                    <span>{e.by} 수정</span>
+                  </div>
+                  <ul>
+                    {e.items.map((t, j) => (
+                      <li key={j}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </>
+        )}
       </div>
 
       {editing && <RoundSettingsSheet session={session} onClose={() => setEditing(false)} />}

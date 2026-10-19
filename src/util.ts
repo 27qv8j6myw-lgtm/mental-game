@@ -1,4 +1,4 @@
-import type { Gender, PaymentMethod, SettleTiming } from "./types";
+import type { BetRules, Gender, PaymentMethod, SettleTiming, StoredRules } from "./types";
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "현금 지급",
@@ -46,4 +46,39 @@ export const scoreLabel = (_par: number, rel: number) => {
 export const relLabel = (rel: number) => {
   if (rel === 0) return "E";
   return rel > 0 ? `+${rel}` : `${rel}`;
+};
+
+/* ---------- 정산 확정 후 수정 내역 ---------- */
+
+export const SETTLE_LABEL: Record<SettleTiming, string> = {
+  pre: "사전 정산",
+  post: "사후 정산",
+};
+
+export const RULE_LABELS: [keyof BetRules, string][] = [
+  ["parPenalty", "파 페널티 배판"],
+  ["doublePar", "더블파 배판"],
+  ["birdieDouble", "버디 배판"],
+  ["tie", "동타 배판"],
+];
+
+export const onOff = (v: boolean | undefined) => (v ? "켜짐" : "꺼짐");
+
+/** 한 홀 스코어 표기: 5타(+1) / 미입력 */
+export const scoreText = (par: number, rel: number | null) =>
+  rel == null ? "미입력" : `${par + rel}타(${relLabel(rel)})`;
+
+export const appendEditLog = (
+  rules: StoredRules,
+  by: string,
+  items: string[]
+): StoredRules => ({
+  ...rules,
+  editLog: [...(rules.editLog ?? []), { at: new Date().toISOString(), by, items }],
+});
+
+/** 10/19 18:40 */
+export const logTime = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()} ${localTime(d)}`;
 };

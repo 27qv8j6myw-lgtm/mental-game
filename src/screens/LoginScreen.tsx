@@ -12,7 +12,7 @@ export default function LoginScreen() {
       </div>
       <div className="auth-title">멘탈게임</div>
       <div className="auth-sub">
-        골프 내기, 계산은 앱이 하고
+        골프 내기, 계산은 앱이 할게요
         <br />
         멘탈만 챙기세요.
       </div>

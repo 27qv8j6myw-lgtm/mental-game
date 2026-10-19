@@ -64,14 +64,12 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
     setLinkBusy(null);
   };
 
+  // 라운드 삭제는 방장만. (참여자가 빠지면 끝난 라운드의 정산이 바뀌므로 참여자용 삭제는 두지 않는다)
   const removeRound = async (r: RoundRow) => {
-    const iAmHost = r.host_uid === user?.uid;
-    const msg = iAmHost
-      ? "이 라운드를 삭제할까요? 참여자 전원의 기록이 사라집니다."
-      : "이 라운드를 목록에서 제거할까요? (참여 취소)";
-    if (!window.confirm(msg)) return;
+    if (r.host_uid !== user?.uid) return;
+    if (!window.confirm("이 라운드를 삭제할까요? 참여자 전원의 기록이 사라집니다.")) return;
     try {
-      await leaveOrDeleteRound(r.id, user!.uid, iAmHost);
+      await leaveOrDeleteRound(r.id, user.uid, true);
       setRounds((rs) => rs.filter((x) => x.id !== r.id));
     } catch (e) {
       console.error(e);
@@ -241,7 +239,7 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
                   <div className="ri-players">
                     {[...r.round_players]
                       .sort((a, b) => a.seat_order - b.seat_order)
-                      .map((p) => p.name || "이름 미정")
+                      .map((p) => r.rules.nameOverrides?.[p.user_uid] ?? (p.name || "이름 미정"))
                       .join(", ")}
                   </div>
                 )}
@@ -250,13 +248,15 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
                 <span className={`badge st-${r.status}`}>
                   {STATUS_LABEL[r.status] ?? r.status}
                 </span>
-                <button
-                  className="ri-del"
-                  aria-label="라운드 삭제"
-                  onClick={() => void removeRound(r)}
-                >
-                  <Icon name="trash" size={18} />
-                </button>
+                {r.host_uid === user?.uid && (
+                  <button
+                    className="ri-del"
+                    aria-label="라운드 삭제"
+                    onClick={() => void removeRound(r)}
+                  >
+                    <Icon name="trash" size={18} />
+                  </button>
+                )}
               </div>
             </div>
           ))

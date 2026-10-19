@@ -2142,10 +2142,36 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 700;
   font-size: 13.5px;
 }
-.settings-modal {
+/* 정산 설정 수정: 제목·버튼은 고정, 가운데만 스크롤 (스크롤바 숨김) */
+.modal.settings-modal {
   max-height: 88vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   background: var(--sand);
+}
+.sm-head {
+  padding: 22px 18px 4px;
+}
+.sm-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 18px 12px;
+  scrollbar-width: none;
+}
+.sm-body::-webkit-scrollbar {
+  display: none;
+}
+.sm-foot {
+  padding: 12px 18px calc(16px + var(--safe-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--sand);
+}
+.sm-foot .modal-actions {
+  margin-top: 0;
 }
 .stepper.sm {
   gap: 4px;
@@ -2201,4 +2227,76 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .hc-edit-row .stepper {
   justify-content: space-between;
+}
+
+/* 스코어 수정 중 하단: 취소 | 수정 완료 (탭바 대신) */
+.edit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 16px calc(14px + var(--safe-bottom));
+  background: var(--sand);
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  z-index: 30;
+}
+.edit-bar > button {
+  flex: 1;
+  width: auto;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+.edit-bar > .btn-primary {
+  border: 1px solid var(--olive);
+}
+
+/* 정산 확정 후 수정 내역 */
+.hero-edited {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--mustard-soft);
+  color: var(--mustard);
+  font-size: 12px;
+  font-weight: 800;
+}
+.edit-log .el-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.edit-log .el-head b {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.edit-log .el-head span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.edit-log ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.edit-log li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 정산 설정 수정: 참여자 이름 */
+.name-edit-row .input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  font-weight: 700;
 }

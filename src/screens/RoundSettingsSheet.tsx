@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRound } from "../round";
 import { Avatar } from "../icons";
-import { hcLabel } from "../util";
-import type { BetRules, PaymentMethod, Session, SettleTiming } from "../types";
+import {
+  appendEditLog,
+  hcLabel,
+  onOff,
+  PAYMENT_LABEL,
+  RULE_LABELS,
+  SETTLE_LABEL,
+} from "../util";
+import type {
+  BetRules,
+  PaymentMethod,
+  Session,
+  SettleTiming,
+  StoredRules,
+} from "../types";
 import { PaymentFields, RuleToggles } from "./RoundFields";
 
 /** 방장 전용: 게임 시작·정산 확정 후에도 지불 방법·핸디캡·배판 규칙을 고친다. */
@@ -13,7 +26,7 @@ export default function RoundSettingsSheet({
   session: Session;
   onClose: () => void;
 }) {
-  const { bundle, updateRound } = useRound();
+  const { bundle, myUid, updateRound } = useRound();
   const cfg = session.config;
   const [payment, setPayment] = useState<PaymentMethod>(cfg.payment);
   const [settle, setSettle] = useState<SettleTiming>(cfg.handicapSettle);
@@ -27,7 +40,7 @@ export default function RoundSettingsSheet({
     Object.fromEntries(cfg.players.map((p) => [p.id, p.handicap]))
   );
   const isAvg = cfg.handicapMode === "avg";
-  const [avg, setAvg] = useState<Record<string, number | null>>(() => {
+  const [avgInit] = useState<Record<string, number | null>>(() => {
     const ov = bundle?.round.rules.avgOverrides ?? {};
     return Object.fromEntries(
       (bundle?.players ?? []).map((p) => [
@@ -36,10 +49,26 @@ export default function RoundSettingsSheet({
       ])
     );
   });
+  const [avg, setAvg] = useState(avgInit);
+  const [names, setNames] = useState<Record<string, string>>(() =>
+    Object.fromEntries(cfg.players.map((p) => [p.id, p.name]))
+  );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // 시트가 열려 있는 동안 뒤쪽 페이지가 같이 스크롤되지 않게 막는다
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   if (!bundle) return null;
+
+  /** 비워 두면 원래 이름 유지 */
+  const finalName = (id: string, current: string) => names[id]?.trim() || current;
 
   const bump = (id: string, d: number) =>
     setHc((m) => ({ ...m, [id]: Math.max(0, Math.min(54, (m[id] ?? 0) + d)) }));
@@ -57,20 +86,56 @@ export default function RoundSettingsSheet({
     setHc((m) => ({ ...m, [id]: Math.max(0, v - 72) }));
   };
 
+  /** 정산 확정 후 수정 내역에 남길 문장들 */
+  const changes = () => {
+    const items: string[] = [];
+    if (payment !== cfg.payment)
+      items.push(`지불 방법: ${PAYMENT_LABEL[cfg.payment]} → ${PAYMENT_LABEL[payment]}`);
+    if (settle !== cfg.handicapSettle)
+      items.push(`핸디캡 정산: ${SETTLE_LABEL[cfg.handicapSettle]} → ${SETTLE_LABEL[settle]}`);
+    for (const p of cfg.players) {
+      const name = p.name || "?";
+      const renamed = finalName(p.id, p.name);
+      if (renamed !== p.name) items.push(`이름: ${name} → ${renamed}`);
+      const a0 = avgInit[p.id] ?? null;
+      const a1 = avg[p.id] ?? null;
+      if (isAvg && a0 !== a1)
+        items.push(`${name} 평균타수: ${a0 ?? "미입력"} → ${a1 ?? "미입력"}`);
+      if ((hc[p.id] ?? 0) !== p.handicap)
+        items.push(`${name} 핸디: ${hcLabel(p.handicap)} → ${hcLabel(hc[p.id] ?? 0)}`);
+    }
+    for (const [key, label] of RULE_LABELS) {
+      if (!!rules[key] !== !!cfg.rules[key])
+        items.push(`${label}: ${onOff(cfg.rules[key])} → ${onOff(rules[key])}`);
+    }
+    return items;
+  };
+
   const save = async () => {
     setSaving(true);
     setErr(null);
     try {
-      await updateRound({
-        handicap_settle: settle,
-        rules: {
-          ...bundle.round.rules,
-          ...rules,
-          payment,
-          hcOverrides: hc,
-          ...(isAvg && { avgOverrides: avg }),
-        },
-      });
+      let next: StoredRules = {
+        ...bundle.round.rules,
+        ...rules,
+        payment,
+        hcOverrides: hc,
+        ...(isAvg && { avgOverrides: avg }),
+        nameOverrides: Object.fromEntries(
+          bundle.players
+            .map((row) => {
+              const cur = cfg.players.find((p) => p.id === row.user_uid)?.name ?? row.name;
+              return [row.user_uid, finalName(row.user_uid, cur)] as const;
+            })
+            .filter(([uid, name]) => name !== bundle.players.find((r) => r.user_uid === uid)?.name)
+        ),
+      };
+      const items = changes();
+      if (session.status === "done" && items.length > 0) {
+        const by = cfg.players.find((p) => p.id === myUid)?.name || "방장";
+        next = appendEditLog(next, by, items);
+      }
+      await updateRound({ handicap_settle: settle, rules: next });
       onClose();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -82,8 +147,30 @@ export default function RoundSettingsSheet({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>정산 설정 수정</h3>
-        <p className="hint">방장만 고칠 수 있고, 저장하면 모든 참여자의 정산이 바로 다시 계산돼요.</p>
+        <div className="sm-head">
+          <h3>정산 설정 수정</h3>
+          <p className="hint">
+            방장만 고칠 수 있고, 저장하면 모든 참여자의 정산이 바로 다시 계산돼요.
+          </p>
+        </div>
+
+        <div className="sm-body">
+
+        <div className="section-title">참여자 이름</div>
+        <div className="card">
+          {cfg.players.map((p) => (
+            <div className="gplayer name-edit-row" key={p.id}>
+              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+              <input
+                className="input"
+                value={names[p.id] ?? ""}
+                placeholder={p.name || "이름"}
+                aria-label={`${p.name} 이름`}
+                onChange={(e) => setNames((m) => ({ ...m, [p.id]: e.target.value }))}
+              />
+            </div>
+          ))}
+        </div>
 
         <div className="section-title">지불 방법</div>
         <div className="card">
@@ -116,7 +203,7 @@ export default function RoundSettingsSheet({
             >
               <span className="gp-name">
                 <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
-                <b>{p.name || "?"}</b>
+                <b>{finalName(p.id, p.name) || "?"}</b>
               </span>
               {isAvg && (
                 <input
@@ -148,14 +235,18 @@ export default function RoundSettingsSheet({
           <RuleToggles rules={rules} onChange={setRules} />
         </div>
 
-        {err && <p className="hint" style={{ color: "var(--loss)" }}>{err}</p>}
-        <div className="modal-actions">
-          <button className="btn-ghost" onClick={onClose}>
-            취소
-          </button>
-          <button className="btn-primary" disabled={saving} onClick={() => void save()}>
-            {saving ? "저장 중…" : "수정 완료"}
-          </button>
+        </div>
+
+        <div className="sm-foot">
+          {err && <p className="hint" style={{ color: "var(--loss)", marginBottom: 8 }}>{err}</p>}
+          <div className="modal-actions">
+            <button className="btn-ghost" onClick={onClose}>
+              취소
+            </button>
+            <button className="btn-primary" disabled={saving} onClick={() => void save()}>
+              {saving ? "저장 중…" : "수정 완료"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

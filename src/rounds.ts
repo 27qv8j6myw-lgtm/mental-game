@@ -82,7 +82,7 @@ export async function listMyRounds(): Promise<RoundListItem[]> {
   // RLS: 내가 host 이거나 참여자인 라운드만 반환됨
   const { data, error } = await db
     .from("rounds")
-    .select("*, round_players(name, seat_order)")
+    .select("*, round_players(user_uid, name, seat_order)")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as RoundListItem[]) ?? [];

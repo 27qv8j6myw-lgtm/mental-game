@@ -43,6 +43,17 @@ export interface StoredRules extends BetRules {
   hcOverrides?: Record<string, number>;
   /** 게임 시작 후 방장이 고친 평균 타수 (user_uid → 평균, 빈칸이면 null) */
   avgOverrides?: Record<string, number | null>;
+  /** 방장이 고친 참여자 이름 (user_uid → 이름). 참여자 행의 이름보다 우선 */
+  nameOverrides?: Record<string, string>;
+  /** 정산 확정 후 수정 내역 (모든 참여자에게 공개) */
+  editLog?: EditLogEntry[];
+}
+
+/** '수정 완료' 한 번에 바뀐 항목들. items 는 "1번 홀 박영수: 5타(+1) → 4타(E)" 같은 문장 */
+export interface EditLogEntry {
+  at: string;
+  by: string;
+  items: string[];
 }
 
 export interface GameConfig {
@@ -59,6 +70,7 @@ export interface GameConfig {
   /** 핸디캡 정산 시점 */
   handicapSettle: SettleTiming;
   rules: BetRules;
+  editLog: EditLogEntry[];
 }
 
 export type ParValue = 3 | 4 | 5;
@@ -100,7 +112,7 @@ export interface RoundRow {
 
 /** 내 라운드 목록용: 참여자 이름을 함께 가져온다 */
 export interface RoundListItem extends RoundRow {
-  round_players: { name: string; seat_order: number }[];
+  round_players: { user_uid: string; name: string; seat_order: number }[];
 }
 
 /** round_players 테이블 행 */
@@ -129,4 +141,6 @@ export interface Session {
   setScore: (holeIndex: number, playerId: string, value: number | null) => void;
   status: RoundStatus;
   isHost: boolean;
+  /** 정산 확정 후 방장이 스코어를 고치는 중. 수정 완료 전까지는 저장되지 않는 초안이다 */
+  editing?: boolean;
 }

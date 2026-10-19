@@ -8,7 +8,8 @@ import RoundsHomeScreen from "./screens/RoundsHomeScreen";
 import CreateRoundScreen from "./screens/CreateRoundScreen";
 import LobbyScreen from "./screens/LobbyScreen";
 import { Icon } from "./icons";
-import type { Session } from "./types";
+import { appendEditLog, scoreText } from "./util";
+import type { HoleScore, Session } from "./types";
 
 export default function App() {
   const { mode } = useAuth();
@@ -72,6 +73,58 @@ function RoundPlay({ session }: { session: Session }) {
     window.scrollTo(0, 0);
   };
 
+  // 정산 확정 후 스코어 수정: 초안에만 반영하고 '수정 완료' 때 바뀐 것만 저장, '취소'면 버린다
+  const [draft, setDraft] = useState<HoleScore[] | null>(null);
+  const editing = draft !== null;
+  const view: Session = draft
+    ? {
+        ...session,
+        holes: draft,
+        editing: true,
+        setPar: (i, par) =>
+          setDraft((d) => d && d.map((h, j) => (j === i ? { ...h, par } : h))),
+        setScore: (i, pid, v) =>
+          setDraft(
+            (d) => d && d.map((h, j) => (j === i ? { ...h, scores: { ...h.scores, [pid]: v } } : h))
+          ),
+      }
+    : session;
+
+  const startEdit = () => {
+    setDraft(session.holes.map((h) => ({ par: h.par, scores: { ...h.scores } })));
+    showTab("game");
+  };
+  const commitEdit = () => {
+    const nameOf = (id: string) =>
+      session.config.players.find((p) => p.id === id)?.name || "?";
+    const items: string[] = [];
+    draft?.forEach((h, i) => {
+      const orig = session.holes[i];
+      if (h.par !== orig.par) {
+        session.setPar(i, h.par);
+        items.push(`${i + 1}번 홀 PAR ${orig.par} → ${h.par}`);
+      }
+      for (const pid of Object.keys(h.scores)) {
+        if (h.scores[pid] !== orig.scores[pid]) {
+          session.setScore(i, pid, h.scores[pid]);
+          items.push(
+            `${i + 1}번 홀 ${nameOf(pid)}: ${scoreText(orig.par, orig.scores[pid])} → ${scoreText(h.par, h.scores[pid])}`
+          );
+        }
+      }
+    });
+    if (items.length > 0 && round.bundle) {
+      const by = round.myUid ? nameOf(round.myUid) : "방장";
+      void round.updateRound({ rules: appendEditLog(round.bundle.round.rules, by, items) });
+    }
+    setDraft(null);
+    showTab("result");
+  };
+  const cancelEdit = () => {
+    setDraft(null);
+    showTab("result");
+  };
+
   return (
     <div className="app">
       <div className="topbar">
@@ -79,49 +132,62 @@ function RoundPlay({ session }: { session: Session }) {
           <span className="dot">
             <Icon name="flag" size={18} />
           </span>
-          {session.config.courseName || "멘탈게임"}
+          {editing ? "스코어 수정" : session.config.courseName || "멘탈게임"}
         </div>
-        <div className="actions">
-          {round.isHost && session.status === "playing" && (
-            <button className="icon-btn" onClick={() => void round.finish()}>
-              <Icon name="finish" size={20} />
+        {!editing && (
+          <div className="actions">
+            {round.isHost && session.status === "playing" && (
+              <button className="icon-btn" onClick={() => void round.finish()}>
+                <Icon name="finish" size={20} />
+              </button>
+            )}
+            <button className="icon-btn" onClick={round.closeRound}>
+              <Icon name="close" size={20} />
             </button>
-          )}
-          <button className="icon-btn" onClick={round.closeRound}>
-            <Icon name="close" size={20} />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {tab === "game" ? (
-        <GameScreen session={session} />
+        <GameScreen session={view} />
       ) : (
-        <ResultsScreen session={session} onEditScores={() => showTab("game")} />
+        <ResultsScreen session={session} onEditScores={startEdit} />
       )}
 
-      <div className="tabbar">
-        <button className={tab === "game" ? "active" : ""} onClick={() => setTab("game")}>
-          <span className="ic">
-            <Icon name="flag" size={20} />
-          </span>
-          홀 진행
-        </button>
-        <button
-          className={tab === "result" ? "active" : ""}
-          onClick={() => setTab("result")}
-        >
-          <span className="ic">
-            <Icon name="trophy" size={20} />
-          </span>
-          정산 결과
-        </button>
-        <button onClick={round.closeRound}>
-          <span className="ic">
-            <Icon name="layers" size={20} />
-          </span>
-          라운드
-        </button>
-      </div>
+      {editing ? (
+        <div className="edit-bar">
+          <button className="btn-ghost" onClick={cancelEdit}>
+            취소
+          </button>
+          <button className="btn-primary" onClick={commitEdit}>
+            수정 완료
+          </button>
+        </div>
+      ) : (
+        <div className="tabbar">
+          <button className={tab === "game" ? "active" : ""} onClick={() => setTab("game")}>
+            <span className="ic">
+              <Icon name="flag" size={20} />
+            </span>
+            홀 진행
+          </button>
+          <button
+            className={tab === "result" ? "active" : ""}
+            onClick={() => setTab("result")}
+          >
+            <span className="ic">
+              <Icon name="trophy" size={20} />
+            </span>
+            정산 결과
+          </button>
+          <button onClick={round.closeRound}>
+            <span className="ic">
+              <Icon name="layers" size={20} />
+            </span>
+            라운드
+          </button>
+        </div>
+      )}
 
       {round.isHost &&
         session.status === "playing" &&
@@ -135,14 +201,6 @@ function RoundPlay({ session }: { session: Session }) {
             </button>
           </div>
         )}
-
-      {round.isHost && session.status === "done" && tab === "game" && (
-        <div className="floating-finish">
-          <button className="btn-primary" onClick={() => showTab("result")}>
-            <Icon name="trophy" size={18} className="inline-ic" /> 수정 완료 · 최종 정산 보기
-          </button>
-        </div>
-      )}
     </div>
   );
 }

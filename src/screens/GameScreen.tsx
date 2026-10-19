@@ -9,7 +9,8 @@ const SCORE_OPTS = [-2, -1, 0, 1, 2, 3, 4, 5];
 export default function GameScreen({ session }: { session: Session }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore } = session;
   const hole = holes[idx];
-  const readOnly = session.status === "done" && !session.isHost;
+  // 정산 확정 후에는 방장의 '스코어 수정' 모드에서만 고칠 수 있다
+  const readOnly = session.status === "done" && !session.editing;
 
   const carries = useMemo(
     () => carryMultipliers(holes, config.players),
@@ -89,9 +90,11 @@ export default function GameScreen({ session }: { session: Session }) {
       <div className="sheet">
         {session.status === "done" && (
           <div className="ro-banner">
-            {readOnly
-              ? "정산이 확정된 라운드입니다. 방장만 수정할 수 있어요."
-              : "정산이 확정된 라운드예요. 방장은 스코어를 고칠 수 있고, 정산에 바로 반영돼요."}
+            {session.editing
+              ? "스코어 수정 중이에요. 수정 완료를 눌러야 저장되고, 취소하면 원래대로 돌아가요."
+              : session.isHost
+              ? "정산이 확정된 라운드예요. 정산 결과의 '스코어 수정'에서 고칠 수 있어요."
+              : "정산이 확정된 라운드입니다. 방장만 수정할 수 있어요."}
           </div>
         )}
         <div className="par-seg">
