@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
 import { hcLabel, PAYMENT_LABEL, settleNote, won } from "../util";
+import AccountField from "./AccountField";
 import type { Gender } from "../types";
 
 const STROKE_PRESETS = [5, 10];
@@ -78,7 +79,7 @@ export default function LobbyScreen() {
     leave,
     closeRound,
   } = useRound();
-  const { user } = useAuth();
+  const { user, saveBankAccount } = useAuth();
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
 
@@ -293,6 +294,23 @@ export default function LobbyScreen() {
                       </div>
                     </div>
                   )}
+                  {payment === "transfer" && (
+                    <div className="lp-account">
+                      <AccountField
+                        label="받을 계좌"
+                        bank={p.bank_name}
+                        account={p.bank_account}
+                        onSave={async (bank, account) => {
+                          await updateMe({ bank_name: bank, bank_account: account });
+                          await saveBankAccount(bank, account);
+                        }}
+                      />
+                      <p className="hint" style={{ marginTop: 6 }}>
+                        정산 때 보내는 사람이 바로 복사할 수 있어요. 이 라운드 참여자에게만
+                        보이고, 다음 라운드에는 자동으로 채워져요.
+                      </p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="lp-stats">
@@ -301,6 +319,11 @@ export default function LobbyScreen() {
                     : baseUid === p.user_uid
                     ? "기준 인원"
                     : `기준 대비 ${hcLabel(p.handicap)}타`}
+                  {payment === "transfer" && (
+                    <span className={`acct-state ${p.bank_account ? "ok" : ""}`}>
+                      {p.bank_account ? "계좌 입력됨" : "계좌 미입력"}
+                    </span>
+                  )}
                 </div>
               )}
             </div>

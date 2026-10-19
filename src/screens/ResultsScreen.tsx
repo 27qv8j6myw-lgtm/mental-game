@@ -20,6 +20,26 @@ import {
 import { Avatar, Icon } from "../icons";
 import type { HoleScore, Session, Transfer } from "../types";
 import RoundSettingsSheet from "./RoundSettingsSheet";
+import AccountField from "./AccountField";
+import { useRound } from "../round";
+import { useAuth } from "../auth";
+
+/** 클립보드 복사 (구형 브라우저는 textarea 로 대체) */
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+}
 
 /** 표 안의 금액: 단위(원) 없이 부호만 */
 const signed = (n: number) =>
@@ -38,6 +58,17 @@ export default function ResultsScreen({
   const isPost = config.handicapSettle === "post";
   const [vi, setVi] = useState(0);
   const [editing, setEditing] = useState(false);
+  const { myUid, updateMe } = useRound();
+  const { saveBankAccount } = useAuth();
+  const [copied, setCopied] = useState<string | null>(null);
+  const isTransfer = config.payment === "transfer";
+  const me = config.players.find((p) => p.id === myUid);
+
+  const copy = async (key: string, text: string) => {
+    await copyToClipboard(text);
+    setCopied(key);
+    setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
+  };
 
   const game = useMemo(() => gameNet(config, holes), [config, holes]);
   const bird = useMemo(() => birdieNet(config, holes), [config, holes]);
@@ -76,7 +107,7 @@ export default function ResultsScreen({
     </div>
   );
 
-  const Transfers = ({ list }: { list: Transfer[] }) =>
+  const Transfers = ({ list, withAccount }: { list: Transfer[]; withAccount?: boolean }) =>
     list.length === 0 ? (
       <div className="card">
         <div className="empty-note">주고받을 금액이 없습니다.</div>
@@ -87,7 +118,7 @@ export default function ResultsScreen({
           const from = nameOf(t.fromId);
           const to = nameOf(t.toId);
           return (
-            <div className="transfer" key={i}>
+            <div className={`transfer ${withAccount ? "with-acct" : ""}`} key={i}>
               <span className="from">
                 <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
                 {from.name || "?"}
@@ -100,6 +131,29 @@ export default function ResultsScreen({
                 {to.name || "?"}
               </span>
               <span className="amt">{won(t.amount)}</span>
+              {withAccount && (
+                <div className="acct-line">
+                  {to.bankAccount ? (
+                    <>
+                      <span className="acct-text">
+                        {to.bankName} {to.bankAccount}
+                      </span>
+                      <button
+                        className="acct-copy"
+                        onClick={() =>
+                          void copy(`t${i}`, `${to.bankName} ${to.bankAccount} ${won(t.amount)}`)
+                        }
+                      >
+                        {copied === `t${i}` ? "복사됨 ✓" : "계좌·금액 복사"}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="acct-missing">
+                      {to.name || "?"} 님이 아직 계좌를 입력하지 않았어요
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -282,8 +336,22 @@ export default function ResultsScreen({
           {isPost
             ? "게임 + 버디 + 핸디캡을 모두 합산했습니다."
             : "게임 + 버디 합산 (핸디캡은 현금으로 사전 지급)."}
+          {isTransfer && " 줄마다 받는 사람 계좌와 금액을 복사할 수 있어요."}
         </p>
-        <Transfers list={final.transfers} />
+        {isTransfer && me && (
+          <div className="card my-acct">
+            <AccountField
+              label="내 받을 계좌"
+              bank={me.bankName ?? null}
+              account={me.bankAccount ?? null}
+              onSave={async (bank, account) => {
+                await updateMe({ bank_name: bank, bank_account: account });
+                await saveBankAccount(bank, account);
+              }}
+            />
+          </div>
+        )}
+        <Transfers list={final.transfers} withAccount={isTransfer} />
 
         {/* 5) 홀별 검증 */}
         <div className="section-title" style={{ marginTop: 20 }}>

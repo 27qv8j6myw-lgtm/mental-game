@@ -9,6 +9,9 @@ export interface Player {
   handicap: number;
   /** 로그인(구글) 사용자의 프로필 사진. 있으면 성별 이모지 대신 표시 */
   photoUrl?: string | null;
+  /** 계좌이체 라운드에서 받을 계좌 */
+  bankName?: string | null;
+  bankAccount?: string | null;
 }
 
 export type SettleTiming = "pre" | "post";
@@ -127,6 +130,8 @@ export interface RoundPlayerRow {
   seat_order: number;
   photo_url: string | null;
   is_guest: boolean;
+  bank_name: string | null;
+  bank_account: string | null;
 }
 
 /**

@@ -32,7 +32,17 @@ import type {
 } from "./types";
 
 type PlayerPatch = Partial<
-  Pick<RoundPlayerRow, "name" | "gender" | "avg_score" | "handicap" | "photo_url" | "is_guest">
+  Pick<
+    RoundPlayerRow,
+    | "name"
+    | "gender"
+    | "avg_score"
+    | "handicap"
+    | "photo_url"
+    | "is_guest"
+    | "bank_name"
+    | "bank_account"
+  >
 >;
 type RoundPatch = Partial<Pick<RoundRow, "rules" | "handicap_settle">>;
 
@@ -242,6 +252,23 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     }
   }, [bundle, myUid, user, updateMe]);
 
+  // 계좌이체 라운드: 내 계좌가 비어 있으면 계정에 저장해 둔 계좌로 채운다
+  const bankSyncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!bundle || !myUid || !user?.bank) return;
+    const r = bundle.round;
+    const payment = r.rules.payment ?? (r.handicap_settle === "pre" ? "cash" : "transfer");
+    if (payment !== "transfer") return;
+    const me = bundle.players.find((p) => p.user_uid === myUid);
+    if (!me || me.bank_account) return;
+    const key = `${r.id}:${myUid}`;
+    if (bankSyncedRef.current === key) return;
+    bankSyncedRef.current = key;
+    updateMe({ bank_name: user.bank.name, bank_account: user.bank.account }).catch((e) =>
+      console.error("계좌 자동 입력 실패", e)
+    );
+  }, [bundle, myUid, user, updateMe]);
+
   // ---- derive config + holes ----
   const config = useMemo<GameConfig | null>(() => {
     if (!bundle) return null;
@@ -263,6 +290,8 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       handicap:
         r.rules.hcOverrides?.[p.user_uid] ?? (p.user_uid === baseUid ? 0 : p.handicap),
       photoUrl: p.photo_url,
+      bankName: p.bank_name ?? null,
+      bankAccount: p.bank_account ?? null,
     }));
     return {
       courseName: r.course_name,

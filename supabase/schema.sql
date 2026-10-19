@@ -43,6 +43,9 @@ create unique index if not exists rounds_active_code_idx
 -- 기존 배포 DB 대상 컬럼 추가/변경 (여러 번 실행해도 안전)
 alter table public.round_players add column if not exists photo_url text;
 alter table public.round_players add column if not exists is_guest boolean not null default false;
+-- 계좌이체 라운드에서 받을 계좌 (같은 라운드 참여자에게만 보임: rp_select RLS)
+alter table public.round_players add column if not exists bank_name text;
+alter table public.round_players add column if not exists bank_account text;
 -- 평균 타수는 빈칸(미입력) 허용
 alter table public.round_players alter column avg_score drop not null;
 alter table public.round_players alter column avg_score drop default;

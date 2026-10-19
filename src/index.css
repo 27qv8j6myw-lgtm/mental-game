@@ -2348,3 +2348,122 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 11px;
   font-weight: 800;
 }
+
+/* 계좌이체: 받을 계좌 입력 */
+.account-field .af-row {
+  display: flex;
+  gap: 6px;
+}
+.account-field .af-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+/* 저장 버튼과 ✓ 가 같은 자리를 써서 바뀔 때 입력칸 폭이 흔들리지 않게 */
+.account-field .af-action {
+  flex: 0 0 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.account-field .af-save {
+  width: 100%;
+  height: 100%;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--olive);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.account-field .af-save:disabled {
+  opacity: 0.4;
+}
+.account-field .af-saved {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--gain-soft);
+  color: var(--gain);
+  font-size: 15px;
+  font-weight: 900;
+}
+.account-field .af-bank,
+.account-field .af-number {
+  min-width: 0;
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 15px;
+}
+.account-field .af-bank::placeholder,
+.account-field .af-number::placeholder {
+  text-align: center;
+}
+/* "카카오뱅크"(5글자)까지 다 보이게 */
+.account-field .af-bank {
+  flex: 0 0 96px;
+}
+/* 크롬은 datalist 화살표 자리를 오른쪽에 잡아 가운데 정렬이 틀어진다 (추천 목록은 입력 시 그대로 뜸) */
+.account-field .af-bank::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+.account-field .af-number {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+.lp-account {
+  margin-top: 12px;
+}
+.acct-state {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 800;
+}
+.acct-state.ok {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+
+/* 최종 송금: 받는 사람 계좌 + 복사 */
+.transfer.with-acct {
+  flex-wrap: wrap;
+}
+.acct-line {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.acct-text {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.acct-copy {
+  flex: none;
+  padding: 7px 11px;
+  border-radius: 8px;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.acct-missing {
+  font-size: 12px;
+  color: var(--ink-faint);
+}

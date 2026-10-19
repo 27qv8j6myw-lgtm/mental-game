@@ -120,7 +120,14 @@ export async function updateMyPlayer(
   patch: Partial<
     Pick<
       RoundPlayerRow,
-      "name" | "gender" | "avg_score" | "handicap" | "photo_url" | "is_guest"
+      | "name"
+      | "gender"
+      | "avg_score"
+      | "handicap"
+      | "photo_url"
+      | "is_guest"
+      | "bank_name"
+      | "bank_account"
     >
   >
 ): Promise<void> {

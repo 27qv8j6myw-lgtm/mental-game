@@ -18,6 +18,8 @@ export interface AuthUser {
   email: string | null;
   isAnonymous: boolean;
   providers: string[];
+  /** 계좌이체 라운드용으로 저장해 둔 내 계좌 (다음 라운드 자동 입력) */
+  bank: { name: string; account: string } | null;
 }
 
 interface AuthCtx {
@@ -28,6 +30,8 @@ interface AuthCtx {
   signOutUser: () => Promise<void>;
   linkProvider: (provider: OAuthProvider) => Promise<void>;
   unlinkProvider: (provider: OAuthProvider) => Promise<void>;
+  /** 내 계정(user_metadata)에 계좌를 저장해 다음 라운드에서도 쓴다 */
+  saveBankAccount: (name: string, account: string) => Promise<void>;
   error: string | null;
   clearError: () => void;
 }
@@ -83,6 +87,10 @@ function mapUser(u: {
     email: u.email ?? null,
     isAnonymous,
     providers: (u.identities ?? []).map((i) => i.provider),
+    bank:
+      typeof meta.bank_name === "string" && typeof meta.bank_account === "string"
+        ? { name: meta.bank_name, account: meta.bank_account }
+        : null,
   };
 }
 
@@ -180,6 +188,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 저장된 세션의 user.identities를 갱신해야 새로고침 후에도 해제 상태가 유지된다.
         const { data: refreshed } = await supabase.auth.refreshSession();
         if (refreshed.user) setUser(mapUser(refreshed.user));
+      },
+      saveBankAccount: async (name, account) => {
+        if (!supabase) return;
+        const { data, error: e } = await supabase.auth.updateUser({
+          data: { bank_name: name, bank_account: account },
+        });
+        if (e) {
+          console.error(e);
+          return;
+        }
+        if (data.user) setUser(mapUser(data.user));
       },
       clearError: () => setError(null),
       signOutUser: async () => {
