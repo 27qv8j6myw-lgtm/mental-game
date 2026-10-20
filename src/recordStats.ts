@@ -1,4 +1,5 @@
 import { differential, ratingFor } from "./kga";
+import { teeLie } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
 import type { Fairway, GameMode, HoleStat, RoundListItem, TeeLie } from "./types";
@@ -19,7 +20,7 @@ export interface HoleRecord {
   rel: number | null;
   putts: number | null;
   fairway: Fairway | null;
-  /** 티샷 벙커·패널티 (방향과 함께 고를 수 있다) */
+  /** 티샷 벙커·OB·해저드 (방향과 함께 고를 수 있다) */
   lie: TeeLie | null;
   ob: number;
   hazard: number;
@@ -56,7 +57,7 @@ const teeShots = (holes: HoleRecord[]) =>
 const directed = (holes: HoleRecord[]) =>
   holes.filter((h) => parFourFive(h) && h.fairway != null);
 
-/** 페어웨이 적중률 = 방향이 적중인 홀 / 방향을 적은 파4·5 홀 (벙커·패널티와 상관없이 방향으로만) */
+/** 페어웨이 적중률 = 방향이 적중인 홀 / 방향을 적은 파4·5 홀 (벙커·OB·해저드와 상관없이 방향으로만) */
 export const fairwayFrac = (holes: HoleRecord[]) => {
   const d = directed(holes);
   return frac(d.filter((h) => h.fairway === "hit").length, d.length);
@@ -69,9 +70,9 @@ export function fairwayMix(holes: HoleRecord[]): Record<Fairway, number> {
   return mix;
 }
 
-/** 티샷 벙커·패널티 홀 수 */
+/** 티샷 벙커·OB·해저드 홀 수 */
 export function lieCount(holes: HoleRecord[]): Record<TeeLie, number> {
-  const out: Record<TeeLie, number> = { bunker: 0, penalty: 0 };
+  const out: Record<TeeLie, number> = { bunker: 0, ob: 0, hazard: 0 };
   for (const h of teeShots(holes)) if (h.lie) out[h.lie] += 1;
   return out;
 }
@@ -156,9 +157,9 @@ export interface RecordSummary {
   fairway: Frac;
   /** 티샷 방향별 홀 수 */
   mix: Record<Fairway, number>;
-  /** 티샷 벙커·패널티 홀 수 */
+  /** 티샷 벙커·OB·해저드 홀 수 */
   lies: Record<TeeLie, number>;
-  /** 전체 티샷 수 (친 파4·5 홀). 벙커·패널티 비중의 분모 */
+  /** 전체 티샷 수 (친 파4·5 홀). 벙커·OB·해저드 비중의 분모 */
   teeShots: number;
   /** 방향을 안 적은 티샷 수 */
   noDirection: number;
@@ -322,7 +323,7 @@ export function roundHoles(
       rel: rel == null ? null : Math.min(rel, par),
       putts: st.putts,
       fairway: st.fairway,
-      lie: st.lie ?? null,
+      lie: teeLie(st.lie, st.ob, st.hazard),
       ob: st.ob,
       hazard: st.hazard,
       sand: st.sand,

@@ -29,15 +29,15 @@ export type TeeBox = "red" | "senior" | "white" | "blue" | "black";
 
 /** 기록 모드 티샷 방향 (파4·파5만): 훅(왼쪽)·적중·짧음(안 뜸)·슬라이스(오른쪽) */
 export type Fairway = "left" | "hit" | "short" | "right";
-/** 티샷이 떨어진 곳: 벙커·패널티. 방향과 함께 고를 수 있다 */
-export type TeeLie = "bunker" | "penalty";
+/** 티샷이 떨어진 곳: 벙커·OB·해저드. 방향과 함께 고를 수 있다 (DB 의 예전 값 'penalty' 는 읽을 때 OB/해저드로 바꾼다) */
+export type TeeLie = "bunker" | "ob" | "hazard";
 
 /** 기록 모드 홀별 상세 기록 (round_hole_stats 행). 스코어는 HoleScore 에 있다 */
 export interface HoleStat {
   /** 퍼트 수 (0~6). 입력 전이면 null */
   putts: number | null;
   fairway: Fairway | null;
-  /** 티샷 벙커·패널티 (방향과 별개) */
+  /** 티샷 벙커·OB·해저드 (방향과 별개) */
   lie: TeeLie | null;
   ob: number;
   hazard: number;

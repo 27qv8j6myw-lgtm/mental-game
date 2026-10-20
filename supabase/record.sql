@@ -11,8 +11,8 @@ create table if not exists public.round_hole_stats (
   putts int check (putts between 0 and 6),
   -- 티샷 방향 (파4·파5만): 훅(left)·적중(hit)·짧음(short)·슬라이스(right). 입력 전이면 null
   fairway text,
-  -- 티샷 벙커·패널티 (방향과 함께 고를 수 있다)
-  lie text check (lie in ('bunker', 'penalty')),
+  -- 티샷 벙커·OB·해저드 (방향과 함께 고를 수 있다)
+  lie text check (lie in ('bunker', 'ob', 'hazard', 'penalty')),
   ob int not null default 0 check (ob between 0 and 9),
   hazard int not null default 0 check (hazard between 0 and 9),
   sand int not null default 0 check (sand between 0 and 9),
@@ -24,6 +24,14 @@ alter table public.round_hole_stats drop constraint if exists round_hole_stats_f
 update public.round_hole_stats set lie = fairway, fairway = null where fairway in ('bunker', 'penalty');
 alter table public.round_hole_stats add constraint round_hole_stats_fairway_check
   check (fairway in ('left', 'hit', 'short', 'right'));
+-- 티샷 패널티를 OB·해저드로 나눈다. 예전 'penalty' 는 그 홀 카운트가 더 많은 쪽으로 옮긴다 (같으면 OB).
+-- 'penalty' 는 아직 예전 앱을 열어 둔 사람의 저장이 막히지 않게 남겨 둔다 (앱이 읽을 때 같은 규칙으로 바꾼다)
+alter table public.round_hole_stats drop constraint if exists round_hole_stats_lie_check;
+update public.round_hole_stats
+  set lie = case when hazard > ob then 'hazard' else 'ob' end
+  where lie = 'penalty';
+alter table public.round_hole_stats add constraint round_hole_stats_lie_check
+  check (lie in ('bunker', 'ob', 'hazard', 'penalty'));
 
 create index if not exists round_hole_stats_round_idx on public.round_hole_stats (round_id);
 create index if not exists round_hole_stats_player_idx on public.round_hole_stats (player_uid);

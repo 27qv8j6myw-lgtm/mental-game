@@ -883,7 +883,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: var(--mustard);
   border-color: var(--mustard);
 }
-.sbtn.rec-fw.active.penalty {
+.sbtn.rec-fw.active.ob,
+.sbtn.rec-fw.active.hazard {
   background: var(--terra);
   border-color: var(--terra);
 }
@@ -4052,14 +4053,14 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 11px;
   color: var(--ink-faint);
 }
-/* 티샷 결과: 반원 + 오른쪽 벙커·패널티 */
+/* 티샷 결과: 반원 + 오른쪽 벙커·OB·해저드 */
 .ts-wrap {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
-/* 범례: 반원·벙커/패널티 아래 카드 폭 전체 */
+/* 범례: 반원·벙커/OB/해저드 아래 카드 폭 전체 */
 .ts-legends {
   flex: 1 0 100%;
 }
@@ -4132,7 +4133,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   border-radius: 10px;
   background: var(--mustard-soft);
 }
-.ts-box.penalty {
+.ts-box.ob,
+.ts-box.hazard {
   background: var(--terra-soft);
 }
 .ts-box span {
@@ -4141,7 +4143,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 700;
   color: var(--mustard);
 }
-.ts-box.penalty span {
+.ts-box.ob span,
+.ts-box.hazard span {
   color: var(--terra);
 }
 .ts-box b {
@@ -4254,8 +4257,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .rec-fw-row {
   display: grid;
-  grid-template-columns: 4fr 2fr;
+  grid-template-columns: 4fr 3fr;
   gap: 10px;
+}
+/* 벙커·OB·해저드: 버튼 7개가 한 줄이라 좁은 폰에서도 '해저드'가 들어가게 */
+.sbtn.rec-lie {
+  font-size: 12px;
+  letter-spacing: -0.02em;
 }
 .sbtn.rec-fw.active.short {
   background: #6b7280;
@@ -4270,17 +4278,19 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
   text-align: center;
 }
-/* 스코어카드 티샷: 벙커는 갈색, 패널티는 빨간색 (방향 색보다 우선) */
+/* 스코어카드 티샷: 벙커는 갈색, OB·해저드는 빨간색 (방향 색보다 우선) */
 .rsc-table td.lie-bunker,
 .rsc-legend .lg-bunker {
   color: #92400e;
 }
-.rsc-table td.lie-penalty,
+.rsc-table td.lie-ob,
+.rsc-table td.lie-hazard,
 .rsc-legend .lg-penalty {
   color: var(--loss);
 }
 .rsc-legend b {
   font-weight: 800;
+  white-space: nowrap;
 }
 /* 내기 홀 진행: 내 이름을 누르면 내 기록 입력칸 */
 .player-head .pname-btn {

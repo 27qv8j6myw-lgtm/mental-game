@@ -1,5 +1,5 @@
 import type { RoundBundle } from "./rounds";
-import type { GameConfig, HoleScore, HoleStat, ParValue, Player } from "./types";
+import type { GameConfig, HoleScore, HoleStat, ParValue, Player, TeeLie } from "./types";
 
 /*
  * DB 라운드 묶음(RoundBundle) → 정산 계산에 쓰는 GameConfig·HoleScore.
@@ -63,6 +63,13 @@ export function bundleHoles(bundle: RoundBundle): HoleScore[] {
   });
 }
 
+/**
+ * DB 의 티샷 결과 → 앱 값. OB·해저드로 나누기 전 앱이 쓴 'penalty' 는
+ * 그 홀 카운트가 더 많은 쪽으로 본다 (같으면 OB, record.sql 의 옮기기와 같은 규칙)
+ */
+export const teeLie = (lie: string | null | undefined, ob: number, hazard: number): TeeLie | null =>
+  lie === "penalty" ? (hazard > ob ? "hazard" : "ob") : ((lie ?? null) as TeeLie | null);
+
 /** 기록 모드 홀별 상세 기록: [홀][playerId] */
 export function bundleHoleStats(bundle: RoundBundle): Record<string, HoleStat>[] {
   const out: Record<string, HoleStat>[] = Array.from({ length: bundle.round.hole_count }, () => ({}));
@@ -71,7 +78,7 @@ export function bundleHoleStats(bundle: RoundBundle): Record<string, HoleStat>[]
     out[s.hole_index][s.player_uid] = {
       putts: s.putts,
       fairway: s.fairway,
-      lie: s.lie ?? null,
+      lie: teeLie(s.lie, s.ob, s.hazard),
       ob: s.ob,
       hazard: s.hazard,
       sand: s.sand,

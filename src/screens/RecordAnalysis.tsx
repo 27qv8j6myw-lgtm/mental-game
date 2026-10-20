@@ -69,12 +69,11 @@ export function RecordAnalysis({ s, rounds }: { s: RecordSummary; rounds?: numbe
 }
 
 /**
- * 티샷 결과: 반원에 방향(훅·적중·짧음·슬라이스) 비중, 오른쪽에 벙커·패널티.
- * 방향 비율과 페어웨이 적중률은 방향을 적은 홀 기준, 벙커·패널티는 전체 티샷(친 파4·5 홀) 중 비중
+ * 티샷 결과: 반원에 방향(훅·적중·짧음·슬라이스) 비중, 오른쪽에 벙커·OB·해저드.
+ * 방향 비율과 페어웨이 적중률은 방향을 적은 홀 기준, 벙커·OB·해저드는 전체 티샷(친 파4·5 홀) 중 비중
  */
 function TeeShotChart({ s }: { s: RecordSummary }) {
   const { left, hit, short, right } = s.mix;
-  const { bunker, penalty } = s.lies;
   const dirShare = (n: number) => (s.fairway.d === 0 ? "—" : `${Math.round((n / s.fairway.d) * 100)}%`);
   const allShare = (n: number) => (s.teeShots === 0 ? "—" : `${Math.round((n / s.teeShots) * 100)}%`);
   // 반원: 왼쪽 끝 = 훅 → 적중 → 짧음 → 오른쪽 끝 = 슬라이스
@@ -129,16 +128,19 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
         </svg>
       </div>
       <div className="ts-side">
-        <div className="ts-box bunker">
-          <span>벙커</span>
-          <b>{bunker}</b>
-          <small>{allShare(bunker)}</small>
-        </div>
-        <div className="ts-box penalty">
-          <span>패널티</span>
-          <b>{penalty}</b>
-          <small>{allShare(penalty)}</small>
-        </div>
+        {(
+          [
+            ["bunker", "벙커"],
+            ["ob", "OB"],
+            ["hazard", "해저드"],
+          ] as const
+        ).map(([k, label]) => (
+          <div className={`ts-box ${k}`} key={k}>
+            <span>{label}</span>
+            <b>{s.lies[k]}</b>
+            <small>{allShare(s.lies[k])}</small>
+          </div>
+        ))}
         <span className="ts-side-note">전체 티샷 {s.teeShots}개 중</span>
       </div>
       {/* 범례는 카드 폭 전체: 첫째 줄 훅·적중·슬라이스 / 둘째 줄 짧음·미입력 */}
@@ -188,7 +190,7 @@ function ScoreBars({ s }: { s: RecordSummary }) {
   );
 }
 
-/** 스코어카드 티샷 칸: 방향은 입력 버튼과 같은 아이콘. 벙커면 갈색, 패널티면 빨간색으로 칠한다 */
+/** 스코어카드 티샷 칸: 방향은 입력 버튼과 같은 아이콘. 벙커면 갈색, OB·해저드면 빨간색으로 칠한다 */
 const FW_MARK: Record<Fairway, JSX.Element> = {
   hit: <Icon name="ring" size={13} strokeWidth={2.4} />,
   left: <Icon name="hook" size={14} strokeWidth={2.2} />,
@@ -280,7 +282,7 @@ export function RecordScorecard({ holes }: { holes: HoleRecord[] }) {
                     ? "–"
                     : h.fairway
                     ? FW_MARK[h.fairway]
-                    : // 방향 없이 벙커·패널티만 고른 홀은 그 색 점으로
+                    : // 방향 없이 벙커·OB·해저드만 고른 홀은 그 색 점으로
                       h.lie && "●"}
                 </td>
               ))}
@@ -325,7 +327,7 @@ export function RecordScorecard({ holes }: { holes: HoleRecord[] }) {
       <p className="rsc-legend">
         티샷 <Icon name="hook" size={12} /> 훅 <Icon name="ring" size={11} /> 적중{" "}
         <Icon name="short" size={11} /> 짧음 <Icon name="slice" size={12} /> 슬라이스 ·{" "}
-        <b className="lg-bunker">벙커는 갈색</b> · <b className="lg-penalty">패널티는 빨간색</b> · GIR ● 정규
+        <b className="lg-bunker">벙커는 갈색</b> · <b className="lg-penalty">OB·해저드는 빨간색</b> · GIR ● 정규
         온
       </p>
     </div>
