@@ -291,6 +291,17 @@ p {
   min-width: 0;
   max-width: 100%;
 }
+/* 선택 상자: 기기(특히 iOS 버전)마다 다른 기본 모양 대신 입력칸과 같은 모양·폭으로 그린다 */
+select.input {
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-size: 16px;
+}
 /* iOS/Safari 의 date·time 인풋이 칸을 벗어나 겹치는 문제 방지 */
 input[type="date"].input,
 input[type="time"].input {
@@ -1845,13 +1856,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .kga-rating .kga-miss {
   color: var(--mustard);
   font-weight: 700;
-}
-.kga-rating select.input {
-  flex: none;
-  width: auto;
-  height: 34px;
-  padding: 0 10px;
-  font-size: 13px;
 }
 .ri-sub {
   font-size: 12.5px;
@@ -4266,17 +4270,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
   text-align: center;
 }
-.rsc-lie {
-  display: block;
-  font-size: 10px;
+/* 스코어카드 티샷: 벙커는 갈색, 패널티는 빨간색 (방향 색보다 우선) */
+.rsc-table td.lie-bunker,
+.rsc-legend .lg-bunker {
+  color: #92400e;
+}
+.rsc-table td.lie-penalty,
+.rsc-legend .lg-penalty {
+  color: var(--loss);
+}
+.rsc-legend b {
   font-weight: 800;
-  line-height: 1.1;
-}
-.rsc-lie.bunker {
-  color: var(--mustard);
-}
-.rsc-lie.penalty {
-  color: var(--terra);
 }
 /* 내기 홀 진행: 내 이름을 누르면 내 기록 입력칸 */
 .player-head .pname-btn {

@@ -188,14 +188,13 @@ function ScoreBars({ s }: { s: RecordSummary }) {
   );
 }
 
-/** 스코어카드 티샷 칸: 방향은 입력 버튼과 같은 아이콘, 벙커·패널티는 그 아래 B·P */
+/** 스코어카드 티샷 칸: 방향은 입력 버튼과 같은 아이콘. 벙커면 갈색, 패널티면 빨간색으로 칠한다 */
 const FW_MARK: Record<Fairway, JSX.Element> = {
   hit: <Icon name="ring" size={13} strokeWidth={2.4} />,
   left: <Icon name="hook" size={14} strokeWidth={2.2} />,
   short: <Icon name="short" size={13} strokeWidth={2.4} />,
   right: <Icon name="slice" size={14} strokeWidth={2.2} />,
 };
-const LIE_MARK = { bunker: "B", penalty: "P" } as const;
 /** 파 대비: +1 / E / -1 */
 const relText = (n: number) => (n === 0 ? "E" : n > 0 ? `+${n}` : `${n}`);
 
@@ -273,15 +272,16 @@ export function RecordScorecard({ holes }: { holes: HoleRecord[] }) {
             <tr>
               <td>티샷</td>
               {part.map((h) => (
-                <td key={h.hole} className={h.fairway ? `fw-${h.fairway}` : ""}>
-                  {h.par === 3 ? (
-                    "–"
-                  ) : (
-                    <>
-                      {h.fairway && FW_MARK[h.fairway]}
-                      {h.lie && <span className={`rsc-lie ${h.lie}`}>{LIE_MARK[h.lie]}</span>}
-                    </>
-                  )}
+                <td
+                  key={h.hole}
+                  className={`${h.fairway ? `fw-${h.fairway}` : ""} ${h.lie ? `lie-${h.lie}` : ""}`}
+                >
+                  {h.par === 3
+                    ? "–"
+                    : h.fairway
+                    ? FW_MARK[h.fairway]
+                    : // 방향 없이 벙커·패널티만 고른 홀은 그 색 점으로
+                      h.lie && "●"}
                 </td>
               ))}
               <td />
@@ -324,8 +324,9 @@ export function RecordScorecard({ holes }: { holes: HoleRecord[] }) {
       ))}
       <p className="rsc-legend">
         티샷 <Icon name="hook" size={12} /> 훅 <Icon name="ring" size={11} /> 적중{" "}
-        <Icon name="short" size={11} /> 짧음 <Icon name="slice" size={12} /> 슬라이스 B 벙커 P
-        패널티 · GIR ● 정규 온
+        <Icon name="short" size={11} /> 짧음 <Icon name="slice" size={12} /> 슬라이스 ·{" "}
+        <b className="lg-bunker">벙커는 갈색</b> · <b className="lg-penalty">패널티는 빨간색</b> · GIR ● 정규
+        온
       </p>
     </div>
   );

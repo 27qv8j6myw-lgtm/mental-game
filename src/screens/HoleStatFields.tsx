@@ -68,7 +68,12 @@ export default function HoleStatFields({
                   className={`sbtn rec-fw ${stat.fairway === f ? `active ${f}` : ""}`}
                   aria-label={label}
                   aria-pressed={stat.fairway === f}
-                  onClick={() => onChange({ fairway: stat.fairway === f ? null : f })}
+                  onClick={() =>
+                    // 적중은 페어웨이에 떨어진 것이라 벙커·패널티와 함께 고를 수 없다
+                    onChange(
+                      stat.fairway === f ? { fairway: null } : f === "hit" ? { fairway: f, lie: null } : { fairway: f }
+                    )
+                  }
                 >
                   <Icon name={icon} size={20} strokeWidth={2.2} />
                 </button>
@@ -80,6 +85,7 @@ export default function HoleStatFields({
                   key={l}
                   className={`sbtn rec-fw ${stat.lie === l ? `active ${l}` : ""}`}
                   aria-pressed={stat.lie === l}
+                  disabled={stat.fairway === "hit"}
                   onClick={() => onChange({ lie: stat.lie === l ? null : l })}
                 >
                   {label}

@@ -78,8 +78,6 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const [kga, setKga] = useState<KgaData | null>(null);
   const [club, setClub] = useState<KgaClub | null>(null);
   const [courseIdx, setCourseIdx] = useState(-1);
-  /** 직접 고른 KGA 티 이름. 없으면 티 박스로 자동으로 찾는다 */
-  const [kgaTee, setKgaTee] = useState<string | null>(null);
   useEffect(() => {
     loadKga()
       .then(setKga)
@@ -88,7 +86,6 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const pickClub = (c: KgaClub | null, name?: string) => {
     setClub(c);
     setCourseIdx(c && c.courses.length === 1 ? 0 : -1);
-    setKgaTee(null);
     if (name !== undefined) setCourseName(name);
   };
   // 이름을 고치면 고른 골프장은 풀고, 목록의 이름과 같으면(띄어쓰기·CC 무시) 바로 고른다
@@ -101,11 +98,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const similar =
     kga && !club && suggestions.length === 0 ? similarClubs(kga, courseName) : [];
   const course = club && courseIdx >= 0 ? club.courses[courseIdx] : null;
-  const ratingTee = course
-    ? kgaTee && course.tees.some((t) => t[0] === kgaTee)
-      ? kgaTee
-      : matchTee(course, tee)
-    : null;
+  // 위에서 고른 티 박스에 맞는 이 코스의 KGA 티
+  const ratingTee = course ? matchTee(course, tee) : null;
   const rating = kga && club && course && ratingTee ? courseRating(kga, club, course, ratingTee) : null;
 
   const isCustomUnit = !UNITS.includes(unit);
@@ -211,10 +205,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               <select
                 className="input"
                 value={courseIdx}
-                onChange={(e) => {
-                  setCourseIdx(Number(e.target.value));
-                  setKgaTee(null);
-                }}
+                onChange={(e) => setCourseIdx(Number(e.target.value))}
               >
                 {courseIdx < 0 && <option value={-1}>코스를 골라 주세요</option>}
                 {club.courses.map((c, i) => (
@@ -266,17 +257,14 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                 <button
                   key={t}
                   className={tee === t ? `active ${t}` : ""}
-                  onClick={() => {
-                    setTee(t);
-                    setKgaTee(null);
-                  }}
+                  onClick={() => setTee(t)}
                 >
                   <span className={`tee-dot ${t}`} />
                   {label}
                 </button>
               ))}
             </div>
-            {/* 고른 코스·티의 KGA 레이팅. 티 이름이 달라 못 찾으면 직접 고른다 */}
+            {/* 고른 코스·티의 KGA 레이팅 */}
             {course && (
               <div className="kga-rating">
                 {rating ? (
@@ -287,21 +275,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                       .join(" · ")}
                   </span>
                 ) : (
-                  <span className="kga-miss">이 코스에는 고른 티의 레이팅이 없어요. 티를 골라 주세요.</span>
+                  <span className="kga-miss">이 코스에는 고른 티의 KGA 레이팅이 없어요.</span>
                 )}
-                <select
-                  className="input"
-                  value={ratingTee ?? ""}
-                  onChange={(e) => setKgaTee(e.target.value)}
-                  aria-label="레이팅 티"
-                >
-                  {!ratingTee && <option value="">레이팅 티 선택</option>}
-                  {[...new Set(course.tees.map((t) => t[0]))].map((name) => (
-                    <option key={name} value={name}>
-                      {name} 티
-                    </option>
-                  ))}
-                </select>
               </div>
             )}
           </div>
