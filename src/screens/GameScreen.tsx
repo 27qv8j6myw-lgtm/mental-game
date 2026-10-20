@@ -96,6 +96,9 @@ export default function GameScreen({ session }: { session: Session }) {
           <div className="num">{idx + 1}번 홀</div>
           <div className="lbl">
             PAR {hole.par} · {idx + 1} / {holes.length}
+            {!!session.pendingSaves && (
+              <span className="pending"> · 저장 대기 {session.pendingSaves}개</span>
+            )}
           </div>
         </div>
         <button

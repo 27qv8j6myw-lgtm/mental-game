@@ -6,16 +6,25 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth";
 import { bundleConfig, bundleHoles } from "./model";
 import {
+  applyOp,
+  clearPending,
+  queueSave,
+  setPendingUser,
+  subscribePending,
+  waitingCount,
+  withPending,
+  type SaveOp,
+} from "./pending";
+import {
   getRoundBundle,
   leaveOrDeleteRound,
-  setPar as apiSetPar,
   setRoundStatus,
-  setScore as apiSetScore,
   subscribeRound,
   updateMyPlayer,
   updateRound as apiUpdateRound,
@@ -86,6 +95,26 @@ const writeActive = (id: string | null) => {
   }
 };
 
+/** 보던 라운드의 마지막 화면 데이터. 통신이 없는 골프장에서 앱을 다시 열어도 바로 보여준다 */
+const CACHE_KEY = "mentalgame-round-cache";
+
+const readCache = (id: string): RoundBundle | null => {
+  try {
+    const b = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null") as RoundBundle | null;
+    return b?.round?.id === id ? b : null;
+  } catch {
+    return null;
+  }
+};
+const writeCache = (b: RoundBundle | null) => {
+  try {
+    if (b) localStorage.setItem(CACHE_KEY, JSON.stringify(b));
+    else localStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* 저장소를 쓸 수 없는 환경: 오프라인으로 다시 열면 불러올 때까지 기다릴 뿐 */
+  }
+};
+
 /** 마지막으로 스코어가 입력된 홀: 전원 입력이 끝났으면 다음 홀, 아니면 그 홀 */
 function resumeHole(b: RoundBundle): number {
   const last = b.scores.reduce((m, s) => Math.max(m, s.hole_index), -1);
@@ -120,6 +149,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     activeRef.current = null;
     resumedFor.current = null;
     writeActive(null);
+    writeCache(null);
     setActiveRoundId(null);
     setBundle(null);
     setCurrentHole(0);
@@ -146,7 +176,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
         if (!id) break;
         try {
           const b = await getRoundBundle(id);
-          if (activeRef.current === id) setBundle(b);
+          if (activeRef.current === id) setBundle(withPending(b));
         } catch (e) {
           console.error("라운드 조회 실패", e);
         }
@@ -159,9 +189,15 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!activeRoundId) return;
     let alive = true;
+    // 마지막으로 받은 데이터를 먼저 보여주고, 서버에서 받으면 바꾼다
+    const cached = readCache(activeRoundId);
+    if (cached) {
+      setBundle(withPending(cached));
+      setLoading(false);
+    }
     getRoundBundle(activeRoundId)
       .then((b) => {
-        if (alive) setBundle(b);
+        if (alive) setBundle(withPending(b));
       })
       .catch((e) => {
         console.error("라운드 조회 실패", e);
@@ -174,11 +210,37 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     const unsub = subscribeRound(activeRoundId, () => {
       void refresh();
     });
+    // 다시 연결되거나 앱이 다시 보이면 다시 불러온다.
+    // 오프라인으로 열어 못 불러온 라운드, 꺼져 있던 사이 놓친 다른 사람의 입력을 받는다
+    const reload = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    window.addEventListener("online", reload);
+    document.addEventListener("visibilitychange", reload);
     return () => {
       alive = false;
       unsub();
+      window.removeEventListener("online", reload);
+      document.removeEventListener("visibilitychange", reload);
     };
   }, [activeRoundId, refresh, closeRound]);
+
+  // 화면에 보이는 그대로(내가 입력한 값 포함) 보관해 두었다가 오프라인으로 다시 열 때 쓴다
+  useEffect(() => {
+    if (bundle && bundle.round.id === activeRef.current) writeCache(bundle);
+  }, [bundle]);
+
+  // 저장 대기열: 로그인한 뒤에만 보내고, 밀려 있던 기록을 다 보내면 서버 값으로 다시 맞춘다
+  // (끊긴 사이 다른 사람이 입력한 스코어도 함께 받는다)
+  useEffect(() => setPendingUser(myUid), [myUid]);
+  useEffect(
+    () =>
+      subscribePending((recovered) => {
+        if (recovered && recovered === activeRef.current) void refresh();
+      }),
+    [refresh]
+  );
+  const pendingSaves = useSyncExternalStore(subscribePending, () => waitingCount(activeRoundId));
 
   useEffect(() => {
     if (!bundle || resumedFor.current === bundle.round.id) return;
@@ -274,45 +336,27 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const holes = useMemo<HoleScore[]>(() => (bundle ? bundleHoles(bundle) : []), [bundle]);
 
   // ---- optimistic mutations ----
-  const setScore = useCallback(
-    (holeIndex: number, playerId: string, value: number | null) => {
+  // 화면에 먼저 반영하고 저장 대기열(기기에 보관)을 거쳐 보낸다. 실패하면 대기열에 남아 나중에 다시 보낸다
+  const save = useCallback(
+    (op: SaveOp) => {
       if (!activeRoundId) return;
       // 종료된 라운드는 방장만 수정 가능
       if (bundle?.round.status === "done" && bundle.round.host_uid !== myUid) return;
-      setBundle((prev) => {
-        if (!prev) return prev;
-        const rest = prev.scores.filter(
-          (s) => !(s.hole_index === holeIndex && s.player_uid === playerId)
-        );
-        const scores =
-          value === null
-            ? rest
-            : [...rest, { hole_index: holeIndex, player_uid: playerId, rel: value }];
-        return { ...prev, scores };
-      });
-      apiSetScore(activeRoundId, holeIndex, playerId, value).catch((e) => {
-        console.error(e);
-        void refresh();
-      });
+      setBundle((prev) => (prev ? applyOp(prev, op) : prev));
+      queueSave(activeRoundId, op);
     },
-    [activeRoundId, refresh, bundle, myUid]
+    [activeRoundId, bundle, myUid]
+  );
+
+  const setScore = useCallback(
+    (holeIndex: number, playerId: string, value: number | null) =>
+      save({ kind: "score", hole: holeIndex, player: playerId, rel: value }),
+    [save]
   );
 
   const setPar = useCallback(
-    (holeIndex: number, par: ParValue) => {
-      if (!activeRoundId) return;
-      if (bundle?.round.status === "done" && bundle.round.host_uid !== myUid) return;
-      setBundle((prev) => {
-        if (!prev) return prev;
-        const rest = prev.holes.filter((h) => h.hole_index !== holeIndex);
-        return { ...prev, holes: [...rest, { hole_index: holeIndex, par }] };
-      });
-      apiSetPar(activeRoundId, holeIndex, par).catch((e) => {
-        console.error(e);
-        void refresh();
-      });
-    },
-    [activeRoundId, refresh, bundle, myUid]
+    (holeIndex: number, par: ParValue) => save({ kind: "par", hole: holeIndex, par }),
+    [save]
   );
 
   const session = useMemo<Session | null>(() => {
@@ -327,8 +371,9 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       setScore,
       status,
       isHost,
+      pendingSaves,
     };
-  }, [config, holes, currentHole, setPar, setScore, status, isHost, bundle]);
+  }, [config, holes, currentHole, setPar, setScore, status, isHost, bundle, pendingSaves]);
 
   const start = useCallback(async () => {
     if (!activeRoundId) return;
@@ -345,6 +390,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const leave = useCallback(async () => {
     if (!activeRoundId || !myUid) return;
     await leaveOrDeleteRound(activeRoundId, myUid, isHost);
+    clearPending(activeRoundId);
     closeRound();
   }, [activeRoundId, myUid, isHost, closeRound]);
 

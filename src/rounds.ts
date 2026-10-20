@@ -103,7 +103,9 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
       .select("hole_index,player_uid,rel")
       .eq("round_id", roundId),
   ]);
-  if (round.error) throw round.error;
+  // 통신이 약해 일부만 실패하면 빈 스코어로 덮어 화면에서 사라지므로 하나라도 실패하면 전체를 실패로 본다
+  const error = round.error ?? players.error ?? holes.error ?? scores.error;
+  if (error) throw error;
   return {
     round: round.data as RoundRow,
     players: (players.data as RoundPlayerRow[]) ?? [],
@@ -150,15 +152,33 @@ export async function updateRound(
   if (error) throw error;
 }
 
+/** 저장 대기열(pending.ts)이 다시 보내기 전에 라운드가 종료·삭제됐는지 확인한다. 볼 수 없으면 null */
+export async function getRoundMeta(
+  roundId: string,
+  signal: AbortSignal
+): Promise<Pick<RoundRow, "status" | "host_uid"> | null> {
+  const db = requireDb();
+  const { data, error } = await db
+    .from("rounds")
+    .select("status,host_uid")
+    .eq("id", roundId)
+    .abortSignal(signal)
+    .maybeSingle();
+  if (error) throw error;
+  return data as Pick<RoundRow, "status" | "host_uid"> | null;
+}
+
 export async function setPar(
   roundId: string,
   holeIndex: number,
-  par: number
+  par: number,
+  signal: AbortSignal
 ): Promise<void> {
   const db = requireDb();
   const { error } = await db
     .from("round_holes")
-    .upsert({ round_id: roundId, hole_index: holeIndex, par });
+    .upsert({ round_id: roundId, hole_index: holeIndex, par })
+    .abortSignal(signal);
   if (error) throw error;
 }
 
@@ -166,7 +186,8 @@ export async function setScore(
   roundId: string,
   holeIndex: number,
   playerUid: string,
-  rel: number | null
+  rel: number | null,
+  signal: AbortSignal
 ): Promise<void> {
   const db = requireDb();
   if (rel === null) {
@@ -175,12 +196,14 @@ export async function setScore(
       .delete()
       .eq("round_id", roundId)
       .eq("hole_index", holeIndex)
-      .eq("player_uid", playerUid);
+      .eq("player_uid", playerUid)
+      .abortSignal(signal);
     if (error) throw error;
   } else {
     const { error } = await db
       .from("round_scores")
-      .upsert({ round_id: roundId, hole_index: holeIndex, player_uid: playerUid, rel });
+      .upsert({ round_id: roundId, hole_index: holeIndex, player_uid: playerUid, rel })
+      .abortSignal(signal);
     if (error) throw error;
   }
 }

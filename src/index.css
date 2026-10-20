@@ -681,6 +681,10 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   margin-top: 5px;
   font-weight: 600;
 }
+/* 통신이 끊겨 아직 서버에 저장되지 못한 기록 수 */
+.hole-nav .center .lbl .pending {
+  color: var(--mustard);
+}
 
 .par-seg {
   display: flex;

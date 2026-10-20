@@ -179,4 +179,6 @@ export interface Session {
   isHost: boolean;
   /** 정산 확정 후 방장이 스코어를 고치는 중. 수정 완료 전까지는 저장되지 않는 초안이다 */
   editing?: boolean;
+  /** 통신이 끊겨 아직 서버에 저장되지 못한 스코어·파 수 (기기에 보관 중) */
+  pendingSaves?: number;
 }
