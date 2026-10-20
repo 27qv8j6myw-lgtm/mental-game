@@ -64,6 +64,20 @@ body {
   margin: 0;
   padding: 0;
 }
+/* iOS Safari: 가로로 돌렸을 때 글자가 임의로 커지지 않게,
+   점수 버튼 등을 빠르게 두 번 눌러도 화면이 확대되지 않게 (핀치 확대는 그대로) */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+button,
+input,
+select,
+label,
+[role="button"] {
+  touch-action: manipulation;
+}
 body {
   font-family: var(--font);
   font-size: 14px;
@@ -126,6 +140,7 @@ p {
   justify-content: space-between;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -1057,6 +1072,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   margin: 0 auto;
   display: flex;
   background: rgba(255, 255, 255, 0.94);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--line);
   padding-bottom: var(--safe-bottom);
@@ -1732,7 +1748,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 76px;
+  /* 탭바는 하단 안전 영역(홈 인디케이터)만큼 높아지므로 같은 만큼 올려 겹치지 않게 */
+  bottom: calc(76px + var(--safe-bottom));
   padding: 0 16px;
   max-width: 520px;
   margin: 0 auto;
@@ -2218,6 +2235,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* 정산 설정 수정: 제목·버튼은 고정, 가운데만 스크롤 (스크롤바 숨김) */
 .modal.settings-modal {
   max-height: 88vh;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
