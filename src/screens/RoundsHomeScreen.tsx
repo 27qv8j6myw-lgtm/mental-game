@@ -6,6 +6,8 @@ import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundListItem, RoundRow } from "../types";
 import { GAME_MODE_LABEL } from "../util";
 import { isAdmin } from "../admin";
+import { loadStats, type PersonStats } from "../stats";
+import { wonSigned } from "../util";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
@@ -21,9 +23,11 @@ const LINKABLE: { id: OAuthProvider; label: string }[] = [
 export default function RoundsHomeScreen({
   onCreate,
   onAdmin,
+  onStats,
 }: {
   onCreate: () => void;
   onAdmin: () => void;
+  onStats: () => void;
 }) {
   const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
     useAuth();
@@ -37,11 +41,18 @@ export default function RoundsHomeScreen({
   const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
   // 관리자 계정이면 프로필 메뉴에 대시보드 버튼을 보여준다
   const [admin, setAdmin] = useState(false);
+  // 내 전적 요약 (정산 확정 라운드가 있을 때만 카드로 보여준다)
+  const [myStats, setMyStats] = useState<PersonStats | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      setRounds(await listMyRounds());
+      const list = await listMyRounds();
+      setRounds(list);
+      if (user?.uid)
+        void loadStats(user.uid, list)
+          .then((st) => setMyStats(st.me))
+          .catch((e) => console.error("전적 불러오기 실패", e));
     } catch (e) {
       console.error(e);
     } finally {
@@ -239,6 +250,32 @@ export default function RoundsHomeScreen({
             </p>
           )}
         </div>
+
+        {myStats && myStats.rounds > 0 && (
+          <>
+            <div className="section-title">내 전적</div>
+            <button className="card stats-card" onClick={onStats}>
+              <span className="sc-ic">
+                <Icon name="trophy" size={20} />
+              </span>
+              <span className="sc-main">
+                <b>누적 금액</b>
+                <span>
+                  {myStats.rounds}라운드 · 1위 {myStats.firsts}번
+                  {myStats.avg18 != null && (
+                    <span className="nw"> · 평균 {myStats.avg18}타</span>
+                  )}
+                </span>
+              </span>
+              <span
+                className={`sc-amt ${myStats.total > 0 ? "pos" : myStats.total < 0 ? "neg" : ""}`}
+              >
+                {myStats.total === 0 ? "±0원" : wonSigned(myStats.total)}
+              </span>
+              <Icon name="chevronRight" size={18} className="st-row-go" />
+            </button>
+          </>
+        )}
 
         <div className="section-title">내 라운드</div>
         {loading ? (

@@ -3324,3 +3324,292 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 800;
   color: var(--ink-soft);
 }
+
+/* ============ 전적 ============ */
+.st-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.st-hero-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.st-hero-name span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.st-hero-name b {
+  font-size: 16px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-hero-amt {
+  flex: none;
+  font-family: var(--font-num);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.st-chips,
+.st-golf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.st-chips span,
+.st-golf span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.st-golf {
+  margin-top: 6px;
+}
+.st-golf span {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.st-chips b,
+.st-golf b {
+  margin: 0 1px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+/* 라운드별 금액 막대: 가운데 선 위는 딴 돈, 아래는 잃은 돈 */
+.st-bars {
+  display: flex;
+  gap: 3px;
+  height: 84px;
+  margin-top: 14px;
+  padding: 0 2px;
+}
+.st-bar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.st-up,
+.st-down {
+  flex: 1;
+  display: flex;
+}
+.st-up {
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line-strong);
+}
+.st-down {
+  align-items: flex-start;
+}
+.st-up span,
+.st-down span {
+  width: 100%;
+  min-height: 2px;
+}
+.st-up span {
+  border-radius: 3px 3px 0 0;
+  background: var(--gain);
+}
+.st-down span {
+  border-radius: 0 0 3px 3px;
+  background: var(--loss);
+}
+
+/* 사람 목록·라운드 기록 */
+.st-list {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.st-row,
+.st-rec {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.st-row {
+  cursor: pointer;
+}
+.st-row:active {
+  opacity: 0.6;
+}
+.st-row:last-child,
+.st-rec:last-child {
+  border-bottom: none;
+}
+.st-row .rank {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--paper-3);
+}
+.st-row .rank.top {
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}
+.st-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.st-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14.5px;
+  font-weight: 800;
+  min-width: 0;
+}
+.st-row-sub {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.st-row-sub .nw {
+  white-space: nowrap;
+}
+.st-row-amt {
+  flex: none;
+  font-weight: 900;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.st-row-go {
+  flex: none;
+  color: var(--ink-faint);
+}
+.st-rec-date {
+  flex: none;
+  width: 40px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.st-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 10px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* 나와 맞대결 */
+.st-vs-score {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+}
+.st-vs-score b {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 900;
+}
+.st-vs-mid {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+.st-vs-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--paper-3);
+}
+.st-vs-bar span {
+  flex-basis: 0;
+}
+.st-vs-bar .w {
+  background: var(--gain);
+}
+.st-vs-bar .d {
+  background: var(--line-strong);
+}
+.st-vs-bar .l {
+  background: var(--loss);
+}
+
+/* 홈: 내 전적 카드 */
+.stats-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.stats-card:active {
+  opacity: 0.7;
+}
+.stats-card .sc-ic {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}
+.stats-card .sc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stats-card .sc-main b {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.stats-card .sc-main span {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.stats-card .sc-main .nw {
+  white-space: nowrap;
+}
+.stats-card .sc-amt {
+  flex: none;
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}

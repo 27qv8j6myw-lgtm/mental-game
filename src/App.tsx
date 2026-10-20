@@ -8,6 +8,7 @@ import RoundsHomeScreen from "./screens/RoundsHomeScreen";
 import CreateRoundScreen from "./screens/CreateRoundScreen";
 import LobbyScreen from "./screens/LobbyScreen";
 import AdminScreen from "./screens/AdminScreen";
+import StatsScreen from "./screens/StatsScreen";
 import { Icon } from "./icons";
 import { appendEditLog, scoreText } from "./util";
 import type { HoleScore, Session } from "./types";
@@ -33,7 +34,7 @@ export default function App() {
 
 function MemberFlow() {
   const round = useRound();
-  const [view, setView] = useState<"home" | "create" | "admin">("home");
+  const [view, setView] = useState<"home" | "create" | "admin" | "stats">("home");
 
   if (round.activeRoundId) {
     if (round.loading || !round.session) {
@@ -62,8 +63,13 @@ function MemberFlow() {
 
   if (view === "create") return <CreateRoundScreen onCancel={() => setView("home")} />;
   if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
+  if (view === "stats") return <StatsScreen onClose={() => setView("home")} />;
   return (
-    <RoundsHomeScreen onCreate={() => setView("create")} onAdmin={() => setView("admin")} />
+    <RoundsHomeScreen
+      onCreate={() => setView("create")}
+      onAdmin={() => setView("admin")}
+      onStats={() => setView("stats")}
+    />
   );
 }
 
