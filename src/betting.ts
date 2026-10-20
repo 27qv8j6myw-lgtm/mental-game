@@ -406,6 +406,16 @@ export const CLASSIC_SKINS: SkinsRules = {
   maxMultiplier: null,
 };
 
+/**
+ * 마지막 홀 나눠 갖기: 진 사람 한 명이 동타인 사람 각자에게 주는 금액.
+ * 나누어 떨어지면 그대로, 아니면(4,000원 ÷ 3 등) 천 원 단위로 반올림하되 최소 1,000원
+ */
+export function splitShare(value: number, ways: number): number {
+  const exact = value / ways;
+  if (Number.isInteger(exact)) return exact;
+  return Math.max(1000, Math.round(exact / 1000) * 1000);
+}
+
 /** 후반 가중이 붙는 마지막 홀 수 */
 export const LATE_HOLES = 3;
 
@@ -415,7 +425,8 @@ export const LATE_HOLES = 3;
  * - 최저 동타면 다음 홀로 이월: 기본 +1개, '이월 2배'면 2배씩
  * - '버디 배수'면 버디로 이길 때 ×2, 이글 이상 ×3 / '후반 가중'이면 마지막 3개 홀 ×2
  * - 이월 2배·버디·후반 배수를 곱한 값은 총 상한을 넘지 않는다 (+1개씩 쌓인 스킨은 상한과 무관)
- * - 마지막 홀이 최저 동타면 동타인 사람끼리 나눠 가진다. 전원 동타면 남은 스킨은 소멸
+ * - 마지막 홀이 최저 동타면 동타인 사람끼리 나눠 가진다. 나누어 떨어지지 않으면(3명 등)
+ *   1인당 금액을 천 원 단위로 반올림하되 최소 1,000원. 전원 동타면 남은 스킨은 소멸
  * 배판·버디 추가 정산은 없고 핸디캡은 따로 정산한다.
  */
 export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult {
@@ -469,7 +480,7 @@ export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult
         // 마지막 홀 최저 동타: 나머지 사람이 낸 스킨을 동타인 사람끼리 나눈다
         status = "split";
         winnerIds = leaders.map((p) => p.id);
-        const share = Math.round(value / leaders.length);
+        const share = splitShare(value, leaders.length);
         for (const p of players) {
           if (winnerIds.includes(p.id)) continue;
           for (const id of winnerIds) {

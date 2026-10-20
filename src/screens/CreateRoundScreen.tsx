@@ -166,7 +166,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           <GameModeField value={gameMode} onChange={setGameMode} />
         </div>
 
-        <div className="section-title">타당 금액</div>
+        <div className="section-title">{gameMode === "skins" ? "홀당 금액" : "타당 금액"}</div>
         <div className="card">
           <div className="unit-chips">
             {UNITS.map((u) => (
