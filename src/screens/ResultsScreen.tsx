@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   adjustedRel,
   birdieEvents,
@@ -44,11 +44,24 @@ async function copyToClipboard(text: string) {
   }
 }
 
-/** 표 안의 금액: 단위(원) 없이 부호만 */
-const signed = (n: number) =>
-  n === 0 ? "0" : `${n > 0 ? "+" : "-"}${Math.abs(Math.round(n)).toLocaleString("ko-KR")}`;
+/** 홀별 검증 표 금액 (원 단위, 단위 표시 없이 부호만): 40,000 → +40,000 */
+const signedWon = (n: number) => {
+  const r = Math.round(n);
+  return r === 0 ? "0" : `${r > 0 ? "+" : "-"}${Math.abs(r).toLocaleString("ko-KR")}`;
+};
+/** 홀별 검증 표 금액 (만원 단위, 천원 단위는 소수점): 125,000 → +12.5만 */
+const signedMan = (n: number) => {
+  const r = Math.round(n);
+  if (r === 0) return "0";
+  const man = (Math.abs(r) / 10_000).toLocaleString("ko-KR", { maximumFractionDigits: 4 });
+  return `${r > 0 ? "+" : "-"}${man}만`;
+};
 
 const tone = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
+
+/** 홀별 검증 표 금액 글자 크기(px). 만원 단위로도 안 들어갈 만큼 크면 그때만 줄인다 */
+const AMT_MAX = 13;
+const AMT_MIN = 9;
 
 export default function ResultsScreen({
   session,
@@ -64,6 +77,8 @@ export default function ResultsScreen({
   const { myUid, updateMe } = useRound();
   const { saveBankAccount } = useAuth();
   const [copied, setCopied] = useState<string | null>(null);
+  /** 버디 추가 정산: 내역을 펼친 사람 */
+  const [bdOpen, setBdOpen] = useState<Record<string, boolean>>({});
   const isTransfer = config.payment === "transfer";
   const me = config.players.find((p) => p.id === myUid);
 
@@ -93,7 +108,6 @@ export default function ResultsScreen({
     holes.reduce((s, h) => (h.scores[id] != null ? s + h.par + (h.scores[id] as number) : s), 0);
   /** 그 사람이 친 홀들의 파 합계 (18홀 기본 72, 파 설정에 따라 71 등으로 자동 계산) */
   const parOf = (id: string) => holes.reduce((s, h) => (h.scores[id] != null ? s + h.par : s), 0);
-  const coursePar = holes.reduce((s, h) => s + h.par, 0);
 
   const standings = [...config.players]
     .map((p) => ({ p, net: final.net[p.id] ?? 0 }))
@@ -175,6 +189,47 @@ export default function ResultsScreen({
   const vBd = breakdowns[vi];
   const vSkin = skins?.holes[vi] ?? null;
 
+  // 홀별 검증 표: 모든 칸이 같은 넓이. 금액은 원 단위로 보여 주고, 이 홀의 금액 중 하나라도
+  // 칸에 안 들어가면 이 홀의 금액을 모두 만원 단위로 바꾼다 (원·만원이 섞이면 읽기 어려우니)
+  const vAmts = vSkin ? [vSkin.net, vSkin.cumulative] : [vBd.game, vBd.birdie, vBd.cumulative];
+  /** 금액 칸마다 가장 긴 표시 (마지막 칸 = 누적) */
+  const longestOf = (fmt: (n: number) => string) =>
+    vAmts.map((m) =>
+      config.players.reduce((best, p) => {
+        const s = fmt(m[p.id] ?? 0);
+        return s.length > best.length ? s : best;
+      }, "0")
+    );
+  const wonLongest = longestOf(signedWon);
+  const manLongest = longestOf(signedMan);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const wonProbeRef = useRef<HTMLDivElement>(null);
+  const manProbeRef = useRef<HTMLDivElement>(null);
+  const [amtFmt, setAmtFmt] = useState({ man: false, size: AMT_MAX });
+  useLayoutEffect(() => {
+    const table = tableRef.current;
+    if (!table || !wonProbeRef.current || !manProbeRef.current) return;
+    /** 가장 긴 금액을 최대 글자 크기로 그렸을 때의 폭 */
+    const widest = (el: HTMLElement) =>
+      Math.max(...[...el.children].map((c) => c.getBoundingClientRect().width));
+    const fit = () => {
+      const cell = table.querySelector<HTMLElement>("td.vf-amt");
+      if (!cell || !wonProbeRef.current || !manProbeRef.current) return;
+      const cs = getComputedStyle(cell);
+      const room = cell.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const man = widest(wonProbeRef.current) > room;
+      const need = man ? widest(manProbeRef.current) : 0;
+      const size =
+        need > room ? Math.max(AMT_MIN, Math.floor(((AMT_MAX * room) / need) * 2) / 2) : AMT_MAX;
+      setAmtFmt((prev) => (prev.man === man && prev.size === size ? prev : { man, size }));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(table);
+    return () => ro.disconnect();
+  }, [wonLongest.join("|"), manLongest.join("|")]);
+  const fmtAmt = amtFmt.man ? signedMan : signedWon;
+
   return (
     <>
       <div className="result-hero">
@@ -193,7 +248,7 @@ export default function ResultsScreen({
         )}
       </div>
 
-      <div className="sheet">
+      <div className="sheet results">
         {session.isHost && (
           <div className="host-edit">
             <button className="btn-line" onClick={onEditScores}>
@@ -225,10 +280,6 @@ export default function ResultsScreen({
           );
         })}
         </div>
-        <p className="hint" style={{ margin: "2px 2px 0" }}>
-          타원 안의 왼쪽은 타수, 오른쪽은 오늘 핸디캡(타수 − 파 {coursePar}타 기준)이에요.
-          덜 친 홀이 있으면 친 홀의 파만 합산해요.
-        </p>
 
         {skins ? (
           <>
@@ -295,12 +346,6 @@ export default function ResultsScreen({
 
             {/* 2) 버디 추가 정산 */}
             <div className="section-title">② 버디 추가 정산</div>
-            {!config.rules.birdieDouble && (
-              <p className="hint" style={{ margin: "0 2px 10px" }}>
-                버디는 <b>1타</b>, 이글은 <b>2타</b> 값(타당 금액 × 그 홀 배수)을 그 홀 다른 참여자
-                모두에게서 받아요. 합계 = 내 버디로 받은 돈 − 다른 사람 버디로 낸 돈.
-              </p>
-            )}
             <div className="card">
               {config.rules.birdieDouble ? (
                 <div className="empty-note">
@@ -315,17 +360,25 @@ export default function ResultsScreen({
                   const paidSum = paid.reduce((s, e) => s + e.perPayer, 0);
                   const label =
                     got.length > 0 ? `버디 ${got.length}개` : paid.length > 0 ? "버디 정산" : "버디 없음";
+                  // 내역은 평소엔 접어 두고, 줄을 누르면 아래로 펼친다
+                  const hasDetail = got.length > 0 || paid.length > 0;
+                  const open = hasDetail && !!bdOpen[p.id];
                   return (
                     <div className="bd-player" key={p.id}>
-                      <div className="bd-head">
+                      <button
+                        className="bd-head"
+                        disabled={!hasDetail}
+                        aria-expanded={hasDetail ? open : undefined}
+                        onClick={() => setBdOpen((o) => ({ ...o, [p.id]: !o[p.id] }))}
+                      >
                         <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
                         <b>{p.name || "?"}</b>
                         <span className="bd-tag">{label}</span>
                         <span className={`bd-total ${tone(v)}`}>
                           {v === 0 ? "±0원" : wonSigned(v)}
                         </span>
-                      </div>
-                      {got.length > 0 && (
+                      </button>
+                      {open && got.length > 0 && (
                         <div className="bd-group">
                           <div className="bd-gt">
                             <span>내 버디로 받은 돈</span>
@@ -344,7 +397,7 @@ export default function ResultsScreen({
                           ))}
                         </div>
                       )}
-                      {paid.length > 0 && (
+                      {open && paid.length > 0 && (
                         <div className="bd-group">
                           <div className="bd-gt">
                             <span>다른 사람 버디로 낸 돈</span>
@@ -438,15 +491,6 @@ export default function ResultsScreen({
 
         {/* 4) 최종 송금 */}
         <div className="section-title">{N(4)} 최종 송금 (최소 횟수)</div>
-        <p className="hint" style={{ margin: "0 2px 10px" }}>
-          {(isSkins ? "스킨" : "게임 + 버디") +
-            (isAdjust
-              ? " 합산 (핸디캡은 타수 보정으로 반영)."
-              : isPost
-              ? " + 핸디캡을 모두 합산했습니다."
-              : " 합산 (핸디캡은 현금으로 사전 지급).")}
-          {isTransfer && " 줄마다 받는 사람 계좌와 금액을 복사할 수 있어요."}
-        </p>
         {isTransfer && me && (
           <div className="card my-acct">
             <AccountField
@@ -540,7 +584,11 @@ export default function ResultsScreen({
             )}
           </div>
 
-          <table className="vf-table">
+          <table
+            className="vf-table"
+            ref={tableRef}
+            style={{ "--vf-amt": `${amtFmt.size}px` } as CSSProperties}
+          >
             <thead>
               <tr>
                 <th>이름</th>
@@ -586,20 +634,30 @@ export default function ResultsScreen({
                         {rel != null && <small>{relLabel(rel)}</small>}
                       </span>
                     </td>
-                    <td className={tone(g)}>{signed(g)}</td>
-                    {!vSkin && <td className={tone(b)}>{signed(b)}</td>}
-                    <td className={`vf-cum ${tone(c)}`}>{signed(c)}</td>
+                    <td className={`vf-amt ${tone(g)}`}>{fmtAmt(g)}</td>
+                    {!vSkin && <td className={`vf-amt ${tone(b)}`}>{fmtAmt(b)}</td>}
+                    <td className={`vf-amt vf-cum ${tone(c)}`}>{fmtAmt(c)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          <p className="hint" style={{ marginTop: 10 }}>
-            {vSkin
-              ? "금액 단위는 원이에요. 누적은 이 홀까지의 스킨 합계이고, 마지막 홀의 누적이 ① 결과와 같아요. (핸디캡 제외)"
-              : "금액 단위는 원이에요. 누적은 이 홀까지의 게임 + 버디 합계이고, 마지막 홀의 누적이 ①+② 결과와 같아요. (핸디캡 제외)"}
-            {isAdjust && " 이름 옆 파란 배지는 이 홀에서 타수 보정으로 뺀 타수예요."}
-          </p>
+          {/* 단위 판단용: 이 홀에서 칸마다 가장 긴 금액을 원·만원 단위로 그려 폭을 잰다 (화면엔 안 보임) */}
+          <div className="vf-probe" ref={wonProbeRef} aria-hidden>
+            {wonLongest.map((s, i) => (
+              <span key={i}>{s}</span>
+            ))}
+          </div>
+          <div className="vf-probe" ref={manProbeRef} aria-hidden>
+            {manLongest.map((s, i) => (
+              <span key={i}>{s}</span>
+            ))}
+          </div>
+          {isAdjust && (
+            <p className="hint" style={{ marginTop: 10 }}>
+              이름 옆 파란 배지는 이 홀에서 타수 보정으로 뺀 타수예요.
+            </p>
+          )}
         </div>
 
         {/* 6) 정산 확정 후 수정 내역: 모든 참여자에게 공개 */}

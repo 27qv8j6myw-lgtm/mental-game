@@ -226,6 +226,12 @@ p {
   gap: 6px;
   letter-spacing: -0.01em;
 }
+/* 정산 결과: ① 게임 순수 정산 같은 섹션 제목은 본문보다 크게 */
+.sheet.results > .section-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
 .hint {
   font-size: 12.5px;
   color: var(--ink-faint);
@@ -1933,6 +1939,15 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+}
+.bd-head:disabled {
+  cursor: default;
+}
+.bd-head:not(:disabled):active {
+  opacity: 0.6;
 }
 .bd-head b {
   font-weight: 700;
@@ -2134,6 +2149,37 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
 }
 .vf-table .vf-cum {
+  font-weight: 900;
+}
+/* 모든 칸 같은 넓이: 홀마다 금액 길이가 달라도 칸이 움직이지 않게 */
+.vf-table {
+  table-layout: fixed;
+}
+.vf-table td.vf-score {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+/* 금액 글자 크기는 라운드에서 가장 긴 금액에 맞춰 화면에서 정한다 (--vf-amt) */
+.vf-table td.vf-amt {
+  font-size: var(--vf-amt, 13px);
+  padding-left: 2px;
+  padding-right: 2px;
+  overflow: hidden;
+}
+.vf-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* 마지막 칸(누적)은 굵게 표시하므로 같은 굵기로 잰다 */
+.vf-probe span:last-child {
   font-weight: 900;
 }
 
@@ -3026,8 +3072,12 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .vf-name-in {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
+}
+/* 칸 넓이가 모두 같아 이름 칸이 좁다: 3글자 이름 + 배지가 들어가게 오른쪽 여백을 줄인다 */
+.vf-table td.vf-name {
+  padding-right: 2px;
 }
 .vf-nm {
   min-width: 0;
@@ -3036,15 +3086,15 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .vf-adj {
   flex: none;
-  min-width: 18px;
-  height: 17px;
-  padding: 0 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   background: var(--olive);
   color: #fff;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
   line-height: 1;
 }
