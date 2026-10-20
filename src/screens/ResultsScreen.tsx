@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  adjustedRel,
   birdieEvents,
   birdieNet,
   gameNet,
@@ -9,6 +10,7 @@ import {
   totalNet,
 } from "../betting";
 import {
+  adjLabel,
   hcLabel,
   logTime,
   PAYMENT_LABEL,
@@ -78,6 +80,7 @@ export default function ResultsScreen({
   const hc = useMemo(() => handicapNet(config), [config]);
   const final = useMemo(() => totalNet(config, holes, isPost), [config, holes, isPost]);
   const isSkins = config.gameMode === "skins";
+  const isAdjust = config.handicapMode === "adjust";
   const skins = useMemo(() => (isSkins ? skinsResult(config, holes) : null), [isSkins, config, holes]);
   /** 섹션 번호: 타당 기준 번호를 받아, 스킨스는 버디 섹션이 없으니 그 뒤를 하나씩 당긴다 */
   const N = (k: number) => "①②③④⑤⑥"[(isSkins && k > 2 ? k - 1 : k) - 1];
@@ -247,13 +250,19 @@ export default function ResultsScreen({
                     h.status === "pending" ? null : (
                       <div className={`skin-log ${h.status}`} key={i}>
                         <span className="sl-hole">{i + 1}번홀</span>
-                        {h.status === "won" && h.winnerId ? (
+                        {h.status === "won" || h.status === "split" ? (
                           <>
                             <span className="sl-txt">
-                              <b>{nameOf(h.winnerId).name || "?"}</b> 스킨 {h.stake}개 · 1명당{" "}
-                              {won(h.stake * config.unit)}
+                              <b>{h.winnerIds.map((id) => nameOf(id).name || "?").join("·")}</b>{" "}
+                              {h.status === "split" ? "나눠 가짐 · " : ""}스킨 {h.skins}개 · 1명당{" "}
+                              {won(h.skins * config.unit)}
+                              {h.reasons.length > 0 && (
+                                <small className="sl-why">{h.reasons.join(" · ")}</small>
+                              )}
                             </span>
-                            <span className="sl-amt pos">+{won(h.amount)}</span>
+                            <span className="sl-amt pos">
+                              {h.status === "split" ? "각 " : ""}+{won(h.amount)}
+                            </span>
                           </>
                         ) : (
                           <>
@@ -268,7 +277,7 @@ export default function ResultsScreen({
                     <div className="skin-log gone">
                       <span className="sl-hole">소멸</span>
                       <span className="sl-txt">
-                        마지막 홀까지 남은 스킨 {skins.leftover}개는 주인 없이 사라졌어요
+                        마지막 홀이 전원 동타라 남은 스킨 {skins.leftover}개는 사라졌어요
                       </span>
                     </div>
                   )}
@@ -362,51 +371,80 @@ export default function ResultsScreen({
           </>
         )}
 
-        {/* 3) 핸디캡 정산 */}
-        <div className="section-title">
-          {N(3)} 핸디캡 정산 {isPost ? "(사후·합산)" : "(사전·현금)"}
-        </div>
-        <p className="hint" style={{ margin: "0 2px 10px" }}>
-          <b>{settleNote(config.handicapSettle)}</b>
-        </p>
-        {hc.transfers.length === 0 ? (
-          <div className="card">
-            <div className="empty-note">핸디 차이가 없습니다.</div>
-          </div>
+        {/* 3) 핸디캡 정산 — 타수 보정 방식은 금액 대신 홀 판정에 반영 */}
+        {isAdjust ? (
+          <>
+            <div className="section-title">{N(3)} 핸디캡 (타수 보정)</div>
+            <p className="hint" style={{ margin: "0 2px 10px" }}>
+              핸디캡은 금액으로 정산하지 않고, 파4·파5 홀에서 보기 이상이면 잡아준 타수만큼 빼서
+              (파까지만) 승패를 가렸어요.
+            </p>
+            <div className="card">
+              {config.players.map((p) => {
+                const used = holes.reduce((s, h) => {
+                  const rel = h.scores[p.id];
+                  return rel == null ? s : s + rel - adjustedRel(h.par, rel, p.strokeAdj);
+                }, 0);
+                return (
+                  <div className="hc-line" key={p.id}>
+                    <span className="gp-name">
+                      <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                      <b>{p.name || "?"}</b>
+                    </span>
+                    <span className="hc-hd">{adjLabel(p.strokeAdj ?? 0)}</span>
+                    <span className="hc-amt">{used > 0 ? `${used}타 보정됨` : "–"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         ) : (
-          <Transfers list={hc.transfers} />
-        )}
-        <div className="card">
-          {config.players.map((p) => {
-            const v = hc.net[p.id] ?? 0;
-            return (
-              <div className="hc-line" key={p.id}>
-                <span className="gp-name">
-                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
-                  <b>{p.name || "?"}</b>
-                </span>
-                <span className="hc-hd">핸디 {hcLabel(p.handicap)}</span>
-                <span className={`hc-amt ${tone(v)}`}>{v === 0 ? "±0원" : wonSigned(v)}</span>
-              </div>
-            );
-          })}
-        </div>
-        {!isPost && (
-          <p className="hint" style={{ margin: "-6px 2px 12px" }}>
-            핸디캡은 현금으로 미리 주고받으므로 최종 송금에는 포함되지 않았습니다.
+          <>
+          <div className="section-title">
+            {N(3)} 핸디캡 정산 {isPost ? "(사후·합산)" : "(사전·현금)"}
+          </div>
+          <p className="hint" style={{ margin: "0 2px 10px" }}>
+            <b>{settleNote(config.handicapSettle)}</b>
           </p>
+          {hc.transfers.length === 0 ? (
+            <div className="card">
+              <div className="empty-note">핸디 차이가 없습니다.</div>
+            </div>
+          ) : (
+            <Transfers list={hc.transfers} />
+          )}
+          <div className="card">
+            {config.players.map((p) => {
+              const v = hc.net[p.id] ?? 0;
+              return (
+                <div className="hc-line" key={p.id}>
+                  <span className="gp-name">
+                    <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                    <b>{p.name || "?"}</b>
+                  </span>
+                  <span className="hc-hd">핸디 {hcLabel(p.handicap)}</span>
+                  <span className={`hc-amt ${tone(v)}`}>{v === 0 ? "±0원" : wonSigned(v)}</span>
+                </div>
+              );
+            })}
+          </div>
+          {!isPost && (
+            <p className="hint" style={{ margin: "-6px 2px 12px" }}>
+              핸디캡은 현금으로 미리 주고받으므로 최종 송금에는 포함되지 않았습니다.
+            </p>
+          )}
+          </>
         )}
 
         {/* 4) 최종 송금 */}
         <div className="section-title">{N(4)} 최종 송금 (최소 횟수)</div>
         <p className="hint" style={{ margin: "0 2px 10px" }}>
-          {isSkins
-            ? isPost
-              ? "스킨 + 핸디캡을 모두 합산했습니다."
-              : "스킨만 합산 (핸디캡은 현금으로 사전 지급)."
-            : isPost
-            ? "게임 + 버디 + 핸디캡을 모두 합산했습니다."
-            : "게임 + 버디 합산 (핸디캡은 현금으로 사전 지급)."}
+          {(isSkins ? "스킨" : "게임 + 버디") +
+            (isAdjust
+              ? " 합산 (핸디캡은 타수 보정으로 반영)."
+              : isPost
+              ? " + 핸디캡을 모두 합산했습니다."
+              : " 합산 (핸디캡은 현금으로 사전 지급).")}
           {isTransfer && " 줄마다 받는 사람 계좌와 금액을 복사할 수 있어요."}
         </p>
         {isTransfer && me && (
@@ -467,14 +505,17 @@ export default function ResultsScreen({
           <div className="vf-rate">
             {vSkin ? (
               <>
-                스킨 {vSkin.stake}개 · 1명당 {won(vSkin.stake * config.unit)}
+                스킨 {vSkin.skins}개 · 1명당 {won(vSkin.skins * config.unit)}
+                {vSkin.reasons.length > 0 && ` (${vSkin.reasons.join(" · ")})`}
                 <span className="vf-reasons">
-                  {vSkin.status === "won" && vSkin.winnerId
-                    ? `${nameOf(vSkin.winnerId).name || "?"} 단독 최저 → 스킨 ${vSkin.stake}개 획득`
+                  {vSkin.status === "won"
+                    ? `${nameOf(vSkin.winnerIds[0]).name || "?"} 단독 최저 → 스킨 ${vSkin.skins}개 획득`
+                    : vSkin.status === "split"
+                    ? `${vSkin.winnerIds.map((id) => nameOf(id).name || "?").join("·")} 최저 동타 → 나눠 가짐 (각 +${won(vSkin.amount)})`
                     : vSkin.status === "carried"
                     ? vi < holes.length - 1
-                      ? `최저 동타 → 다음 홀로 이월 (스킨 ${vSkin.stake + 1}개)`
-                      : "최저 동타 · 마지막 홀이라 남은 스킨 소멸"
+                      ? `최저 동타 → 다음 홀로 이월 (스킨 ${skins?.holes[vi + 1]?.stake ?? vSkin.stake + 1}개)`
+                      : "마지막 홀 전원 동타 · 남은 스킨 소멸"
                     : "아직 모든 스코어가 입력되지 않았어요"}
                 </span>
               </>
@@ -521,9 +562,20 @@ export default function ResultsScreen({
                 const g = (vSkin ? vSkin.net[p.id] : vBd.game[p.id]) ?? 0;
                 const b = vBd.birdie[p.id] ?? 0;
                 const c = (vSkin ? vSkin.cumulative[p.id] : vBd.cumulative[p.id]) ?? 0;
+                // 이 홀에서 타수 보정으로 뺀 타수 (이름 옆 배지)
+                const cut = rel == null ? 0 : rel - adjustedRel(vHole.par, rel, p.strokeAdj);
                 return (
                   <tr key={p.id}>
-                    <td className="vf-name">{p.name || "?"}</td>
+                    <td className="vf-name">
+                      <span className="vf-name-in">
+                        <span className="vf-nm">{p.name || "?"}</span>
+                        {cut > 0 && (
+                          <span className="vf-adj" aria-label={`${cut}타 보정`}>
+                            −{cut}
+                          </span>
+                        )}
+                      </span>
+                    </td>
                     <td className="vf-score">
                       <span
                         className={`vf-pill ${
@@ -546,6 +598,7 @@ export default function ResultsScreen({
             {vSkin
               ? "금액 단위는 원이에요. 누적은 이 홀까지의 스킨 합계이고, 마지막 홀의 누적이 ① 결과와 같아요. (핸디캡 제외)"
               : "금액 단위는 원이에요. 누적은 이 홀까지의 게임 + 버디 합계이고, 마지막 홀의 누적이 ①+② 결과와 같아요. (핸디캡 제외)"}
+            {isAdjust && " 이름 옆 파란 배지는 이 홀에서 타수 보정으로 뺀 타수예요."}
           </p>
         </div>
 

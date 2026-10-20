@@ -3,8 +3,9 @@ import { useRound } from "../round";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
-import { hcLabel, PAYMENT_LABEL, settleNote, won } from "../util";
+import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, won } from "../util";
 import AccountField from "./AccountField";
+import { StrokeAdjField } from "./RoundFields";
 import type { Gender } from "../types";
 
 const STROKE_PRESETS = [5, 10];
@@ -94,6 +95,12 @@ export default function LobbyScreen() {
   const needBase = handicapMode === "stroke" && !baseUid;
   const setBase = (uid: string) =>
     void updateRound({ rules: { ...round.rules, baseUid: uid } });
+  const isAdjust = handicapMode === "adjust";
+  const adjOf = (uid: string) => round.rules.strokeAdj?.[uid] ?? 0;
+  const setAdj = (uid: string, v: number) =>
+    void updateRound({
+      rules: { ...round.rules, strokeAdj: { ...(round.rules.strokeAdj ?? {}), [uid]: v } },
+    });
   const me = bundle.players.find((p) => p.user_uid === myUid);
   const iAmLoggedIn = !!user && !user.isAnonymous;
   const nameOf = (id: string) => players.find((p) => p.id === id)!;
@@ -172,6 +179,17 @@ export default function LobbyScreen() {
         </div>
 
         <div className="section-title">참여자 {bundle.players.length}명</div>
+        {isAdjust && (
+          <div className="card base-pick">
+            <div className="bp-title">타수 보정</div>
+            <p className="hint" style={{ marginTop: 6 }}>
+              {isHost
+                ? "사람마다 파4·파5 홀에서 잡아줄 타수를 골라 주세요. "
+                : "방장이 사람마다 파4·파5 홀에서 잡아줄 타수를 정해요. "}
+              보기 이상일 때만 빼주고 파 아래로는 내려가지 않아요. 핸디캡 금액 정산은 없어요.
+            </p>
+          </div>
+        )}
         {handicapMode === "stroke" && (
           <div className={`card base-pick ${needBase ? "missing" : ""}`}>
             <div className="bp-title">최저핸디 인원</div>
@@ -248,7 +266,7 @@ export default function LobbyScreen() {
                       프로필 사진은 로그인 계정을 사용하고, 이름은 수정할 수 있어요.
                     </p>
                   )}
-                  {handicapMode === "avg" ? (
+                  {isAdjust ? null : handicapMode === "avg" ? (
                     <div className="row2" style={{ marginTop: 10 }}>
                       <div className="stepper-field">
                         <label>평균 타수</label>
@@ -315,7 +333,9 @@ export default function LobbyScreen() {
                 </>
               ) : (
                 <div className="lp-stats">
-                  {handicapMode === "avg"
+                  {isAdjust
+                    ? `파4·파5 ${adjLabel(adjOf(p.user_uid))}`
+                    : handicapMode === "avg"
                     ? `${p.avg_score != null ? `평균 ${p.avg_score}타 · ` : ""}핸디 ${p.handicap}`
                     : baseUid === p.user_uid
                     ? "최저핸디 인원"
@@ -324,6 +344,21 @@ export default function LobbyScreen() {
                     <span className={`acct-state ${p.bank_account ? "ok" : ""}`}>
                       {p.bank_account ? "계좌 입력됨" : "계좌 미입력"}
                     </span>
+                  )}
+                </div>
+              )}
+
+              {isAdjust && (mine || isHost) && (
+                <div className="lp-adj">
+                  <label>파4·파5 홀당 잡아줄 타수</label>
+                  {isHost ? (
+                    <StrokeAdjField
+                      label={`${p.name} 타수 보정`}
+                      value={adjOf(p.user_uid)}
+                      onChange={(v) => setAdj(p.user_uid, v)}
+                    />
+                  ) : (
+                    <b>{adjLabel(adjOf(p.user_uid))}</b>
                   )}
                 </div>
               )}
@@ -337,38 +372,42 @@ export default function LobbyScreen() {
           </div>
         )}
 
-        <div className="section-title">
-          핸디캡 정산 미리보기 {round.handicap_settle === "pre" ? "(사전)" : "(사후)"}
-        </div>
-        <p className="hint" style={{ margin: "0 2px 10px" }}>
-          <b>{settleNote(round.handicap_settle)}</b> 각자 핸디캡을 조정하면 아래 정산이
-          실시간으로 갱신됩니다. 핸디가 낮은(잘 치는) 사람이 주는 쪽입니다.
-        </p>
-        {!hcPreview || hcPreview.transfers.length === 0 ? (
-          <div className="card">
-            <div className="empty-note">주고받을 핸디 정산이 없습니다.</div>
+        {!isAdjust && (
+          <>
+          <div className="section-title">
+            핸디캡 정산 미리보기 {round.handicap_settle === "pre" ? "(사전)" : "(사후)"}
           </div>
-        ) : (
-          hcPreview.transfers.map((t, i) => {
-            const from = nameOf(t.fromId);
-            const to = nameOf(t.toId);
-            return (
-              <div className="transfer" key={i}>
-                <span className="from">
-                  <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
-                  {from.name || "?"}
-                </span>
-                <span className="arrow">
-                  <Icon name="chevronRight" size={16} />
-                </span>
-                <span className="to">
-                  <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
-                  {to.name || "?"}
-                </span>
-                <span className="amt">{won(t.amount)}</span>
-              </div>
-            );
-          })
+          <p className="hint" style={{ margin: "0 2px 10px" }}>
+            <b>{settleNote(round.handicap_settle)}</b> 각자 핸디캡을 조정하면 아래 정산이
+            실시간으로 갱신됩니다. 핸디가 낮은(잘 치는) 사람이 주는 쪽입니다.
+          </p>
+          {!hcPreview || hcPreview.transfers.length === 0 ? (
+            <div className="card">
+              <div className="empty-note">주고받을 핸디 정산이 없습니다.</div>
+            </div>
+          ) : (
+            hcPreview.transfers.map((t, i) => {
+              const from = nameOf(t.fromId);
+              const to = nameOf(t.toId);
+              return (
+                <div className="transfer" key={i}>
+                  <span className="from">
+                    <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+                    {from.name || "?"}
+                  </span>
+                  <span className="arrow">
+                    <Icon name="chevronRight" size={16} />
+                  </span>
+                  <span className="to">
+                    <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+                    {to.name || "?"}
+                  </span>
+                  <span className="amt">{won(t.amount)}</span>
+                </div>
+              );
+            })
+          )}
+          </>
         )}
       </div>
 

@@ -1,9 +1,33 @@
-import type { GameMode, Gender, PaymentMethod, SettleTiming, StoredRules } from "./types";
+import type {
+  GameMode,
+  Gender,
+  PaymentMethod,
+  SettleTiming,
+  SkinsRules,
+  StoredRules,
+} from "./types";
 
 export const GAME_MODE_LABEL: Record<GameMode, string> = {
   stroke: "타당",
   skins: "스킨스",
 };
+
+/** 새 스킨스 라운드의 배수 조건 기본값 */
+export const DEFAULT_SKINS_RULES: SkinsRules = {
+  carryDouble: true,
+  birdie: true,
+  late: true,
+  maxMultiplier: 4,
+};
+
+export const SKINS_RULE_LABELS: ["carryDouble" | "birdie" | "late", string][] = [
+  ["carryDouble", "이월하면 2배"],
+  ["birdie", "버디·이글 배수"],
+  ["late", "후반 가중"],
+];
+
+/** 타수 보정 표기: 0 → "보정 없음", 2 → "2타 보정" */
+export const adjLabel = (n: number) => (n > 0 ? `${n}타 보정` : "보정 없음");
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "현금 지급",

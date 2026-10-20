@@ -292,6 +292,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       photoUrl: p.photo_url,
       bankName: p.bank_name ?? null,
       bankAccount: p.bank_account ?? null,
+      strokeAdj: handicapMode === "adjust" ? r.rules.strokeAdj?.[p.user_uid] ?? 0 : 0,
     }));
     return {
       courseName: r.course_name,

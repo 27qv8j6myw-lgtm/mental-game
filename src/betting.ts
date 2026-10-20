@@ -3,6 +3,7 @@ import type {
   GameConfig,
   HoleScore,
   Player,
+  SkinsRules,
   Transfer,
 } from "./types";
 
@@ -18,7 +19,21 @@ import type {
  * 8. 버디 추가 정산은 버디 1타·이글 2타, 버디 배판에서는 이글도 버디와 같이 ×2
  * 9. 홀 최대 타수는 더블파 (round.tsx 에서 파 대비 +par 로 자른다)
  * 10. 판정은 핸디 없이 실제 타수 (핸디는 별도 정산)
+ *     단, 타수 보정 방식은 파4·파5 홀에서 잡아준 타수를 빼고(파까지만) 승패·타수 차를 판정한다.
+ *     배판 조건과 버디는 그때도 실제 타수로 본다.
  */
+
+/** 타수 보정: 파4·파5 홀에서 보기 이상이면 잡아준 타수만큼 빼되, 파 아래로는 내려가지 않는다 */
+export function adjustedRel(par: number, rel: number, strokes = 0): number {
+  if (par === 3 || strokes <= 0 || rel <= 0) return rel;
+  return Math.max(0, rel - strokes);
+}
+
+/** 승패 판정용 타수 (타수 보정 반영). 미입력이면 null */
+export function judgedScore(hole: HoleScore, p: Player): number | null {
+  const rel = hole.scores[p.id];
+  return rel == null ? null : adjustedRel(hole.par, rel, p.strokeAdj);
+}
 
 /** 배수 총 상한. 예전 라운드(값 없음)는 ×2, null 은 무제한 */
 export function multiplierCap(rules: BetRules): number {
@@ -26,10 +41,10 @@ export function multiplierCap(rules: BetRules): number {
   return rules.maxMultiplier ?? 2;
 }
 
-/** 모든 참가자가 스코어를 입력했고, 전원 동타(같은 스코어)인 홀인지 */
+/** 모든 참가자가 스코어를 입력했고, 전원 동타(판정 타수가 같음)인 홀인지 */
 export function isAllTie(hole: HoleScore, players: Player[]): boolean {
   if (players.length < 2) return false;
-  const vals = players.map((p) => hole.scores[p.id]);
+  const vals = players.map((p) => judgedScore(hole, p));
   if (vals.some((v) => v == null)) return false;
   return vals.every((v) => v === vals[0]);
 }
@@ -173,9 +188,10 @@ export function holeNet(
   if (entered.length >= 2) {
     const effUnit = unit * multiplier;
     const n = entered.length;
-    const total = entered.reduce((s, p) => s + (hole.scores[p.id] as number), 0);
+    // 타수 차는 판정 타수(타수 보정 반영)로 계산한다
+    const total = entered.reduce((s, p) => s + (judgedScore(hole, p) as number), 0);
     for (const p of entered) {
-      const sc = hole.scores[p.id] as number;
+      const sc = judgedScore(hole, p) as number;
       net[p.id] = effUnit * (total - n * sc);
     }
   }
@@ -303,6 +319,8 @@ export function handicapNet(config: GameConfig): {
   const { players, unit } = config;
   const net: Record<string, number> = {};
   for (const p of players) net[p.id] = 0;
+  // 타수 보정 방식은 홀 판정에 핸디를 반영하므로 금액 정산이 없다
+  if (config.handicapMode === "adjust") return { net, transfers: [] };
 
   for (let a = 0; a < players.length; a++) {
     for (let b = a + 1; b < players.length; b++) {
@@ -346,15 +364,25 @@ export function birdieNet(config: GameConfig, holes: HoleScore[]) {
 
 /* ---------- 스킨스 ---------- */
 
-export type SkinStatus = "pending" | "won" | "carried";
+export type SkinStatus = "pending" | "won" | "carried" | "split";
 
 export interface SkinHole {
-  /** 이 홀에 걸린 스킨 수 (이월 포함) */
+  /** 이 홀에 걸린 스킨 수 (이월·후반 배수와 상한 반영, 버디 배수 전) */
   stake: number;
-  /** pending: 아직 전원 입력 전 / won: 단독 최저가 가져감 / carried: 최저 동타로 이월 */
+  /** 최종 스킨 수 (승부가 나면 버디 배수까지 반영, 아니면 stake 와 같음) */
+  skins: number;
+  /** 스킨 수의 근거: "이월 ×4", "후반 ×2", "버디 ×2", "상한 ×4" 등 */
+  reasons: string[];
+  /** 이 홀에 들어오기 전 연속 이월 횟수 */
+  carryCount: number;
+  /**
+   * pending: 아직 전원 입력 전 / won: 단독 최저가 가져감 / carried: 최저 동타로 이월
+   * split: 마지막 홀 최저 동타 → 동타인 사람끼리 나눠 가짐
+   */
   status: SkinStatus;
-  winnerId: string | null;
-  /** 승자가 받은 총액 */
+  /** won 이면 1명, split 이면 최저 동타인 사람들 */
+  winnerIds: string[];
+  /** 이긴 사람 한 명이 받은 금액 */
   amount: number;
   /** 이 홀 정산 */
   net: Record<string, number>;
@@ -366,52 +394,116 @@ export interface SkinsResult {
   holes: SkinHole[];
   net: Record<string, number>;
   transfers: Transfer[];
-  /** 마지막 홀이 동타로 끝나 주인 없이 사라진 스킨 수 */
+  /** 마지막 홀이 전원 동타로 끝나 주인 없이 사라진 스킨 수 */
   leftover: number;
 }
 
+/** 배수 조건이 없는 예전 스킨스 라운드: 이월 +1개, 배수 없음 */
+export const CLASSIC_SKINS: SkinsRules = {
+  carryDouble: false,
+  birdie: false,
+  late: false,
+  maxMultiplier: null,
+};
+
+/** 후반 가중이 붙는 마지막 홀 수 */
+export const LATE_HOLES = 3;
+
 /**
- * 스킨스: 홀마다 스킨 1개(타당 금액)가 걸리고, 단독 최저 타수가 쌓인 스킨을 모두 가져간다
- * (다른 사람 모두에게서 스킨 수 × 타당 금액). 최저 타수가 2명 이상이면 다음 홀로 이월(스킨 +1),
- * 마지막 홀 뒤 남은 스킨은 소멸. 배판·버디는 적용하지 않고 핸디캡은 별도 정산한다.
+ * 스킨스: 홀마다 스킨 1개(타당 금액)가 걸리고, 단독 최저 타수(타수 보정 반영)가 걸린 스킨을 모두
+ * 가져간다 — 다른 사람 모두에게서 스킨 수 × 타당 금액씩.
+ * - 최저 동타면 다음 홀로 이월: 기본 +1개, '이월 2배'면 2배씩
+ * - '버디 배수'면 버디로 이길 때 ×2, 이글 이상 ×3 / '후반 가중'이면 마지막 3개 홀 ×2
+ * - 이월 2배·버디·후반 배수를 곱한 값은 총 상한을 넘지 않는다 (+1개씩 쌓인 스킨은 상한과 무관)
+ * - 마지막 홀이 최저 동타면 동타인 사람끼리 나눠 가진다. 전원 동타면 남은 스킨은 소멸
+ * 배판·버디 추가 정산은 없고 핸디캡은 따로 정산한다.
  */
 export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult {
   const { players, unit } = config;
+  const opts = config.rules.skins ?? CLASSIC_SKINS;
+  const cap = opts.maxMultiplier === null ? Infinity : opts.maxMultiplier;
   const zero = () => Object.fromEntries(players.map((p) => [p.id, 0])) as Record<string, number>;
   const total = zero();
-  let pot = 1;
+  let carryCount = 0;
 
-  const out: SkinHole[] = holes.map((hole) => {
-    const stake = pot;
+  const out: SkinHole[] = holes.map((hole, i) => {
+    const isLast = i === holes.length - 1;
+    // 이월: 2배 방식은 배수로, 기본 방식은 스킨 개수로 쌓는다
+    const base = opts.carryDouble ? 1 : 1 + carryCount;
+    const carryF = opts.carryDouble ? 2 ** carryCount : 1;
+    const lateF = opts.late && i >= holes.length - LATE_HOLES ? 2 : 1;
+    const preReasons: string[] = [];
+    if (carryCount > 0) preReasons.push(opts.carryDouble ? `이월 ×${carryF}` : `이월 +${carryCount}개`);
+    if (lateF > 1) preReasons.push("후반 ×2");
+    const stake = base * Math.min(cap, carryF * lateF);
+
     const net = zero();
     let status: SkinStatus = "pending";
-    let winnerId: string | null = null;
+    let winnerIds: string[] = [];
     let amount = 0;
+    let skins = stake;
+    let reasons = carryF * lateF > cap ? [...preReasons, `상한 ×${cap}`] : preReasons;
+    const holeCarry = carryCount;
 
-    const complete = players.length >= 2 && players.every((p) => hole.scores[p.id] != null);
+    const judged = players.map((p) => judgedScore(hole, p));
     // 전원 입력 전인 홀은 판정하지 않고 걸린 스킨을 그대로 둔다
-    if (complete) {
-      const best = Math.min(...players.map((p) => hole.scores[p.id] as number));
-      const leaders = players.filter((p) => hole.scores[p.id] === best);
+    if (players.length >= 2 && judged.every((v) => v != null)) {
+      const best = Math.min(...(judged as number[]));
+      const leaders = players.filter((_, k) => judged[k] === best);
+      const birdieF = opts.birdie ? (best <= -2 ? 3 : best === -1 ? 2 : 1) : 1;
+      const raw = carryF * lateF * birdieF;
+      skins = base * Math.min(cap, raw);
+      const value = skins * unit;
+
       if (leaders.length === 1) {
         status = "won";
-        winnerId = leaders[0].id;
-        const per = stake * unit;
+        winnerIds = [leaders[0].id];
         for (const p of players) {
-          if (p.id === winnerId) continue;
-          net[p.id] -= per;
-          net[winnerId] += per;
+          if (p.id === leaders[0].id) continue;
+          net[p.id] -= value;
+          net[leaders[0].id] += value;
         }
-        amount = per * (players.length - 1);
-        pot = 1;
+        amount = value * (players.length - 1);
+        carryCount = 0;
+      } else if (isLast && leaders.length < players.length) {
+        // 마지막 홀 최저 동타: 나머지 사람이 낸 스킨을 동타인 사람끼리 나눈다
+        status = "split";
+        winnerIds = leaders.map((p) => p.id);
+        const share = Math.round(value / leaders.length);
+        for (const p of players) {
+          if (winnerIds.includes(p.id)) continue;
+          for (const id of winnerIds) {
+            net[p.id] -= share;
+            net[id] += share;
+          }
+        }
+        amount = share * (players.length - leaders.length);
+        carryCount = 0;
       } else {
         status = "carried";
-        pot = stake + 1;
+        skins = stake;
+        carryCount += 1;
+      }
+
+      if (status !== "carried") {
+        reasons = [...preReasons];
+        if (birdieF > 1) reasons.push(birdieF === 3 ? "이글 ×3" : "버디 ×2");
+        if (raw > cap) reasons.push(`상한 ×${cap}`);
       }
     }
 
     for (const p of players) total[p.id] += net[p.id];
-    return { stake, status, winnerId, amount, net, cumulative: { ...total } };
+    return {
+      stake,
+      skins,
+      reasons,
+      carryCount: holeCarry,
+      status,
+      winnerIds,
+      amount,
+      net,
+      cumulative: { ...total },
+    };
   });
 
   const last = out[out.length - 1];

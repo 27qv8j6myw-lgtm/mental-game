@@ -2,26 +2,38 @@ import { useEffect, useState } from "react";
 import { useRound } from "../round";
 import { Avatar } from "../icons";
 import {
+  adjLabel,
   appendEditLog,
   capLabel,
+  DEFAULT_SKINS_RULES,
   GAME_MODE_LABEL,
   hcLabel,
   onOff,
   PAYMENT_LABEL,
   RULE_LABELS,
   SETTLE_LABEL,
+  SKINS_RULE_LABELS,
 } from "../util";
+import { CLASSIC_SKINS } from "../betting";
 import type {
   BetRules,
   GameMode,
   PaymentMethod,
   Session,
   SettleTiming,
+  SkinsRules,
   StoredRules,
 } from "../types";
-import { GameModeField, MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
+import {
+  GameModeField,
+  MaxMultiplierField,
+  PaymentFields,
+  RuleToggles,
+  SkinsMultiplierFields,
+  StrokeAdjField,
+} from "./RoundFields";
 
-/** 방장 전용: 게임 시작·정산 확정 후에도 게임 방식·지불 방법·핸디캡·배판 규칙을 고친다. */
+/** 방장 전용: 게임 시작·정산 확정 후에도 게임 방식·지불 방법·핸디캡·배판(배수) 규칙을 고친다. */
 export default function RoundSettingsSheet({
   session,
   onClose,
@@ -43,10 +55,17 @@ export default function RoundSettingsSheet({
     // 값이 없는 예전 라운드는 ×2
     maxMultiplier: cfg.rules.maxMultiplier === undefined ? 2 : cfg.rules.maxMultiplier,
   });
+  // 배수 조건이 없는 예전 스킨스 라운드는 모두 꺼진 상태, 타당에서 바꾸면 새 라운드 기본값
+  const skinsInit = cfg.rules.skins ?? (cfg.gameMode === "skins" ? CLASSIC_SKINS : DEFAULT_SKINS_RULES);
+  const [skins, setSkins] = useState<SkinsRules>(skinsInit);
   const [hc, setHc] = useState<Record<string, number>>(() =>
     Object.fromEntries(cfg.players.map((p) => [p.id, p.handicap]))
   );
   const isAvg = cfg.handicapMode === "avg";
+  const isAdjust = cfg.handicapMode === "adjust";
+  const [adj, setAdj] = useState<Record<string, number>>(() =>
+    Object.fromEntries(cfg.players.map((p) => [p.id, p.strokeAdj ?? 0]))
+  );
   const [avgInit] = useState<Record<string, number | null>>(() => {
     const ov = bundle?.round.rules.avgOverrides ?? {};
     return Object.fromEntries(
@@ -100,7 +119,7 @@ export default function RoundSettingsSheet({
       items.push(`게임 방식: ${GAME_MODE_LABEL[cfg.gameMode]} → ${GAME_MODE_LABEL[gameMode]}`);
     if (payment !== cfg.payment)
       items.push(`지불 방법: ${PAYMENT_LABEL[cfg.payment]} → ${PAYMENT_LABEL[payment]}`);
-    if (settle !== cfg.handicapSettle)
+    if (!isAdjust && settle !== cfg.handicapSettle)
       items.push(`핸디캡 정산: ${SETTLE_LABEL[cfg.handicapSettle]} → ${SETTLE_LABEL[settle]}`);
     for (const p of cfg.players) {
       const name = p.name || "?";
@@ -110,11 +129,21 @@ export default function RoundSettingsSheet({
       const a1 = avg[p.id] ?? null;
       if (isAvg && a0 !== a1)
         items.push(`${name} 평균타수: ${a0 ?? "미입력"} → ${a1 ?? "미입력"}`);
-      if ((hc[p.id] ?? 0) !== p.handicap)
+      if (!isAdjust && (hc[p.id] ?? 0) !== p.handicap)
         items.push(`${name} 핸디: ${hcLabel(p.handicap)} → ${hcLabel(hc[p.id] ?? 0)}`);
+      if (isAdjust && (adj[p.id] ?? 0) !== (p.strokeAdj ?? 0))
+        items.push(`${name} 타수 보정: ${adjLabel(p.strokeAdj ?? 0)} → ${adjLabel(adj[p.id] ?? 0)}`);
     }
-    // 스킨스는 배판이 없으니 배수·배판 변경은 저장하지도, 기록하지도 않는다
-    if (!isStroke) return items;
+    // 스킨스는 배판 대신 배수 조건, 타당은 배판 규칙만 저장·기록한다
+    if (!isStroke) {
+      if (skins.maxMultiplier !== skinsInit.maxMultiplier)
+        items.push(`스킨스 배수 총 상한: ${capLabel(skinsInit.maxMultiplier)} → ${capLabel(skins.maxMultiplier)}`);
+      for (const [key, label] of SKINS_RULE_LABELS) {
+        if (skins[key] !== skinsInit[key])
+          items.push(`${label}: ${onOff(skinsInit[key])} → ${onOff(skins[key])}`);
+      }
+      return items;
+    }
     if (rules.maxMultiplier !== (cfg.rules.maxMultiplier === undefined ? 2 : cfg.rules.maxMultiplier))
       items.push(`배수 총 상한: ${capLabel(cfg.rules.maxMultiplier)} → ${capLabel(rules.maxMultiplier)}`);
     for (const [key, label] of RULE_LABELS) {
@@ -130,10 +159,11 @@ export default function RoundSettingsSheet({
     try {
       let next: StoredRules = {
         ...bundle.round.rules,
-        ...(isStroke && rules),
+        ...(isStroke ? rules : { skins }),
         gameMode,
         payment,
         hcOverrides: hc,
+        ...(isAdjust && { strokeAdj: adj }),
         ...(isAvg && { avgOverrides: avg }),
         nameOverrides: Object.fromEntries(
           bundle.players
@@ -200,11 +230,13 @@ export default function RoundSettingsSheet({
               setPayment(p);
               setSettle(s);
             }}
+            showSettle={!isAdjust}
           />
         </div>
 
         <div className="section-title">
-          핸디캡{cfg.handicapMode === "stroke" ? " (최저핸디 대비)" : ""}
+          핸디캡
+          {cfg.handicapMode === "stroke" ? " (최저핸디 대비)" : isAdjust ? " (타수 보정)" : ""}
         </div>
         <div className="card">
           {isAvg && (
@@ -224,6 +256,13 @@ export default function RoundSettingsSheet({
                 <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
                 <b>{finalName(p.id, p.name) || "?"}</b>
               </span>
+              {isAdjust ? (
+                <StrokeAdjField
+                  label={`${p.name} 타수 보정`}
+                  value={adj[p.id] ?? 0}
+                  onChange={(v) => setAdj((m) => ({ ...m, [p.id]: v }))}
+                />
+              ) : null}
               {isAvg && (
                 <input
                   className="input avg-mini"
@@ -235,19 +274,35 @@ export default function RoundSettingsSheet({
                   onChange={(e) => changeAvg(p.id, e.target.value)}
                 />
               )}
-              <div className="stepper sm">
-                <button onClick={() => bump(p.id, -1)}>−</button>
-                <span>{hcLabel(hc[p.id] ?? 0)}</span>
-                <button onClick={() => bump(p.id, 1)}>＋</button>
-              </div>
+              {!isAdjust && (
+                <div className="stepper sm">
+                  <button onClick={() => bump(p.id, -1)}>−</button>
+                  <span>{hcLabel(hc[p.id] ?? 0)}</span>
+                  <button onClick={() => bump(p.id, 1)}>＋</button>
+                </div>
+              )}
             </div>
           ))}
+          {isAdjust && (
+            <p className="hint" style={{ marginTop: 8 }}>
+              파4·파5 홀에서 보기 이상이면 고른 타수만큼 빼고(파까지만) 승패를 가려요.
+            </p>
+          )}
           {isAvg && (
             <p className="hint" style={{ marginTop: 8 }}>
               평균타수를 바꾸면 핸디가 평균−72로 다시 계산되고, ±로 조정할 수 있어요.
             </p>
           )}
         </div>
+
+        {!isStroke && (
+          <>
+            <div className="section-title">배수 조건</div>
+            <div className="card">
+              <SkinsMultiplierFields value={skins} onChange={setSkins} />
+            </div>
+          </>
+        )}
 
         {isStroke && (
           <>

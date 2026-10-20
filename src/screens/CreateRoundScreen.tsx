@@ -1,13 +1,40 @@
 import { useState } from "react";
-import type { BetRules, GameMode, HandicapMode, PaymentMethod, SettleTiming } from "../types";
-import { localDate, localTime, won } from "../util";
+import type {
+  BetRules,
+  GameMode,
+  HandicapMode,
+  PaymentMethod,
+  SettleTiming,
+  SkinsRules,
+} from "../types";
+import { DEFAULT_SKINS_RULES, localDate, localTime, won } from "../util";
 import { createRound } from "../rounds";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
-import { GameModeField, MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
+import {
+  GameModeField,
+  MaxMultiplierField,
+  PaymentFields,
+  RuleToggles,
+  SkinsMultiplierFields,
+} from "./RoundFields";
 
 const UNITS = [1000, 2000, 5000];
+
+const HANDICAP_MODES: [HandicapMode, string][] = [
+  ["avg", "평균 타수"],
+  ["stroke", "최저핸디 대비"],
+  ["adjust", "타수 보정"],
+];
+
+const HANDICAP_HINT: Record<HandicapMode, string> = {
+  avg: "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요.",
+  stroke:
+    "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 고릅니다. 최저핸디 인원을 정해야 시작할 수 있어요.",
+  adjust:
+    "방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요. 보기 이상일 때만 빼주고 파 아래로는 내려가지 않아요. 핸디캡 금액 정산은 없어요.",
+};
 
 export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }) {
   const { user } = useAuth();
@@ -19,6 +46,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const [unit, setUnit] = useState(1000);
   const [customUnit, setCustomUnit] = useState("");
   const [gameMode, setGameMode] = useState<GameMode>("stroke");
+  const [skinsRules, setSkinsRules] = useState<SkinsRules>(DEFAULT_SKINS_RULES);
   const [payment, setPayment] = useState<PaymentMethod>("transfer");
   const [handicapSettle, setHandicapSettle] = useState<SettleTiming>("post");
   const [handicapMode, setHandicapMode] = useState<HandicapMode>("avg");
@@ -47,7 +75,13 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
         date,
         teeTime,
         unit,
-        rules: { ...rules, payment, handicapMode, gameMode },
+        rules: {
+          ...rules,
+          payment,
+          handicapMode,
+          gameMode,
+          ...(gameMode === "skins" && { skins: skinsRules }),
+        },
         handicapSettle,
         holeCount,
         me: {
@@ -194,31 +228,36 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               setPayment(p);
               setHandicapSettle(st);
             }}
+            showSettle={handicapMode !== "adjust"}
           />
         </div>
 
         <div className="section-title">핸디캡 설정 방식</div>
         <div className="card">
           <div className="segmented">
-            <button
-              className={handicapMode === "avg" ? "active" : ""}
-              onClick={() => setHandicapMode("avg")}
-            >
-              평균 타수 입력
-            </button>
-            <button
-              className={handicapMode === "stroke" ? "active" : ""}
-              onClick={() => setHandicapMode("stroke")}
-            >
-              최저핸디 대비 +타
-            </button>
+            {HANDICAP_MODES.map(([m, label]) => (
+              <button
+                key={m}
+                className={handicapMode === m ? "active" : ""}
+                onClick={() => setHandicapMode(m)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
           <p className="hint" style={{ marginTop: 10 }}>
-            {handicapMode === "avg"
-              ? "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요."
-              : "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 고릅니다. 최저핸디 인원을 정해야 시작할 수 있어요."}
+            {HANDICAP_HINT[handicapMode]}
           </p>
         </div>
+
+        {gameMode === "skins" && (
+          <>
+            <div className="section-title">배수 조건</div>
+            <div className="card">
+              <SkinsMultiplierFields value={skinsRules} onChange={setSkinsRules} />
+            </div>
+          </>
+        )}
 
         {gameMode === "stroke" && (
           <>

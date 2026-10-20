@@ -12,14 +12,31 @@ export interface Player {
   /** 계좌이체 라운드에서 받을 계좌 */
   bankName?: string | null;
   bankAccount?: string | null;
+  /** 타수 보정 방식에서 파4·파5 홀마다 잡아주는 타수 (0·1·2). 다른 방식이면 0 */
+  strokeAdj?: number;
 }
 
 export type SettleTiming = "pre" | "post";
 export type PaymentMethod = "cash" | "transfer";
 /** stroke: 타당(두 명씩 타수 차) / skins: 홀마다 단독 최저 타수가 스킨을 가져감 */
 export type GameMode = "stroke" | "skins";
-/** avg: 평균 타수로 핸디 산출 / stroke: 최고수 대비 +N타로 직접 설정 */
-export type HandicapMode = "avg" | "stroke";
+/**
+ * avg: 평균 타수로 핸디 산출 / stroke: 최고수 대비 +N타로 직접 설정
+ * adjust: 타수 보정 — 핸디 금액 정산 없이, 파4·파5 홀마다 정한 타수를 잡아줘 판정한다
+ */
+export type HandicapMode = "avg" | "stroke" | "adjust";
+
+/** 스킨스 배수 조건. 값이 없는 예전 스킨스 라운드는 모두 꺼진 것으로 본다 */
+export interface SkinsRules {
+  /** 최저 동타로 이월되면 다음 홀 스킨이 2배씩 (끄면 1개씩 쌓임) */
+  carryDouble: boolean;
+  /** 버디로 이기면 ×2, 이글 이상으로 이기면 ×3 */
+  birdie: boolean;
+  /** 마지막 3개 홀은 ×2 */
+  late: boolean;
+  /** 위 배수를 곱한 값의 상한. 2·4·8, null 은 무제한 */
+  maxMultiplier: number | null;
+}
 
 export interface BetRules {
   /**
@@ -41,6 +58,8 @@ export interface BetRules {
    * 값이 없는 예전 라운드는 ×2 로 본다.
    */
   maxMultiplier?: number | null;
+  /** 스킨스 배수 조건 (스킨스 라운드에서만 사용) */
+  skins?: SkinsRules;
 }
 
 /** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
@@ -55,6 +74,8 @@ export interface StoredRules extends BetRules {
   hcOverrides?: Record<string, number>;
   /** 게임 시작 후 방장이 고친 평균 타수 (user_uid → 평균, 빈칸이면 null) */
   avgOverrides?: Record<string, number | null>;
+  /** 타수 보정 방식에서 방장이 정한 잡아주는 타수 (user_uid → 0·1·2) */
+  strokeAdj?: Record<string, number>;
   /** 방장이 고친 참여자 이름 (user_uid → 이름). 참여자 행의 이름보다 우선 */
   nameOverrides?: Record<string, string>;
   /** 정산 확정 후 수정 내역 (모든 참여자에게 공개) */

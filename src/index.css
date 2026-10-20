@@ -2519,30 +2519,363 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--olive-deep);
 }
 
-/* 진행(스킨스): 아직 판정 전인 홀에 걸린 스킨 */
-.bet-banner.pending {
+/* ============ 진행(스킨스): 판돈 카드 ============ */
+.skin-pot {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 16px 16px 14px;
+  margin-bottom: 10px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
   background: var(--paper-2);
-  border-color: var(--line);
+  color: var(--ink);
+  animation: sp-in 0.35s ease-out;
+}
+.skin-pot .sp-label {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+.skin-pot .sp-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.skin-pot .sp-main b {
+  font-family: var(--font-num);
+  font-size: 44px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.skin-pot .sp-main span {
+  font-size: 15px;
+  font-weight: 800;
+}
+.skin-pot .sp-money {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+.skin-pot .sp-money.big {
+  font-family: var(--font-num);
+  font-size: 24px;
+  font-weight: 900;
+  opacity: 1;
+}
+.skin-pot .sp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+.skin-pot .sp-chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.7);
   color: var(--ink);
 }
-.bet-banner .skin-count {
+.skin-pot .sp-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 900;
+}
+.skin-pot .sp-tip {
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* 판정 전: 걸린 스킨이 많을수록 뜨거워진다 */
+.skin-pot.heat-2 {
+  background: var(--mustard-soft);
+  border-color: #f0d492;
+  color: #92400e;
+}
+.skin-pot.heat-3 {
+  background: linear-gradient(135deg, #fde68a, #fdba74);
+  border-color: #fbbf24;
+  color: #7c2d12;
+}
+.skin-pot.heat-4 {
+  background: linear-gradient(135deg, #fb923c, #e11d48);
+  border-color: #f97316;
+  color: #fff;
+  animation: sp-in 0.35s ease-out, sp-glow 1.6s ease-in-out 0.35s infinite;
+}
+.skin-pot.heat-4 .sp-chip {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* 승부 결과 */
+.skin-pot.won,
+.skin-pot.split {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b 55%, #ea580c);
+  border-color: #f59e0b;
+  color: #fff;
+  animation: sp-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+.skin-pot.split {
+  background: linear-gradient(135deg, #fcd34d, #f59e0b);
+}
+.skin-pot.won .sp-chip,
+.skin-pot.split .sp-chip {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+/* 반짝 지나가는 빛 */
+.skin-pot.won::after,
+.skin-pot.split::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: sp-shine 1.1s ease-out 0.25s;
+  pointer-events: none;
+}
+.skin-pot .sp-winners {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 12px;
+  margin-top: 8px;
+}
+.skin-pot .sp-winner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+}
+.skin-pot .sp-winner b {
+  font-weight: 900;
+}
+/* 축하 불꽃: 가운데에서 바깥으로 퍼지는 점 */
+.sp-sparks {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+.sp-sparks span {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  transform: rotate(var(--a)) translateY(0);
+  animation: sp-spark 0.9s ease-out 0.1s;
+}
+.sp-sparks span:nth-child(even) {
+  background: #fde68a;
+  width: 5px;
+  height: 5px;
+}
+
+/* 이월 / 소멸 */
+.skin-pot.carried {
+  background: var(--olive-soft);
+  border-color: #c7dbff;
+  color: var(--olive-deep);
+}
+.skin-pot .sp-carry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.skin-pot .sp-from {
+  font-family: var(--font-num);
+  font-size: 26px;
+  font-weight: 800;
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+.skin-pot .sp-to b {
+  font-family: var(--font-num);
+  font-size: 44px;
+  font-weight: 900;
+  line-height: 1;
+}
+.skin-pot .sp-to small {
+  margin-left: 3px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.skin-pot.void {
+  background: var(--paper-3);
+  color: var(--ink-faint);
+}
+
+@keyframes sp-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes sp-pop {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.88);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes sp-shine {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sp-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-90px);
+  }
+}
+@keyframes sp-glow {
+  50% {
+    box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.18);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skin-pot,
+  .skin-pot::after,
+  .sp-sparks span {
+    animation: none !important;
+  }
+}
+
+/* 진행(스킨스): 홀별 흐름 */
+.skin-strip {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  margin: 0 -2px 14px;
+  padding: 2px;
+  scrollbar-width: none;
+}
+.skin-strip::-webkit-scrollbar {
+  display: none;
+}
+.ss-chip {
   flex: none;
+  width: 32px;
+  height: 40px;
+  border-radius: 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 36px;
+  justify-content: center;
+  gap: 1px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-faint);
+  padding: 0;
 }
-.bet-banner .skin-count b {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.bet-banner .skin-count span {
-  margin-top: 3px;
-  font-size: 11px;
+.ss-chip small {
+  font-size: 9.5px;
   font-weight: 700;
-  opacity: 0.8;
+  line-height: 1;
+}
+.ss-chip b {
+  min-height: 15px;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 15px;
+}
+.ss-chip.won {
+  background: var(--mustard-soft);
+  border-color: #f0d492;
+  color: #92400e;
+}
+.ss-chip.split {
+  background: #fde68a;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+.ss-chip.carried {
+  background: var(--olive-soft);
+  border-color: #c7dbff;
+  color: var(--olive-deep);
+}
+.ss-chip.cur {
+  outline: 2px solid var(--olive);
+  outline-offset: 1px;
+}
+
+/* 진행: 이번 홀 스킨을 가져간 사람, 타수 보정 표시 */
+.pscore-block.skin-win .pname {
+  color: #b45309;
+}
+.win-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.adj-chip {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.adj-chip.off {
+  background: var(--paper-3);
+  color: var(--ink-faint);
+}
+.sum-score {
+  text-align: right;
+}
+.sum-score .adj-to {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--olive-deep);
+}
+.adj-seg {
+  flex: none;
+  width: 150px;
 }
 
 /* 배판 규칙 아래 기본 룰 */
@@ -2626,4 +2959,60 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   padding: 9px 0;
   text-align: center;
   white-space: nowrap;
+}
+
+/* 정산: 스킨 내역의 배수 근거, 홀별 검증의 타수 보정 */
+.skin-log .sl-why {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--mustard);
+  font-weight: 700;
+}
+/* 이름 옆 배지: 이 홀에서 타수 보정으로 뺀 타수 */
+.vf-table td.vf-name {
+  max-width: 96px;
+}
+.vf-name-in {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.vf-nm {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vf-adj {
+  flex: none;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--olive);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.lp-adj {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.lp-adj label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.lp-adj b {
+  font-size: 14px;
+  font-weight: 800;
 }

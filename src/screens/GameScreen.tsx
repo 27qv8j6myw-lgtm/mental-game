@@ -1,9 +1,16 @@
 import { useMemo } from "react";
-import { birdieHoleNet, carryMultipliers, holeNet, settleNet, skinsResult } from "../betting";
+import {
+  adjustedRel,
+  birdieHoleNet,
+  carryMultipliers,
+  holeNet,
+  settleNet,
+  skinsResult,
+} from "../betting";
 import { relLabel, scoreLabel, won, wonSigned } from "../util";
 import { Avatar, Icon } from "../icons";
 import type { ParValue, Session, Transfer } from "../types";
-import type { SkinStatus } from "../betting";
+import { SkinPot, SkinStrip } from "./SkinsPanel";
 
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
 // → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
@@ -31,7 +38,7 @@ export default function GameScreen({ session }: { session: Session }) {
     [hole, config, carry]
   );
 
-  // 스킨스 라운드는 배판·버디 없이 스킨으로만 정산한다
+  // 스킨스 라운드는 배판·버디 추가 정산 없이 스킨으로만 정산한다
   const isSkins = config.gameMode === "skins";
   const skins = useMemo(() => (isSkins ? skinsResult(config, holes) : null), [isSkins, config, holes]);
   const skin = skins?.holes[idx] ?? null;
@@ -123,15 +130,25 @@ export default function GameScreen({ session }: { session: Session }) {
           ))}
         </div>
 
-        {skin ? (
-          <SkinBanner
-            stake={skin.stake}
-            status={skin.status}
-            winner={skin.winnerId ? nameOf(skin.winnerId).name || "?" : ""}
-            amount={skin.amount}
-            perPlayer={skin.stake * config.unit}
-            isLast={idx === holes.length - 1}
-          />
+        {skins && skin ? (
+          <>
+            {/* key: 홀을 옮기거나 승부가 나면 카드 애니메이션을 다시 재생 */}
+            <SkinPot
+              key={`${idx}-${skin.status}`}
+              hole={skin}
+              next={skins.holes[idx + 1] ?? null}
+              unit={config.unit}
+              players={config.players}
+              isLast={idx === holes.length - 1}
+              birdieOn={!!config.rules.skins?.birdie}
+            />
+            <SkinStrip
+              holes={skins.holes}
+              current={idx}
+              players={config.players}
+              onPick={goHole}
+            />
+          </>
         ) : game.allTie ? (
           <div className="bet-banner carry">
             <div className="mult">{nextCarry ? `×${nextCarry}` : "–"}</div>
@@ -158,11 +175,24 @@ export default function GameScreen({ session }: { session: Session }) {
           {config.players.map((p) => {
             const rel = hole.scores[p.id];
             const net = running[p.id];
+            const skinWin = !!skin && skin.winnerIds.includes(p.id);
+            const adj = p.strokeAdj ?? 0;
             return (
-              <div className="pscore-block" key={p.id}>
+              <div className={`pscore-block ${skinWin ? "skin-win" : ""}`} key={p.id}>
                 <div className="player-head">
                   <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
                   <span className="pname">{p.name || "?"}</span>
+                  {adj > 0 && (
+                    <span className={`adj-chip ${hole.par === 3 ? "off" : ""}`}>
+                      {hole.par === 3 ? "파3 보정 없음" : `${adj}타 보정`}
+                    </span>
+                  )}
+                  {skinWin && skin && (
+                    <span className="win-badge">
+                      <Icon name="trophy" size={12} />
+                      {skin.status === "split" ? "나눔" : `스킨 ${skin.skins}`}
+                    </span>
+                  )}
                   <span className={`pnet ${net > 0 ? "pos" : net < 0 ? "neg" : ""}`}>
                     {net === 0 ? "±0" : wonSigned(net)}
                   </span>
@@ -192,9 +222,11 @@ export default function GameScreen({ session }: { session: Session }) {
           skinTransfers.length === 0 ? (
             <div className="card">
               <div className="empty-note">
-                {skin.status === "carried"
-                  ? "최저 타수가 동타라 이 홀은 정산 없이 스킨이 이월돼요."
-                  : "스코어를 입력하면 자동으로 정산돼요."}
+                {skin.status !== "carried"
+                  ? "스코어를 입력하면 자동으로 정산돼요."
+                  : idx === holes.length - 1
+                  ? "마지막 홀이 전원 동타라 남은 스킨은 사라져요."
+                  : "최저 타수가 동타라 이 홀은 정산 없이 스킨이 이월돼요."}
               </div>
             </div>
           ) : (
@@ -234,6 +266,7 @@ export default function GameScreen({ session }: { session: Session }) {
                   <b>{p.name || "?"}</b>
                 </span>
                 <span
+                  className="sum-score"
                   style={{
                     fontWeight: 900,
                     color:
@@ -247,6 +280,11 @@ export default function GameScreen({ session }: { session: Session }) {
                   }}
                 >
                   {rel == null ? "미입력" : scoreLabel(hole.par, rel)}
+                  {rel != null && adjustedRel(hole.par, rel, p.strokeAdj) !== rel && (
+                    <small className="adj-to">
+                      → {scoreLabel(hole.par, adjustedRel(hole.par, rel, p.strokeAdj))} (보정)
+                    </small>
+                  )}
                 </span>
               </div>
             );
@@ -254,68 +292,5 @@ export default function GameScreen({ session }: { session: Session }) {
         </div>
       </div>
     </>
-  );
-}
-
-/** 스킨스: 이 홀에 걸린 스킨 수와 결과(획득·이월·소멸) */
-function SkinBanner({
-  stake,
-  status,
-  winner,
-  amount,
-  perPlayer,
-  isLast,
-}: {
-  stake: number;
-  status: SkinStatus;
-  winner: string;
-  amount: number;
-  perPlayer: number;
-  isLast: boolean;
-}) {
-  const count = (
-    <div className="skin-count">
-      <b>{stake}</b>
-      <span>스킨</span>
-    </div>
-  );
-  if (status === "won")
-    return (
-      <div className="bet-banner">
-        {count}
-        <div className="bb-txt">
-          <span className="bt">
-            {winner} 스킨 {stake}개 획득
-          </span>
-          <span className="bs">
-            +{won(amount)} (1명당 {won(perPlayer)})
-          </span>
-        </div>
-        <Icon name="spark" size={22} className="fire" />
-      </div>
-    );
-  if (status === "carried")
-    return (
-      <div className="bet-banner carry">
-        {count}
-        <div className="bb-txt">
-          <span className="bt">최저 동타 · 스킨 {stake}개 이월</span>
-          <span className="bs">
-            {isLast ? "마지막 홀이라 남은 스킨은 사라져요" : `다음 홀에 스킨 ${stake + 1}개가 걸려요`}
-          </span>
-        </div>
-      </div>
-    );
-  return (
-    <div className="bet-banner pending">
-      {count}
-      <div className="bb-txt">
-        <span className="bt">스킨 {stake}개 걸림</span>
-        <span className="bs">
-          단독 최저 타수가 1명당 {won(perPlayer)}씩 받아요
-          {stake > 1 ? " (이월 포함)" : ""}
-        </span>
-      </div>
-    </div>
   );
 }
