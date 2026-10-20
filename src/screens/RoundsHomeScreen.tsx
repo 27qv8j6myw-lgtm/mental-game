@@ -4,15 +4,23 @@ import { useRound } from "../round";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
 import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundListItem, RoundRow } from "../types";
-import { GAME_MODE_LABEL } from "../util";
+import { GAME_MODE_LABEL, teeLabel } from "../util";
 import { isAdmin } from "../admin";
 import { loadStats, type PersonStats } from "../stats";
+import { loadRecordRounds, type RecordRound } from "../recordStats";
 import { wonSigned } from "../util";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
   playing: "진행중",
   done: "완료",
+};
+
+/** 18홀을 다 친 기록 라운드의 평균 타수 (소수 첫째 자리). 없으면 null */
+const recordAvg = (records: RecordRound[]) => {
+  const full = records.filter((r) => r.holeCount === 18 && r.summary.holesPlayed === 18);
+  if (full.length === 0) return null;
+  return Math.round((full.reduce((s, r) => s + r.summary.strokes, 0) / full.length) * 10) / 10;
 };
 
 const LINKABLE: { id: OAuthProvider; label: string }[] = [
@@ -24,10 +32,12 @@ export default function RoundsHomeScreen({
   onCreate,
   onAdmin,
   onStats,
+  onRecords,
 }: {
   onCreate: () => void;
   onAdmin: () => void;
   onStats: () => void;
+  onRecords: () => void;
 }) {
   const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
     useAuth();
@@ -43,16 +53,22 @@ export default function RoundsHomeScreen({
   const [admin, setAdmin] = useState(false);
   // 내 전적 요약 (정산 확정 라운드가 있을 때만 카드로 보여준다)
   const [myStats, setMyStats] = useState<PersonStats | null>(null);
+  // 기록 모드(내기 없음) 라운드 요약 (끝낸 기록 라운드가 있을 때만 카드로 보여준다)
+  const [records, setRecords] = useState<RecordRound[]>([]);
 
   const load = async () => {
     setLoading(true);
     try {
       const list = await listMyRounds();
       setRounds(list);
-      if (user?.uid)
+      if (user?.uid) {
         void loadStats(user.uid, list)
           .then((st) => setMyStats(st.me))
           .catch((e) => console.error("전적 불러오기 실패", e));
+        void loadRecordRounds(user.uid, list)
+          .then(setRecords)
+          .catch((e) => console.error("라운드 기록 불러오기 실패", e));
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -277,6 +293,27 @@ export default function RoundsHomeScreen({
           </>
         )}
 
+        {records.length > 0 && (
+          <>
+            <div className="section-title">라운드 기록</div>
+            <button className="card stats-card" onClick={onRecords}>
+              <span className="sc-ic rec">
+                <Icon name="chart" size={20} />
+              </span>
+              <span className="sc-main">
+                <b>내 기록 분석</b>
+                <span>
+                  {records.length}라운드
+                  {recordAvg(records) != null && (
+                    <span className="nw"> · 평균 {recordAvg(records)}타</span>
+                  )}
+                </span>
+              </span>
+              <Icon name="chevronRight" size={18} className="st-row-go" />
+            </button>
+          </>
+        )}
+
         <div className="section-title">내 라운드</div>
         {loading ? (
           <div className="card">
@@ -299,6 +336,7 @@ export default function RoundsHomeScreen({
                 </div>
                 <div className="ri-sub">
                   {r.date} · {r.tee_time}
+                  {teeLabel(r.course_tee) && ` · ${teeLabel(r.course_tee)}`}
                   {r.host_uid === user?.uid ? " · 방장" : ""}
                 </div>
                 {r.round_players.length > 0 && (

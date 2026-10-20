@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type {
   Gender,
+  HoleStat,
   RoundListItem,
   RoundPlayerRow,
   RoundRow,
@@ -14,12 +15,21 @@ export interface PlayerInfo {
   handicap: number;
 }
 
+/** round_hole_stats 행: 기록 모드 홀별 상세 기록 */
+export type HoleStatRow = HoleStat & { hole_index: number; player_uid: string };
+
 export interface RoundBundle {
   round: RoundRow;
   players: RoundPlayerRow[];
   holes: { hole_index: number; par: number }[];
   scores: { hole_index: number; player_uid: string; rel: number }[];
+  /** 기록 모드 홀별 상세 기록. 기기에 보관된 예전 데이터에는 없을 수 있다 */
+  stats?: HoleStatRow[];
 }
+
+/** 홀별 상세 기록 테이블(supabase/record.sql)을 아직 만들지 않은 경우: 기록 없이 동작 */
+const isMissingTable = (e: { code?: string } | null) =>
+  e?.code === "PGRST205" || e?.code === "42P01";
 
 function requireDb() {
   if (!supabase) throw new Error("Supabase가 설정되지 않았습니다.");
@@ -28,6 +38,8 @@ function requireDb() {
 
 export interface CreateRoundParams {
   courseName: string;
+  /** 티 박스 (TeeBox) */
+  courseTee: string;
   date: string;
   teeTime: string;
   unit: number;
@@ -41,7 +53,7 @@ export async function createRound(p: CreateRoundParams): Promise<RoundRow> {
   const db = requireDb();
   const { data, error } = await db.rpc("create_round", {
     p_course_name: p.courseName,
-    p_course_tee: "",
+    p_course_tee: p.courseTee,
     p_date: p.date,
     p_tee_time: p.teeTime,
     p_unit: p.unit,
@@ -90,7 +102,7 @@ export async function listMyRounds(): Promise<RoundListItem[]> {
 
 export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
   const db = requireDb();
-  const [round, players, holes, scores] = await Promise.all([
+  const [round, players, holes, scores, stats] = await Promise.all([
     db.from("rounds").select("*").eq("id", roundId).single(),
     db
       .from("round_players")
@@ -102,9 +114,14 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
       .from("round_scores")
       .select("hole_index,player_uid,rel")
       .eq("round_id", roundId),
+    db
+      .from("round_hole_stats")
+      .select("hole_index,player_uid,putts,fairway,lie,ob,hazard,sand")
+      .eq("round_id", roundId),
   ]);
   // 통신이 약해 일부만 실패하면 빈 스코어로 덮어 화면에서 사라지므로 하나라도 실패하면 전체를 실패로 본다
-  const error = round.error ?? players.error ?? holes.error ?? scores.error;
+  const statsError = isMissingTable(stats.error) ? null : stats.error;
+  const error = round.error ?? players.error ?? holes.error ?? scores.error ?? statsError;
   if (error) throw error;
   return {
     round: round.data as RoundRow,
@@ -113,6 +130,7 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
     scores:
       (scores.data as { hole_index: number; player_uid: string; rel: number }[]) ??
       [],
+    stats: (stats.data as HoleStatRow[] | null) ?? [],
   };
 }
 
@@ -156,16 +174,16 @@ export async function updateRound(
 export async function getRoundMeta(
   roundId: string,
   signal: AbortSignal
-): Promise<Pick<RoundRow, "status" | "host_uid"> | null> {
+): Promise<{ status: RoundRow["status"]; host_uid: string; gameMode: string | null } | null> {
   const db = requireDb();
   const { data, error } = await db
     .from("rounds")
-    .select("status,host_uid")
+    .select("status,host_uid,gameMode:rules->>gameMode")
     .eq("id", roundId)
     .abortSignal(signal)
     .maybeSingle();
   if (error) throw error;
-  return data as Pick<RoundRow, "status" | "host_uid"> | null;
+  return data as { status: RoundRow["status"]; host_uid: string; gameMode: string | null } | null;
 }
 
 export async function setPar(
@@ -208,6 +226,22 @@ export async function setScore(
   }
 }
 
+/** 기록 모드 홀별 상세 기록 저장 (RLS: 본인 것만) */
+export async function setHoleStat(
+  roundId: string,
+  holeIndex: number,
+  playerUid: string,
+  stat: HoleStat,
+  signal: AbortSignal
+): Promise<void> {
+  const db = requireDb();
+  const { error } = await db
+    .from("round_hole_stats")
+    .upsert({ round_id: roundId, hole_index: holeIndex, player_uid: playerUid, ...stat })
+    .abortSignal(signal);
+  if (error) throw error;
+}
+
 export async function setRoundStatus(
   roundId: string,
   status: "lobby" | "playing" | "done"
@@ -239,7 +273,7 @@ export async function leaveOrDeleteRound(
   }
 }
 
-/** 라운드 관련 4개 테이블 변경을 구독. 변경 시 onChange() 호출(재조회 트리거). */
+/** 라운드 관련 테이블(+ 기록 모드 상세 기록) 변경을 구독. 변경 시 onChange() 호출(재조회 트리거). */
 export function subscribeRound(roundId: string, onChange: () => void) {
   const db = requireDb();
   const channel = db
@@ -265,8 +299,19 @@ export function subscribeRound(roundId: string, onChange: () => void) {
       onChange
     )
     .subscribe();
+  // 기록 모드 상세 기록은 채널을 따로 둔다: 테이블(record.sql)이 아직 없어 구독이 실패해도
+  // 위 4개 테이블 구독은 영향을 받지 않게
+  const statsChannel = db
+    .channel(`round-stats:${roundId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "round_hole_stats", filter: `round_id=eq.${roundId}` },
+      onChange
+    )
+    .subscribe();
 
   return () => {
     db.removeChannel(channel);
+    db.removeChannel(statsChannel);
   };
 }

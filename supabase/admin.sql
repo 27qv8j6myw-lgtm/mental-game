@@ -109,20 +109,23 @@ begin
       'by_handicap', (
         select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
         from (select coalesce(rules ->> 'handicapMode', 'avg') as k, count(*) as n
-              from r group by 1) s
+              from r where coalesce(rules ->> 'gameMode', '') <> 'record' group by 1) s
       ),
       'by_payment', (
         select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
         from (select coalesce(rules ->> 'payment',
                               case when handicap_settle = 'pre' then 'cash' else 'transfer' end) as k,
                      count(*) as n
-              from r group by 1) s
+              from r where coalesce(rules ->> 'gameMode', '') <> 'record' group by 1) s
       ),
       'avg_players', (select coalesce(round(avg(n)::numeric, 1), 0) from pc),
       'units', (
         select coalesce(jsonb_agg(jsonb_build_object('unit', unit, 'count', n)
                                   order by n desc, unit), '[]'::jsonb)
-        from (select unit, count(*) as n from r group by unit order by n desc, unit limit 5) s
+        -- 기록 모드(내기 없음, 금액 0)는 핸디캡·지불 방법·금액 집계에서 뺀다
+        from (select unit, count(*) as n from r
+              where coalesce(rules ->> 'gameMode', '') <> 'record'
+              group by unit order by n desc, unit limit 5) s
       ),
       'daily', (
         select jsonb_agg(jsonb_build_object('day', d.day, 'count',

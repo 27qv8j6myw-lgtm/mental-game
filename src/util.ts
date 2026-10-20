@@ -5,11 +5,28 @@ import type {
   SettleTiming,
   SkinsRules,
   StoredRules,
+  TeeBox,
 } from "./types";
 
 export const GAME_MODE_LABEL: Record<GameMode, string> = {
   stroke: "타당",
   skins: "스킨스",
+  record: "기록",
+};
+
+/** 티 박스: 라운드 만들기에서 고르는 순서대로 */
+export const TEE_BOXES: [TeeBox, string][] = [
+  ["red", "레드"],
+  ["senior", "시니어"],
+  ["white", "화이트"],
+  ["blue", "블루"],
+  ["black", "블랙"],
+];
+
+/** "white" → "화이트 티". 예전 라운드처럼 값이 없으면 빈 문자열 */
+export const teeLabel = (t: string | null | undefined) => {
+  const name = TEE_BOXES.find(([k]) => k === t)?.[1];
+  return name ? `${name} 티` : "";
 };
 
 /** 새 스킨스 라운드의 배수 조건 기본값 */

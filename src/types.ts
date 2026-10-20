@@ -18,8 +18,32 @@ export interface Player {
 
 export type SettleTiming = "pre" | "post";
 export type PaymentMethod = "cash" | "transfer";
-/** stroke: 타당(두 명씩 타수 차) / skins: 홀마다 단독 최저 타수가 스킨을 가져감 */
-export type GameMode = "stroke" | "skins";
+/**
+ * stroke: 타당(두 명씩 타수 차) / skins: 홀마다 단독 최저 타수가 스킨을 가져감
+ * record: 기록 모드 — 내기 없이 각자 자기 스코어·퍼트·티샷·벌타를 기록
+ */
+export type GameMode = "stroke" | "skins" | "record";
+
+/** 티 박스 (rounds.course_tee 에 저장. 예전 라운드는 빈 값) */
+export type TeeBox = "red" | "senior" | "white" | "blue" | "black";
+
+/** 기록 모드 티샷 방향 (파4·파5만): 훅(왼쪽)·적중·짧음(안 뜸)·슬라이스(오른쪽) */
+export type Fairway = "left" | "hit" | "short" | "right";
+/** 티샷이 떨어진 곳: 벙커·패널티. 방향과 함께 고를 수 있다 */
+export type TeeLie = "bunker" | "penalty";
+
+/** 기록 모드 홀별 상세 기록 (round_hole_stats 행). 스코어는 HoleScore 에 있다 */
+export interface HoleStat {
+  /** 퍼트 수 (0~6). 입력 전이면 null */
+  putts: number | null;
+  fairway: Fairway | null;
+  /** 티샷 벙커·패널티 (방향과 별개) */
+  lie: TeeLie | null;
+  ob: number;
+  hazard: number;
+  /** 샌드샷 (벙커에서 친 샷) 수 */
+  sand: number;
+}
 /**
  * avg: 평균 타수로 핸디 산출 / stroke: 최고수 대비 +N타로 직접 설정
  * adjust: 타수 보정 — 핸디 금액 정산 없이, 파4·파5 홀마다 정한 타수를 잡아줘 판정한다
@@ -62,8 +86,23 @@ export interface BetRules {
   skins?: SkinsRules;
 }
 
+/** KGA 코스레이팅: 라운드 만들기에서 고른 골프장·코스·티 (보정타수 계산용) */
+export interface CourseRating {
+  club: string;
+  /** 18홀 코스 조합 (예: "동(아웃+인)") */
+  course: string;
+  /** KGA 티 이름 (예: "WHITE") */
+  tee: string;
+  /** 그 티의 남/여 레이팅 */
+  ratings: { sex: "M" | "F"; cr: number; slope: number }[];
+  /** KGA 계산기에서 자료를 모은 날짜 (예: "2026-10-20") */
+  edition: string;
+}
+
 /** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
 export interface StoredRules extends BetRules {
+  /** KGA 코스레이팅 (골프장을 목록에서 골랐을 때만) */
+  rating?: CourseRating;
   /** 값이 없는 예전 라운드는 타당 */
   gameMode?: GameMode;
   payment?: PaymentMethod;
@@ -91,6 +130,8 @@ export interface EditLogEntry {
 
 export interface GameConfig {
   courseName: string;
+  /** 티 박스. 예전 라운드는 빈 값 */
+  courseTee: string;
   date: string;
   teeTime: string;
   /** 타당 금액 (원) */
@@ -105,6 +146,8 @@ export interface GameConfig {
   handicapSettle: SettleTiming;
   rules: BetRules;
   editLog: EditLogEntry[];
+  /** KGA 코스레이팅 (골프장을 목록에서 고른 라운드만) */
+  rating: CourseRating | null;
 }
 
 export type ParValue = 3 | 4 | 5;
@@ -175,6 +218,10 @@ export interface Session {
   goHole: (index: number) => void;
   setPar: (holeIndex: number, par: ParValue) => void;
   setScore: (holeIndex: number, playerId: string, value: number | null) => void;
+  /** 기록 모드 홀별 상세 기록: [홀][playerId]. 기록이 없으면 그 칸이 없다 */
+  holeStats: Record<string, HoleStat>[];
+  /** 기록 모드: 홀별 상세 기록 저장 (본인 것만) */
+  setStat: (holeIndex: number, playerId: string, stat: HoleStat) => void;
   status: RoundStatus;
   isHost: boolean;
   /** 정산 확정 후 방장이 스코어를 고치는 중. 수정 완료 전까지는 저장되지 않는 초안이다 */

@@ -22,7 +22,11 @@ type IconName =
   | "trash"
   | "info"
   | "chart"
-  | "refresh";
+  | "refresh"
+  | "hook"
+  | "slice"
+  | "ring"
+  | "short";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -124,6 +128,27 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M20 11a8 8 0 1 0-2.3 5.7" />
       <path d="M20 4v7h-7" />
+    </>
+  ),
+  // 티샷: 곧게 가다 왼쪽으로 휘는 공(훅) / 오른쪽으로 휘는 공(슬라이스) / 적중
+  hook: (
+    <>
+      <path d="M15 21C15 13 13 8 6 6" />
+      <path d="M6 6l2.5 3.7M6 6l4.1-1.8" />
+    </>
+  ),
+  slice: (
+    <>
+      <path d="M9 21C9 13 11 8 18 6" />
+      <path d="M18 6l-2.5 3.7M18 6l-4.1-1.8" />
+    </>
+  ),
+  ring: <circle cx="12" cy="12" r="6.5" />,
+  // 짧거나 안 뜬 티샷: 아래 화살표
+  short: (
+    <>
+      <path d="M12 5v13" />
+      <path d="M7 13l5 5 5-5" />
     </>
   ),
 };

@@ -218,7 +218,8 @@ export default function RoundSettingsSheet({
 
         <div className="section-title">게임 방식</div>
         <div className="card">
-          <GameModeField value={gameMode} onChange={setGameMode} />
+          {/* 내기 라운드를 기록 모드로 바꾸지는 않는다 (정산·핸디 설정이 사라지므로) */}
+          <GameModeField value={gameMode} onChange={setGameMode} modes={["stroke", "skins"]} />
         </div>
 
         <div className="section-title">지불 방법</div>

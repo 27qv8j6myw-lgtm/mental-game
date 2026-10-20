@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth";
-import { bundleConfig, bundleHoles } from "./model";
+import { bundleConfig, bundleHoleStats, bundleHoles } from "./model";
 import {
   applyOp,
   clearPending,
@@ -33,6 +33,7 @@ import {
 import type {
   GameConfig,
   HoleScore,
+  HoleStat,
   ParValue,
   RoundPlayerRow,
   RoundRow,
@@ -319,6 +320,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!bundle || !myUid || !user?.bank) return;
     const r = bundle.round;
+    if (r.rules.gameMode === "record") return;
     const payment = r.rules.payment ?? (r.handicap_settle === "pre" ? "cash" : "transfer");
     if (payment !== "transfer") return;
     const me = bundle.players.find((p) => p.user_uid === myUid);
@@ -334,14 +336,22 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   // ---- derive config + holes ----
   const config = useMemo<GameConfig | null>(() => (bundle ? bundleConfig(bundle) : null), [bundle]);
   const holes = useMemo<HoleScore[]>(() => (bundle ? bundleHoles(bundle) : []), [bundle]);
+  const holeStats = useMemo(() => (bundle ? bundleHoleStats(bundle) : []), [bundle]);
 
   // ---- optimistic mutations ----
   // 화면에 먼저 반영하고 저장 대기열(기기에 보관)을 거쳐 보낸다. 실패하면 대기열에 남아 나중에 다시 보낸다
   const save = useCallback(
     (op: SaveOp) => {
-      if (!activeRoundId) return;
+      if (!activeRoundId || !bundle) return;
+      const isRecord = bundle.round.rules.gameMode === "record";
+      // 기록 모드: 각자 자기 스코어·기록만 (파는 누구나), 종료 뒤에도 고칠 수 있다
+      if (isRecord) {
+        if (op.kind !== "par" && op.player !== myUid) return;
+        if (op.kind === "par" && bundle.round.status === "done" && bundle.round.host_uid !== myUid)
+          return;
+      }
       // 종료된 라운드는 방장만 수정 가능
-      if (bundle?.round.status === "done" && bundle.round.host_uid !== myUid) return;
+      else if (bundle.round.status === "done" && bundle.round.host_uid !== myUid) return;
       setBundle((prev) => (prev ? applyOp(prev, op) : prev));
       queueSave(activeRoundId, op);
     },
@@ -359,6 +369,12 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     [save]
   );
 
+  const setStat = useCallback(
+    (holeIndex: number, playerId: string, stat: HoleStat) =>
+      save({ kind: "stat", hole: holeIndex, player: playerId, stat }),
+    [save]
+  );
+
   const session = useMemo<Session | null>(() => {
     if (!config || !status) return null;
     return {
@@ -369,11 +385,25 @@ export function RoundProvider({ children }: { children: ReactNode }) {
         setCurrentHole(Math.max(0, Math.min((bundle?.round.hole_count ?? 18) - 1, i))),
       setPar,
       setScore,
+      holeStats,
+      setStat,
       status,
       isHost,
       pendingSaves,
     };
-  }, [config, holes, currentHole, setPar, setScore, status, isHost, bundle, pendingSaves]);
+  }, [
+    config,
+    holes,
+    holeStats,
+    currentHole,
+    setPar,
+    setScore,
+    setStat,
+    status,
+    isHost,
+    bundle,
+    pendingSaves,
+  ]);
 
   const start = useCallback(async () => {
     if (!activeRoundId) return;

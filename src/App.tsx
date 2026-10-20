@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "./auth";
 import { useRound } from "./round";
 import GameScreen from "./screens/GameScreen";
 import ResultsScreen from "./screens/ResultsScreen";
+import RecordGameScreen from "./screens/RecordGameScreen";
+import RecordResultsScreen from "./screens/RecordResultsScreen";
+import RecordStatsScreen from "./screens/RecordStatsScreen";
 import LoginScreen from "./screens/LoginScreen";
 import RoundsHomeScreen from "./screens/RoundsHomeScreen";
 import CreateRoundScreen from "./screens/CreateRoundScreen";
@@ -34,7 +37,13 @@ export default function App() {
 
 function MemberFlow() {
   const round = useRound();
-  const [view, setView] = useState<"home" | "create" | "admin" | "stats">("home");
+  const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records">("home");
+
+  // 라운드를 만들어 들어갔으면, 라운드를 닫을 때 만들기 화면이 아니라 홈으로 돌아온다
+  // (전적·라운드 기록에서 연 라운드는 닫으면 그 화면으로 돌아온다)
+  useEffect(() => {
+    if (round.activeRoundId && view === "create") setView("home");
+  }, [round.activeRoundId, view]);
 
   if (round.activeRoundId) {
     if (round.loading || !round.session) {
@@ -64,11 +73,13 @@ function MemberFlow() {
   if (view === "create") return <CreateRoundScreen onCancel={() => setView("home")} />;
   if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
   if (view === "stats") return <StatsScreen onClose={() => setView("home")} />;
+  if (view === "records") return <RecordStatsScreen onClose={() => setView("home")} />;
   return (
     <RoundsHomeScreen
       onCreate={() => setView("create")}
       onAdmin={() => setView("admin")}
       onStats={() => setView("stats")}
+      onRecords={() => setView("records")}
     />
   );
 }
@@ -82,6 +93,8 @@ function RoundPlay({ session }: { session: Session }) {
     setTab(t);
     window.scrollTo(0, 0);
   };
+  // 기록 모드: 정산 대신 기록 분석, 각자 자기 기록을 고치므로 '스코어 수정' 초안이 없다
+  const isRecord = session.config.gameMode === "record";
 
   // 정산 확정 후 스코어 수정: 초안에만 반영하고 '수정 완료' 때 바뀐 것만 저장, '취소'면 버린다
   const [draft, setDraft] = useState<HoleScore[] | null>(null);
@@ -173,7 +186,13 @@ function RoundPlay({ session }: { session: Session }) {
       </div>
 
       {tab === "game" ? (
-        <GameScreen session={view} />
+        isRecord ? (
+          <RecordGameScreen session={session} />
+        ) : (
+          <GameScreen session={view} />
+        )
+      ) : isRecord ? (
+        <RecordResultsScreen session={session} />
       ) : (
         <ResultsScreen session={session} onEditScores={startEdit} />
       )}
@@ -202,7 +221,7 @@ function RoundPlay({ session }: { session: Session }) {
             <span className="ic">
               <Icon name="trophy" size={20} />
             </span>
-            정산 결과
+            {isRecord ? "기록 분석" : "정산 결과"}
           </button>
           <button onClick={round.closeRound}>
             <span className="ic">
@@ -220,8 +239,8 @@ function RoundPlay({ session }: { session: Session }) {
             session.currentHole === session.holes.length - 1)) && (
           <div className="floating-finish">
             <button className="btn-primary" onClick={() => void round.finish()}>
-              <Icon name="finish" size={18} className="inline-ic" /> 라운드 종료하고 정산
-              확정
+              <Icon name="finish" size={18} className="inline-ic" />{" "}
+              {isRecord ? "라운드 종료" : "라운드 종료하고 정산 확정"}
             </button>
           </div>
         )}

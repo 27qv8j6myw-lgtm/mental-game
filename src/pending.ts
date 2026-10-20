@@ -1,13 +1,15 @@
 import { supabase } from "./supabase";
 import {
   getRoundMeta,
+  setHoleStat as apiSetHoleStat,
   setPar as apiSetPar,
   setScore as apiSetScore,
   type RoundBundle,
 } from "./rounds";
+import type { HoleStat } from "./types";
 
 /*
- * 스코어·파 저장 대기열
+ * 스코어·파(·기록 모드 상세 기록) 저장 대기열
  * 골프장에서 통신이 끊겨도 입력이 사라지지 않도록, 저장할 값을 먼저 기기(localStorage)에 보관한 뒤 서버로 보낸다.
  * 보내지 못한 값은 다시 연결되거나 앱이 다시 보일 때, 앱을 다시 열 때 순서대로 다시 보낸다.
  * 같은 칸(라운드·홀·사람)은 마지막 값만 남긴다.
@@ -15,7 +17,8 @@ import {
 
 export type SaveOp =
   | { kind: "score"; hole: number; player: string; rel: number | null }
-  | { kind: "par"; hole: number; par: number };
+  | { kind: "par"; hole: number; par: number }
+  | { kind: "stat"; hole: number; player: string; stat: HoleStat };
 type QueuedOp = SaveOp & { seq: number };
 
 /** 라운드 id 별로 보관한다 (앱을 강제 종료해도 남는다) */
@@ -77,7 +80,8 @@ function setQueue(roundId: string, ops: QueuedOp[]) {
 
 const sameCell = (a: SaveOp, b: SaveOp) =>
   a.hole === b.hole &&
-  (a.kind === "par" ? b.kind === "par" : b.kind === "score" && a.player === b.player);
+  a.kind === b.kind &&
+  (a.kind === "par" || (b.kind !== "par" && a.player === b.player));
 
 /** 저장할 값을 대기열에 넣고 바로 보낸다. 같은 칸에 대기 중인 값은 새 값으로 바뀐다 */
 export function queueSave(roundId: string, op: SaveOp) {
@@ -101,6 +105,12 @@ export function applyOp(b: RoundBundle, op: SaveOp): RoundBundle {
   if (op.kind === "par") {
     const rest = b.holes.filter((h) => h.hole_index !== op.hole);
     return { ...b, holes: [...rest, { hole_index: op.hole, par: op.par }] };
+  }
+  if (op.kind === "stat") {
+    const rest = (b.stats ?? []).filter(
+      (s) => !(s.hole_index === op.hole && s.player_uid === op.player)
+    );
+    return { ...b, stats: [...rest, { hole_index: op.hole, player_uid: op.player, ...op.stat }] };
   }
   const rest = b.scores.filter((s) => !(s.hole_index === op.hole && s.player_uid === op.player));
   const scores =
@@ -176,8 +186,12 @@ async function flushOnce() {
 async function flushRound(roundId: string, me: string) {
   if (stalled.has(roundId)) {
     // 끊긴 사이 라운드가 삭제되거나 종료됐을 수 있다. 종료된 라운드는 방장만 고칠 수 있다
+    // (기록 모드는 종료 뒤에도 각자 자기 기록을 고칠 수 있다)
     const meta = await withTimeout((signal) => getRoundMeta(roundId, signal));
-    if (!meta || (meta.status === "done" && meta.host_uid !== me)) {
+    if (
+      !meta ||
+      (meta.status === "done" && meta.host_uid !== me && meta.gameMode !== "record")
+    ) {
       console.warn("더 이상 고칠 수 없는 라운드라 저장 대기 기록을 버림", roundId);
       setQueue(roundId, []);
     }
@@ -200,12 +214,24 @@ async function flushRound(roundId: string, me: string) {
 const send = (roundId: string, op: SaveOp, signal: AbortSignal) =>
   op.kind === "score"
     ? apiSetScore(roundId, op.hole, op.player, op.rel, signal)
+    : op.kind === "stat"
+    ? apiSetHoleStat(roundId, op.hole, op.player, op.stat, signal)
     : apiSetPar(roundId, op.hole, op.par, signal);
 
-/** 다시 보내도 소용없는 거절: 라운드가 사라졌거나(23503) 더 이상 참여자가 아님(42501) */
+/**
+ * 다시 보내도 소용없는 거절: 라운드가 사라졌거나(23503) 더 이상 참여자가 아님(42501),
+ * 허용 범위를 벗어난 값(23514), 상세 기록 테이블(record.sql)이 아직 없음(PGRST205·42P01).
+ * 버리지 않으면 대기열 맨 앞에 걸려 뒤의 스코어까지 못 보낸다
+ */
 const isRejected = (e: unknown) => {
   const code = (e as { code?: unknown } | null)?.code;
-  return code === "23503" || code === "42501";
+  return (
+    code === "23503" ||
+    code === "42501" ||
+    code === "23514" ||
+    code === "PGRST205" ||
+    code === "42P01"
+  );
 };
 
 async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {

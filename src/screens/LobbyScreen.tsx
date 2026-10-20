@@ -3,7 +3,7 @@ import { useRound } from "../round";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
-import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, won } from "../util";
+import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, teeLabel, won } from "../util";
 import AccountField from "./AccountField";
 import { StrokeAdjField } from "./RoundFields";
 import type { Gender } from "../types";
@@ -91,7 +91,12 @@ export default function LobbyScreen() {
 
   if (!bundle || !session) return null;
   const round = bundle.round;
-  const { players, handicapMode, payment, baseUid, gameMode } = session.config;
+  const { players, handicapMode: hm, payment: pay, baseUid, gameMode } = session.config;
+  // 기록 모드: 내기가 없어 핸디캡·계좌가 필요 없고 혼자서도 시작할 수 있다
+  const isRecord = gameMode === "record";
+  const handicapMode = isRecord ? null : hm;
+  const payment = isRecord ? null : pay;
+  const minPlayers = isRecord ? 1 : 2;
   const needBase = handicapMode === "stroke" && !baseUid;
   const setBase = (uid: string) =>
     void updateRound({ rules: { ...round.rules, baseUid: uid } });
@@ -173,8 +178,15 @@ export default function LobbyScreen() {
           <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
           <div className="cc-meta">
             {round.date} · {round.tee_time} · {round.hole_count}홀 ·{" "}
-            {gameMode === "skins" ? "스킨스 · 스킨 1개 " : "타당 "}
-            {round.unit.toLocaleString()}원 · {PAYMENT_LABEL[payment]}
+            {teeLabel(round.course_tee) && `${teeLabel(round.course_tee)} · `}
+            {isRecord ? (
+              "기록 모드 (내기 없음)"
+            ) : (
+              <>
+                {gameMode === "skins" ? "스킨스 · 스킨 1개 " : "타당 "}
+                {round.unit.toLocaleString()}원 · {PAYMENT_LABEL[pay]}
+              </>
+            )}
           </div>
         </div>
 
@@ -266,7 +278,7 @@ export default function LobbyScreen() {
                       프로필 사진은 로그인 계정을 사용하고, 이름은 수정할 수 있어요.
                     </p>
                   )}
-                  {isAdjust ? null : handicapMode === "avg" ? (
+                  {isAdjust || isRecord ? null : handicapMode === "avg" ? (
                     <div className="row2" style={{ marginTop: 10 }}>
                       <div className="stepper-field">
                         <label>평균 타수</label>
@@ -331,7 +343,7 @@ export default function LobbyScreen() {
                     </div>
                   )}
                 </>
-              ) : (
+              ) : isRecord ? null : (
                 <div className="lp-stats">
                   {isAdjust
                     ? `파4·파5 ${adjLabel(adjOf(p.user_uid))}`
@@ -372,7 +384,7 @@ export default function LobbyScreen() {
           </div>
         )}
 
-        {!isAdjust && (
+        {!isAdjust && !isRecord && (
           <>
           <div className="section-title">
             핸디캡 정산 미리보기 {round.handicap_settle === "pre" ? "(사전)" : "(사후)"}
@@ -415,15 +427,17 @@ export default function LobbyScreen() {
         {isHost ? (
           <button
             className="btn-primary"
-            disabled={bundle.players.length < 2 || needBase || starting}
+            disabled={bundle.players.length < minPlayers || needBase || starting}
             onClick={doStart}
           >
             {starting
               ? "시작 중…"
-              : bundle.players.length < 2
+              : bundle.players.length < minPlayers
               ? "참여자를 기다리는 중…"
               : needBase
               ? "최저핸디 인원을 정해 주세요"
+              : isRecord
+              ? "기록 시작"
               : "게임 시작"}
           </button>
         ) : (

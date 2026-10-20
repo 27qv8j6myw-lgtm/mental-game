@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   BetRules,
   GameMode,
@@ -6,9 +6,20 @@ import type {
   PaymentMethod,
   SettleTiming,
   SkinsRules,
+  TeeBox,
 } from "../types";
-import { DEFAULT_SKINS_RULES, localDate, localTime, won } from "../util";
+import { DEFAULT_SKINS_RULES, localDate, localTime, TEE_BOXES, won } from "../util";
 import { createRound } from "../rounds";
+import {
+  courseRating,
+  exactClub,
+  loadKga,
+  matchTee,
+  searchClubs,
+  similarClubs,
+  type KgaClub,
+  type KgaData,
+} from "../kga";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
@@ -43,6 +54,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const [courseName, setCourseName] = useState("");
   const [date, setDate] = useState(() => localDate());
   const [teeTime, setTeeTime] = useState(() => localTime());
+  const [tee, setTee] = useState<TeeBox>("white");
   const [unit, setUnit] = useState(1000);
   const [customUnit, setCustomUnit] = useState("");
   const [gameMode, setGameMode] = useState<GameMode>("stroke");
@@ -62,8 +74,44 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // KGA 코스레이팅: 골프장 이름 추천 → 코스 선택 → 티 박스에 맞는 레이팅
+  const [kga, setKga] = useState<KgaData | null>(null);
+  const [club, setClub] = useState<KgaClub | null>(null);
+  const [courseIdx, setCourseIdx] = useState(-1);
+  /** 직접 고른 KGA 티 이름. 없으면 티 박스로 자동으로 찾는다 */
+  const [kgaTee, setKgaTee] = useState<string | null>(null);
+  useEffect(() => {
+    loadKga()
+      .then(setKga)
+      .catch((e) => console.error("코스레이팅 불러오기 실패", e));
+  }, []);
+  const pickClub = (c: KgaClub | null, name?: string) => {
+    setClub(c);
+    setCourseIdx(c && c.courses.length === 1 ? 0 : -1);
+    setKgaTee(null);
+    if (name !== undefined) setCourseName(name);
+  };
+  // 이름을 고치면 고른 골프장은 풀고, 목록의 이름과 같으면(띄어쓰기·CC 무시) 바로 고른다
+  const onCourseName = (v: string) => {
+    setCourseName(v);
+    const same = kga ? exactClub(kga, v) : null;
+    if (same?.name !== club?.name) pickClub(same);
+  };
+  const suggestions = kga && !club && courseName.trim() ? searchClubs(kga, courseName) : [];
+  const similar =
+    kga && !club && suggestions.length === 0 ? similarClubs(kga, courseName) : [];
+  const course = club && courseIdx >= 0 ? club.courses[courseIdx] : null;
+  const ratingTee = course
+    ? kgaTee && course.tees.some((t) => t[0] === kgaTee)
+      ? kgaTee
+      : matchTee(course, tee)
+    : null;
+  const rating = kga && club && course && ratingTee ? courseRating(kga, club, course, ratingTee) : null;
+
   const isCustomUnit = !UNITS.includes(unit);
-  const canSave = courseName.trim().length > 0 && unit > 0;
+  // 기록 모드는 내기가 없어 금액·지불·핸디캡·배판 설정이 없다
+  const isRecord = gameMode === "record";
+  const canSave = courseName.trim().length > 0 && (isRecord || unit > 0);
 
   const submit = async () => {
     if (!canSave || busy) return;
@@ -72,15 +120,21 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
     try {
       const round = await createRound({
         courseName,
+        courseTee: tee,
         date,
         teeTime,
-        unit,
+        unit: isRecord ? 0 : unit,
         rules: {
-          ...rules,
-          payment,
-          handicapMode,
-          gameMode,
-          ...(gameMode === "skins" && { skins: skinsRules }),
+          ...(isRecord
+            ? { parPenalty: false, tie: false, birdieDouble: false, gameMode }
+            : {
+                ...rules,
+                payment,
+                handicapMode,
+                gameMode,
+                ...(gameMode === "skins" && { skins: skinsRules }),
+              }),
+          ...(rating && { rating }),
         },
         handicapSettle,
         holeCount,
@@ -122,9 +176,55 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               className="input"
               placeholder="예) 베어크리크 춘천"
               value={courseName}
-              onChange={(e) => setCourseName(e.target.value)}
+              onChange={(e) => onCourseName(e.target.value)}
             />
+            {/* KGA 목록에 있는 골프장 추천 (누르면 이름이 채워지고 코스를 고를 수 있다) */}
+            {suggestions.length > 0 && (
+              <div className="kga-sugg">
+                {suggestions.map((c) => (
+                  <button key={c.name} onClick={() => pickClub(c, c.name)}>
+                    <b>{c.name}</b>
+                    <span>
+                      {c.region} · {c.courses.length}개 코스
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {similar.length > 0 && (
+              <div className="kga-sugg similar">
+                <div className="kga-q">이 코스가 맞나요?</div>
+                {similar.map((c) => (
+                  <button key={c.name} onClick={() => pickClub(c, c.name)}>
+                    <b>{c.name}</b>
+                    <span>
+                      {c.region} · {c.courses.length}개 코스
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+          {club && (
+            <div className="field">
+              <label>코스</label>
+              <select
+                className="input"
+                value={courseIdx}
+                onChange={(e) => {
+                  setCourseIdx(Number(e.target.value));
+                  setKgaTee(null);
+                }}
+              >
+                {courseIdx < 0 && <option value={-1}>코스를 골라 주세요</option>}
+                {club.courses.map((c, i) => (
+                  <option key={c.name} value={i}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="row2">
             <div className="field">
               <label>날짜</label>
@@ -159,6 +259,52 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               ))}
             </div>
           </div>
+          <div className="field">
+            <label>티 박스</label>
+            <div className="segmented tee-seg">
+              {TEE_BOXES.map(([t, label]) => (
+                <button
+                  key={t}
+                  className={tee === t ? `active ${t}` : ""}
+                  onClick={() => {
+                    setTee(t);
+                    setKgaTee(null);
+                  }}
+                >
+                  <span className={`tee-dot ${t}`} />
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* 고른 코스·티의 KGA 레이팅. 티 이름이 달라 못 찾으면 직접 고른다 */}
+            {course && (
+              <div className="kga-rating">
+                {rating ? (
+                  <span>
+                    KGA 레이팅{" "}
+                    {rating.ratings
+                      .map((r) => `${r.sex === "M" ? "남" : "여"} ${r.cr}/${r.slope}`)
+                      .join(" · ")}
+                  </span>
+                ) : (
+                  <span className="kga-miss">이 코스에는 고른 티의 레이팅이 없어요. 티를 골라 주세요.</span>
+                )}
+                <select
+                  className="input"
+                  value={ratingTee ?? ""}
+                  onChange={(e) => setKgaTee(e.target.value)}
+                  aria-label="레이팅 티"
+                >
+                  {!ratingTee && <option value="">레이팅 티 선택</option>}
+                  {[...new Set(course.tees.map((t) => t[0]))].map((name) => (
+                    <option key={name} value={name}>
+                      {name} 티
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="section-title">게임 방식</div>
@@ -166,6 +312,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           <GameModeField value={gameMode} onChange={setGameMode} />
         </div>
 
+        {!isRecord && (
+        <>
         <div className="section-title">{gameMode === "skins" ? "홀당 금액" : "타당 금액"}</div>
         <div className="card">
           <div className="unit-chips">
@@ -249,6 +397,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             {HANDICAP_HINT[handicapMode]}
           </p>
         </div>
+        </>
+        )}
 
         {gameMode === "skins" && (
           <>
@@ -285,7 +435,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
       <div className="actionbar">
         <button className="btn-primary" disabled={!canSave || busy} onClick={submit}>
-          {busy ? "생성 중…" : "라운드 만들고 코드 받기"}
+          {busy ? "생성 중…" : isRecord ? "기록 라운드 만들기" : "라운드 만들고 코드 받기"}
         </button>
       </div>
     </div>

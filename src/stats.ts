@@ -71,7 +71,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
   for (const bundle of ordered) {
     const config = bundleConfig(bundle);
     const holes = bundleHoles(bundle);
-    if (config.players.length < 2) continue;
+    if (config.players.length < 2 || config.gameMode === "record") continue;
     const { net } = totalNet(config, holes, true);
     netByRound.set(bundle.round.id, new Map(Object.entries(net)));
 
@@ -185,7 +185,7 @@ const keyOf = (b: RoundBundle) => `${dateOf(b)} ${b.round.created_at}`;
 const CHUNK = 8;
 const PAGE = 1000;
 
-async function fetchRows<T>(table: string, select: string, ids: string[]): Promise<T[]> {
+export async function fetchRows<T>(table: string, select: string, ids: string[]): Promise<T[]> {
   if (!supabase) throw new Error("Supabase가 설정되지 않았습니다.");
   const db = supabase;
   const chunks: string[][] = [];
@@ -217,7 +217,8 @@ let cache: { key: string; result: StatsResult } | null = null;
  */
 export async function loadStats(myUid: string, rounds?: RoundListItem[]): Promise<StatsResult> {
   const list = rounds ?? (await listMyRounds());
-  const done = list.filter((r) => r.status === "done");
+  // 기록 모드(내기 없음)는 전적이 아니라 '라운드 기록'에서 따로 본다
+  const done = list.filter((r) => r.status === "done" && r.rules.gameMode !== "record");
   const key = `${myUid}|${done.map((r) => `${r.id}@${r.updated_at}`).join(",")}`;
   if (cache?.key === key) return cache.result;
 

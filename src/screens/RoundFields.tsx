@@ -2,29 +2,35 @@ import type { BetRules, GameMode, PaymentMethod, SettleTiming, SkinsRules } from
 import { capLabel, GAME_MODE_LABEL, settleNote } from "../util";
 import { Icon } from "../icons";
 
-const GAME_MODES: GameMode[] = ["stroke", "skins"];
+const GAME_MODES: GameMode[] = ["stroke", "skins", "record"];
 
-/** 게임 방식: 타당 / 스킨스 */
+const GAME_MODE_HINT: Record<GameMode, string> = {
+  stroke: "두 명씩 홀마다 타수 차이 × 타당 금액을 주고받아요.",
+  skins: "홀마다 단독 최저 타수 플레이어가 걸린 스킨을 모두 가져가요.",
+  record: "내기 없이 각자 스코어·퍼트·페어웨이·벌타를 기록해요.",
+};
+
+/** 게임 방식: 타당 / 스킨스 / 기록. modes 로 고를 수 있는 방식을 줄일 수 있다 (정산 설정 수정 등) */
 export function GameModeField({
   value,
   onChange,
+  modes = GAME_MODES,
 }: {
   value: GameMode;
   onChange: (v: GameMode) => void;
+  modes?: GameMode[];
 }) {
   return (
     <>
       <div className="segmented">
-        {GAME_MODES.map((m) => (
+        {modes.map((m) => (
           <button key={m} className={value === m ? "active" : ""} onClick={() => onChange(m)}>
             {GAME_MODE_LABEL[m]}
           </button>
         ))}
       </div>
       <p className="hint" style={{ marginTop: 10 }}>
-        {value === "skins"
-          ? "홀마다 단독 최저 타수 플레이어가 걸린 스킨을 모두 가져가요."
-          : "두 명씩 홀마다 타수 차이 × 타당 금액을 주고받아요."}
+        {GAME_MODE_HINT[value]}
       </p>
     </>
   );

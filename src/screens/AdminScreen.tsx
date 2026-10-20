@@ -10,6 +10,7 @@ import {
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { GAME_MODE_LABEL } from "../util";
 import type { GameMode } from "../types";
+import RatioBar from "./RatioBar";
 
 const STATUS_LABEL: Record<string, string> = { lobby: "대기중", playing: "진행중", done: "완료" };
 const HANDICAP_LABEL: Record<string, string> = {
@@ -95,43 +96,6 @@ function BarChart({
         ))}
       </div>
       <div className="ad-chart-sum">합계 {num(total)}</div>
-    </div>
-  );
-}
-
-/** 비율 막대: 항목별 색 띠 + 범례(개수·퍼센트) */
-function RatioBar({
-  title,
-  items,
-}: {
-  title: string;
-  items: { label: string; count: number }[];
-}) {
-  const total = items.reduce((s, it) => s + it.count, 0);
-  const pct = (n: number) => (total === 0 ? 0 : Math.round((n / total) * 100));
-  return (
-    <div className="ad-ratio">
-      <div className="ad-ratio-title">{title}</div>
-      <div className="ad-ratio-bar">
-        {total === 0 ? (
-          <span className="empty" />
-        ) : (
-          items.map((it, i) =>
-            it.count > 0 ? (
-              <span key={it.label} className={`c${i}`} style={{ flexGrow: it.count }} />
-            ) : null
-          )
-        )}
-      </div>
-      <div className="ad-legend">
-        {items.map((it, i) => (
-          <span key={it.label}>
-            <i className={`c${i}`} />
-            {it.label} <b>{num(it.count)}</b>
-            <small>{pct(it.count)}%</small>
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
@@ -361,7 +325,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                             `방장 ${r.host_name || "?"}`,
                             `${r.player_count}명`,
                             `${r.hole_count}홀`,
-                            `${num(r.unit)}원`,
+                            r.game_mode !== "record" && `${num(r.unit)}원`,
                             r.edit_count > 0 && `수정 ${r.edit_count}번`,
                           ]}
                         />

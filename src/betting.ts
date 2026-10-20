@@ -534,6 +534,8 @@ export function totalNet(
 ): { net: Record<string, number>; transfers: Transfer[] } {
   const net: Record<string, number> = {};
   for (const p of config.players) net[p.id] = 0;
+  // 기록 모드는 내기가 없다
+  if (config.gameMode === "record") return { net, transfers: [] };
 
   if (config.gameMode === "skins") {
     addInto(net, skinsResult(config, holes).net);

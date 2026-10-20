@@ -14,7 +14,7 @@ import { SkinPot, SkinStrip } from "./SkinsPanel";
 
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
 // → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
-const SCORE_OPTS = [-3, -2, -1, 0, 1, 2, 3, 4, 5];
+export const SCORE_OPTS = [-3, -2, -1, 0, 1, 2, 3, 4, 5];
 
 export default function GameScreen({ session }: { session: Session }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore } = session;

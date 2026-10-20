@@ -822,6 +822,110 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   border-color: #374151;
   color: #fff;
 }
+.sbtn:disabled {
+  opacity: 0.35;
+}
+/* ============ 기록 모드: 내 기록 입력 ============ */
+.rec-card .player-head {
+  margin-bottom: 4px;
+}
+.rec-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: 12px 0 6px;
+}
+.rec-total {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.gir-chip {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  color: var(--ink-faint);
+}
+.gir-chip.on {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.sbtn.rec-fw {
+  font-size: 13px;
+}
+.sbtn.rec-fw.active {
+  color: #fff;
+}
+.sbtn.rec-fw.active.hit {
+  background: var(--gain);
+  border-color: var(--gain);
+}
+.sbtn.rec-fw.active.left,
+.sbtn.rec-fw.active.right {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+.sbtn.rec-fw.active.bunker {
+  background: var(--mustard);
+  border-color: var(--mustard);
+}
+.sbtn.rec-fw.active.penalty {
+  background: var(--terra);
+  border-color: var(--terra);
+}
+.rec-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+/* 이름은 위, − 숫자 + 는 아래 (좁은 폭에서도 한 칸에 들어가게) */
+.rec-count {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 6px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.rc-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: nowrap;
+}
+.rc-ctrl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rec-count button {
+  width: 26px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 15px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 0;
+}
+.rec-count button:disabled {
+  opacity: 0.35;
+}
+.rec-count b {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
 .pscore-block {
   padding: 14px 0;
   border-bottom: 1px solid var(--line);
@@ -1621,6 +1725,133 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .mode-tag.skins {
   background: var(--mustard-soft);
   color: #b45309;
+}
+.mode-tag.record {
+  background: var(--gain-soft);
+  color: #047857;
+}
+/* 티 박스: 칩마다 티 색 점 */
+.segmented.tee-seg button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 0;
+  font-size: 13px;
+}
+.tee-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+}
+.tee-dot.red {
+  background: #e11d48;
+  border-color: #e11d48;
+}
+.tee-dot.senior {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+.tee-dot.white {
+  background: #fff;
+}
+.tee-dot.blue {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+.tee-dot.black {
+  background: #1f1f1f;
+  border-color: #1f1f1f;
+}
+/* 고른 티는 그 티 색으로 채운다 (시니어는 골드) */
+.segmented.tee-seg button.active {
+  color: #fff;
+}
+.segmented.tee-seg button.active .tee-dot {
+  display: none;
+}
+.segmented.tee-seg button.active.red {
+  background: #e11d48;
+}
+.segmented.tee-seg button.active.senior {
+  background: #d4a017;
+}
+.segmented.tee-seg button.active.white {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line-strong), var(--shadow-sm);
+}
+.segmented.tee-seg button.active.blue {
+  background: #2563eb;
+}
+.segmented.tee-seg button.active.black {
+  background: #1f1f1f;
+}
+/* KGA 골프장 추천 */
+.kga-sugg {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--paper);
+}
+.kga-sugg button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 14px;
+}
+.kga-sugg button:last-child {
+  border-bottom: none;
+}
+.kga-sugg button:active {
+  background: var(--paper-2);
+}
+.kga-sugg button b {
+  font-weight: 700;
+}
+.kga-sugg button span {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.kga-sugg.similar {
+  border-color: var(--mustard-soft);
+}
+.kga-q {
+  padding: 8px 12px 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--mustard);
+  background: var(--mustard-soft);
+}
+.kga-rating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.kga-rating .kga-miss {
+  color: var(--mustard);
+  font-weight: 700;
+}
+.kga-rating select.input {
+  flex: none;
+  width: auto;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
 }
 .ri-sub {
   font-size: 12.5px;
@@ -3657,6 +3888,10 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: var(--mustard-soft);
   color: var(--mustard);
 }
+.stats-card .sc-ic.rec {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
 .stats-card .sc-main {
   flex: 1;
   min-width: 0;
@@ -3681,4 +3916,365 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 17px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
+}
+
+/* ============ 기록 모드: 기록 분석 ============ */
+/* 요약: 큰 타수 + 전후반·퍼트 */
+.rr-total {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.rr-total b {
+  font-family: var(--font-num);
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.rr-total span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.rr-total em {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--teal);
+}
+.rr-rel {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+/* 타수 순위에서 지금 보고 있는 사람 */
+.st-row.rr-on .st-row-name {
+  color: var(--olive);
+}
+/* 지표 카드: 2칸 격자 */
+.rm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 12px;
+}
+.rm-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.rm-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.rm-value {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.rm-note {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+/* 스코어카드: 전반·후반 표 */
+.rsc {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.rsc-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.rsc-table + .rsc-table {
+  margin-top: 14px;
+}
+.rsc-table th {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.rsc-table td {
+  padding: 5px 0;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+}
+.rsc-table th:first-child,
+.rsc-table td:first-child {
+  width: 40px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.rsc-table th:last-child,
+.rsc-table td:last-child {
+  width: 30px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.rsc-par td {
+  color: var(--ink-faint);
+}
+.rsc-score td {
+  font-size: 13px;
+  color: var(--ink);
+}
+.rsc-s.under {
+  color: var(--terra);
+}
+.rsc-s.over {
+  color: var(--teal);
+}
+.rsc-table td.fw-hit {
+  color: var(--gain);
+}
+.rsc-table td.rsc-gir {
+  color: var(--gain);
+}
+.rsc-legend {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+/* 티샷 결과: 반원 + 오른쪽 벙커·패널티 */
+.ts-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+/* 범례: 반원·벙커/패널티 아래 카드 폭 전체 */
+.ts-legends {
+  flex: 1 0 100%;
+}
+.ts-gauge {
+  flex: 1;
+  min-width: 0;
+}
+.ts-gauge svg {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
+}
+.ts-track,
+.ts-seg {
+  fill: none;
+  stroke-width: 16;
+}
+.ts-track {
+  stroke: var(--paper-3);
+}
+.ts-pct {
+  text-anchor: middle;
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 900;
+  fill: var(--ink);
+}
+.ts-cap {
+  text-anchor: middle;
+  font-size: 10.5px;
+  font-weight: 700;
+  fill: var(--ink-faint);
+}
+.ts-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.ts-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.ts-legend b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.ts-legend small {
+  color: var(--ink-faint);
+  font-weight: 700;
+}
+.ts-side {
+  flex: none;
+  width: 86px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ts-box {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  row-gap: 1px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--mustard-soft);
+}
+.ts-box.penalty {
+  background: var(--terra-soft);
+}
+.ts-box span {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mustard);
+}
+.ts-box.penalty span {
+  color: var(--terra);
+}
+.ts-box b {
+  font-family: var(--font-num);
+  font-size: 20px;
+  font-weight: 900;
+}
+.ts-box small {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+/* 스코어 분포: 세로 막대 */
+.sd-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+.sd-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.sd-n {
+  font-family: var(--font-num);
+  font-size: 14px;
+  font-weight: 900;
+}
+.sd-track {
+  width: 100%;
+  max-width: 34px;
+  height: 96px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 7px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.sd-bar {
+  width: 100%;
+  border-radius: 7px 7px 0 0;
+}
+.sd-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.sd-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+/* 스코어카드: 파 대비 줄, 아이콘 */
+.rsc-rel td {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.rsc-rel td.under {
+  color: var(--terra);
+}
+.rsc-rel td.over {
+  color: var(--teal);
+}
+.rsc-table td svg,
+.rsc-legend svg {
+  vertical-align: -2px;
+}
+.rsc-table td.fw-left,
+.rsc-table td.fw-right {
+  color: var(--teal);
+}
+/* 보정타수 (KGA 코스레이팅) */
+.rr-adj {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.rr-adj-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.rr-adj-main span {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.rr-adj-main b {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--olive);
+  font-variant-numeric: tabular-nums;
+}
+.rr-adj-sub {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  line-height: 1.5;
+}
+/* 티샷 입력: 방향 4칸 + 벙커·패널티 2칸 (함께 고를 수 있다) */
+.rec-label small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.rec-fw-row {
+  display: grid;
+  grid-template-columns: 4fr 2fr;
+  gap: 10px;
+}
+.sbtn.rec-fw.active.short {
+  background: #6b7280;
+  border-color: #6b7280;
+}
+.ts-legend + .ts-legend {
+  margin-top: 2px;
+}
+.ts-side-note {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: center;
+}
+.rsc-lie {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.rsc-lie.bunker {
+  color: var(--mustard);
+}
+.rsc-lie.penalty {
+  color: var(--terra);
 }

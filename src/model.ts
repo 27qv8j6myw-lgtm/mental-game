@@ -1,5 +1,5 @@
 import type { RoundBundle } from "./rounds";
-import type { GameConfig, HoleScore, ParValue, Player } from "./types";
+import type { GameConfig, HoleScore, HoleStat, ParValue, Player } from "./types";
 
 /*
  * DB 라운드 묶음(RoundBundle) → 정산 계산에 쓰는 GameConfig·HoleScore.
@@ -31,6 +31,7 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
   }));
   return {
     courseName: r.course_name,
+    courseTee: r.course_tee ?? "",
     date: r.date,
     teeTime: r.tee_time,
     unit: r.unit,
@@ -42,6 +43,7 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
     handicapSettle: r.handicap_settle,
     rules: r.rules,
     editLog: r.rules.editLog ?? [],
+    rating: r.rules.rating ?? null,
   };
 }
 
@@ -59,4 +61,21 @@ export function bundleHoles(bundle: RoundBundle): HoleScore[] {
     }
     return { par, scores };
   });
+}
+
+/** 기록 모드 홀별 상세 기록: [홀][playerId] */
+export function bundleHoleStats(bundle: RoundBundle): Record<string, HoleStat>[] {
+  const out: Record<string, HoleStat>[] = Array.from({ length: bundle.round.hole_count }, () => ({}));
+  for (const s of bundle.stats ?? []) {
+    if (!out[s.hole_index]) continue;
+    out[s.hole_index][s.player_uid] = {
+      putts: s.putts,
+      fairway: s.fairway,
+      lie: s.lie ?? null,
+      ob: s.ob,
+      hazard: s.hazard,
+      sand: s.sand,
+    };
+  }
+  return out;
 }
