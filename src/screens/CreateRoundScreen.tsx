@@ -211,17 +211,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           )}
           {gameMode === "skins" && (
             <p className="hint" style={{ marginTop: 10, wordBreak: "keep-all" }}>
-              스킨 1개 = 홀당 금액이에요. 홀을 이긴 사람이 나머지 모두에게서 스킨 수만큼 받아요.
-              {unit > 0 && (
-                <>
-                  <br />
-                  {/* 처음 하는 사람도 감이 오도록 고른 금액으로 예시 계산 */}
-                  <b>
-                    예) 4명이면 {won(unit)} × 3명 = {won(unit * 3)}
-                  </b>
-                  , 스킨이 2개 쌓인 홀이면 {won(unit * 2 * 3)}
-                </>
-              )}
+              스킨 = 홀별 인당 금액이에요. 홀을 이긴 사람이 나머지 모두에게서 스킨 수 만큼 받아요.
             </p>
           )}
           <p className="warn-note">

@@ -23,7 +23,7 @@ export function GameModeField({
       </div>
       <p className="hint" style={{ marginTop: 10 }}>
         {value === "skins"
-          ? "홀마다 단독 최저 타수가 걸린 스킨을 모두 가져가요."
+          ? "홀마다 단독 최저 타수 플레이어가 걸린 스킨을 모두 가져가요."
           : "두 명씩 홀마다 타수 차이 × 타당 금액을 주고받아요."}
       </p>
     </>
@@ -51,7 +51,9 @@ export function SkinsMultiplierFields({
         <div className="toggle-row" onClick={() => toggle("carryDouble")}>
           <div className="tinfo">
             <span className="t">이월하면 2배</span>
-            <span className="s">최저 동타로 이월되면 스킨이 1→2→4→8개로 불어나요 · 끄면 1개씩 쌓여요</span>
+            <span className="s">
+              최저 동타로 이월되면 스킨이 {value.carryDouble ? "1→2→4→8" : "1→2→3→4"}개로 불어나요
+            </span>
           </div>
           <div className={`switch ${value.carryDouble ? "on" : ""}`} />
         </div>
@@ -83,14 +85,14 @@ export function SkinsRules() {
         <Icon name="info" size={15} className="inline-ic" /> 스킨스 룰
       </div>
       <ul>
-        <li>홀마다 스킨 1개(홀당 금액)가 걸려요.</li>
-        <li>단독 최저 타수 플레이어가 걸린 스킨을 모두 가져가요.</li>
-        <li>이긴 사람은 다른 사람 모두에게서 스킨 수 × 홀당 금액씩 받아요.</li>
-        <li>최저 타수가 2명 이상이면 다음 홀로 이월돼 스킨이 쌓여요.</li>
-        <li>마지막 홀이 최저 동타면 동타인 사람끼리 나눠 가져요.</li>
-        <li>전원 동타면 남은 스킨은 사라져요.</li>
-        <li>타당의 배판·버디 추가 정산은 없어요.</li>
-        <li>홀 최대 타수는 더블파까지만 반영해요.</li>
+        <li>홀마다 스킨 1개(홀당 금액)가 걸림</li>
+        <li>단독 최저 타수 플레이어가 걸린 스킨을 모두 가져감</li>
+        <li>이긴 사람은 모두에게서 스킨 수 × 홀당 금액씩 받음</li>
+        <li>최저 타수가 2명 이상이면 다음 홀로 이월돼 스킨이 쌓임</li>
+        <li>마지막 홀이 최저 동타면 동타인 사람끼리 나눠 가짐</li>
+        <li>전원 동타면 남은 스킨은 사라짐</li>
+        <li>타당의 배판·버디 추가 정산은 없음</li>
+        <li>홀 최대 타수는 더블파까지만 반영</li>
       </ul>
     </div>
   );
@@ -255,7 +257,7 @@ export function RuleToggles({
       <div className="toggle-row" onClick={() => onChange({ ...rules, tie: !rules.tie })}>
         <div className="tinfo">
           <span className="t">동타 배판</span>
-          <span className="s">3명 이상 같은 스코어면 ×2 (전원 동타 제외 · 3인 플레이는 미적용)</span>
+          <span className="s">3명 이상 같은 스코어면 ×2 (전원 동타 제외)</span>
         </div>
         <div className={`switch ${rules.tie ? "on" : ""}`} />
       </div>
@@ -265,20 +267,20 @@ export function RuleToggles({
         </div>
         <div className="br-group">이월</div>
         <ul>
-          <li>전원 동타면 그 홀은 정산 없이 다음 홀로 2배 이월돼요.</li>
-          <li>전원 동타가 계속 이어지면 이월도 2배씩 곱해져요.</li>
-          <li>맨 마지막 홀 뒤에 남은 이월은 자동으로 사라져요.</li>
-          <li>배판 규칙을 모두 끄면 전원 동타 2배 이월만 적용돼요.</li>
+          <li>전원 동타면 그 홀은 정산 없이 다음 홀로 2배 이월</li>
+          <li>전원 동타가 계속 이어지면 이월도 2배씩 곱해짐</li>
+          <li>맨 마지막 홀 뒤에 남은 이월은 자동으로 사라짐</li>
+          <li>배판 규칙을 모두 끄면 전원 동타 2배 이월만 적용</li>
         </ul>
         <div className="br-group">배판 계산</div>
         <ul>
-          <li>동일한 배판 조건은 홀당 1번씩 세고 인원 수로 곱하지 않아요.</li>
-          <li>한 홀에 서로 다른 배판 조건이 겹치면 곱해요.</li>
+          <li>동일한 배판 조건은 홀당 1번씩 세고 인원 수로 곱하지 않음</li>
+          <li>한 홀에 서로 다른 배판 조건이 겹치면 곱함</li>
           <li>
-            모든 배수는 <b>총 상한</b>을 넘지 않아요.
+            모든 배수는 <b>총 상한</b>을 넘지 않음
           </li>
-          <li>버디 배판을 끄면 버디는 1타, 이글은 2타 추가 정산이 적용돼요.</li>
-          <li>홀 최대 타수는 더블파까지만 반영해요.</li>
+          <li>버디 배판을 끄면 버디는 1타, 이글은 2타 추가 정산 적용</li>
+          <li>홀 최대 타수는 더블파까지만 반영</li>
         </ul>
       </div>
     </>

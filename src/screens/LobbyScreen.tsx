@@ -431,7 +431,7 @@ export default function LobbyScreen() {
             방장이 시작하기를 기다리는 중…
           </button>
         )}
-        <button className="btn-ghost" onClick={() => void leave()}>
+        <button className={`btn-ghost ${isHost ? "del" : ""}`} onClick={() => void leave()}>
           {isHost ? "라운드 삭제" : "나가기"}
         </button>
       </div>

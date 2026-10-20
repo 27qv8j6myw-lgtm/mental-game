@@ -112,12 +112,24 @@ export default function GameScreen({ session }: { session: Session }) {
 
       <div className="sheet">
         {session.status === "done" && (
+          // 안내는 두 줄로 (문장마다 한 줄)
           <div className="ro-banner">
-            {session.editing
-              ? "스코어 수정 중이에요. 수정 완료를 눌러야 저장되고, 취소하면 원래대로 돌아가요."
-              : session.isHost
-              ? "정산이 확정된 라운드예요. 정산 결과의 '스코어 수정'에서 고칠 수 있어요."
-              : "정산이 확정된 라운드입니다. 방장만 수정할 수 있어요."}
+            {session.editing ? (
+              <>
+                <span>스코어 수정 중이에요.</span>
+                <span>수정 완료를 눌러야 저장되고, 취소하면 원래대로 돌아가요.</span>
+              </>
+            ) : session.isHost ? (
+              <>
+                <span>정산이 확정된 라운드예요.</span>
+                <span>정산 결과의 '스코어 수정'에서 고칠 수 있어요.</span>
+              </>
+            ) : (
+              <>
+                <span>정산이 확정된 라운드입니다.</span>
+                <span>방장만 수정할 수 있어요.</span>
+              </>
+            )}
           </div>
         )}
         <div className="par-seg">

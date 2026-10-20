@@ -626,6 +626,11 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   flex: none;
   width: 100%;
 }
+/* 대기실 방장의 라운드 삭제: 위 버튼과 같은 글씨 크기, 빨간 글씨 */
+.actionbar .btn-ghost.del {
+  font-size: 15.5px;
+  color: var(--loss);
+}
 .btn-primary {
   width: 100%;
   padding: 15px;
@@ -1827,6 +1832,10 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   border-radius: var(--radius-sm);
   margin-bottom: 14px;
   text-align: center;
+}
+.ro-banner span {
+  display: block;
+  word-break: keep-all;
 }
 .avatar[data-gender="male"] {
   background: #e6f0ff;
