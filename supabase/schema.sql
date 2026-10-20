@@ -1,5 +1,6 @@
 -- 멘탈게임 · Supabase 스키마 (멀티플레이어 라운드)
 -- Supabase 대시보드 > SQL Editor 에 붙여넣어 실행하세요. (여러 번 실행해도 안전)
+-- 관리자 대시보드는 admin.sql 에 따로 있습니다.
 
 -- ============ 테이블 ============
 create table if not exists public.rounds (

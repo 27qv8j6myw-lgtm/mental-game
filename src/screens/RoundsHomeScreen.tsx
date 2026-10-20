@@ -5,6 +5,7 @@ import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
 import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundListItem, RoundRow } from "../types";
 import { GAME_MODE_LABEL } from "../util";
+import { isAdmin } from "../admin";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
@@ -17,7 +18,13 @@ const LINKABLE: { id: OAuthProvider; label: string }[] = [
   { id: "google", label: "Google" },
 ];
 
-export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void }) {
+export default function RoundsHomeScreen({
+  onCreate,
+  onAdmin,
+}: {
+  onCreate: () => void;
+  onAdmin: () => void;
+}) {
   const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
     useAuth();
   const { openRound } = useRound();
@@ -28,6 +35,8 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
   const [err, setErr] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
+  // 관리자 계정이면 프로필 메뉴에 대시보드 버튼을 보여준다
+  const [admin, setAdmin] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -42,6 +51,7 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
 
   useEffect(() => {
     void load();
+    void isAdmin().then(setAdmin);
   }, []);
 
   const isAnon = !!user?.isAnonymous;
@@ -154,6 +164,18 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
                     );
                   })}
                 </div>
+              )}
+              {admin && (
+                <button
+                  className="menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onAdmin();
+                  }}
+                >
+                  <Icon name="chart" size={17} className="inline-ic" />
+                  관리자 대시보드
+                </button>
               )}
               <button
                 className="menu-item"

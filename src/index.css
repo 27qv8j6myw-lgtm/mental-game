@@ -3044,3 +3044,283 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 14px;
   font-weight: 800;
 }
+
+/* ============ 관리자 대시보드 ============ */
+.ad-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.ad-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--paper);
+  border: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.ad-kpi span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.ad-kpi b {
+  font-family: var(--font-num);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.ad-kpi small {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--olive-deep);
+}
+.ad-sub {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.ad-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ad-range {
+  flex: none;
+  width: 120px;
+}
+
+/* 막대 그래프 */
+.ad-chart {
+  margin-top: 10px;
+}
+.ad-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 110px;
+  padding-top: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.ad-bar {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.ad-bar-fill {
+  position: relative;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: #c7dbff;
+}
+.ad-bar.now .ad-bar-fill {
+  background: var(--olive);
+}
+.ad-bar-n {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 1px);
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ad-axis {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+}
+.ad-axis span {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+/* 마지막 날짜는 오른쪽 끝에 맞춘다 */
+.ad-axis span:last-child {
+  direction: rtl;
+}
+.ad-chart-sum {
+  margin-top: 6px;
+  text-align: right;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+/* 비율 막대 */
+.ad-ratio {
+  margin-top: 16px;
+}
+.ad-ratio-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  margin-bottom: 7px;
+}
+.ad-ratio-bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--paper-3);
+}
+.ad-ratio-bar span {
+  flex-basis: 0;
+}
+.ad-ratio-bar .empty {
+  flex-grow: 1;
+}
+.ad-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.ad-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ad-legend b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.ad-legend small {
+  color: var(--ink-faint);
+  font-weight: 700;
+}
+.ad-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.ad-ratio .c0 {
+  background: var(--olive);
+}
+.ad-ratio .c1 {
+  background: #f59e0b;
+}
+.ad-ratio .c2 {
+  background: #10b981;
+}
+.ad-ratio .c3 {
+  background: #a78bfa;
+}
+
+/* 작은 숫자 3칸 */
+.ad-mini {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ad-mini > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--paper-2);
+}
+.ad-mini span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.ad-mini b {
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+/* 많이 쓰는 타당 금액 */
+.ad-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ad-unit-l {
+  flex: none;
+  width: 66px;
+  font-weight: 800;
+}
+.ad-unit-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  overflow: hidden;
+}
+.ad-unit-bar div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--olive);
+}
+.ad-unit-n {
+  flex: none;
+  min-width: 24px;
+  text-align: right;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+/* 최근 라운드·가입자 목록 */
+.ad-list {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.ad-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ad-row:last-child {
+  border-bottom: none;
+}
+.ad-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.ad-row .ri-sub {
+  line-height: 1.45;
+}
+.ad-row .ri-sub .seg {
+  white-space: nowrap;
+}
+.ad-prov {
+  display: inline-flex;
+  gap: 3px;
+}
+.ad-prov .ml-ic {
+  width: 18px;
+  height: 18px;
+}
+.ad-count {
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}

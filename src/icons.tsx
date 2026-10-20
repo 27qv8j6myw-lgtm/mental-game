@@ -20,7 +20,9 @@ type IconName =
   | "spark"
   | "gear"
   | "trash"
-  | "info";
+  | "info"
+  | "chart"
+  | "refresh";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -110,6 +112,18 @@ const PATHS: Record<IconName, JSX.Element> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5" />
       <path d="M12 7.5h.01" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M4 20h16" />
+      <path d="M7 16v-5M12 16V6M17 16v-8" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+      <path d="M20 4v7h-7" />
     </>
   ),
 };
