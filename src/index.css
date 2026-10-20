@@ -276,11 +276,17 @@ input[type="time"].input {
   -webkit-appearance: none;
   appearance: none;
   padding-right: 10px;
-  padding-left: 12px;
+  padding-left: 10px;
 }
-input[type="date"].input::-webkit-date-and-time-value {
-  text-align: left;
+/* 휴대폰(iOS·안드로이드)은 값을 이 의사 요소에 그리고, 글자 폭만큼만 차지해 왼쪽에 붙는다.
+   칸 전체로 늘려 가운데 정렬한다 (데스크톱 크롬은 .dt-input 규칙으로 가운데 정렬) */
+input[type="date"].input::-webkit-date-and-time-value,
+input[type="time"].input::-webkit-date-and-time-value {
+  flex: 1;
+  width: 100%;
   min-width: 0;
+  margin: 0;
+  text-align: center;
 }
 input[type="date"].input::-webkit-calendar-picker-indicator,
 input[type="time"].input::-webkit-calendar-picker-indicator {
@@ -1559,8 +1565,31 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--loss);
 }
 .ri-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 800;
   font-size: 15px;
+}
+.ri-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 내 라운드: 게임 방식 표시 */
+.mode-tag {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.mode-tag.skins {
+  background: var(--mustard-soft);
+  color: #b45309;
 }
 .ri-sub {
   font-size: 12.5px;
@@ -2933,9 +2962,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .dt-input {
   position: relative;
   text-align: center;
-}
-.dt-input::-webkit-date-and-time-value {
-  text-align: center;
+  /* 값이 flex 아이템으로 그려지는 브라우저에서도 가운데로 */
+  justify-content: center;
 }
 /* 크롬의 달력·시계 아이콘이 오른쪽 자리를 차지해 글자가 왼쪽으로 쏠리므로,
    아이콘을 투명하게 칸 전체에 펼쳐 어디를 눌러도 선택창이 열리게 한다 */

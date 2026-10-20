@@ -4,6 +4,7 @@ import { useRound } from "../round";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
 import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundListItem, RoundRow } from "../types";
+import { GAME_MODE_LABEL } from "../util";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
@@ -230,7 +231,13 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
           rounds.map((r) => (
             <div key={r.id} className="round-item">
               <button className="ri-open" onClick={() => openRound(r.id)}>
-                <div className="ri-name">{r.course_name || "이름 없는 라운드"}</div>
+                <div className="ri-name">
+                  <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
+                  {/* 게임 방식: 값이 없는 예전 라운드는 타당 */}
+                  <span className={`mode-tag ${r.rules.gameMode ?? "stroke"}`}>
+                    {GAME_MODE_LABEL[r.rules.gameMode ?? "stroke"]}
+                  </span>
+                </div>
                 <div className="ri-sub">
                   {r.date} · {r.tee_time}
                   {r.host_uid === user?.uid ? " · 방장" : ""}
