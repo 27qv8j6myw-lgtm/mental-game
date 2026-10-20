@@ -2526,3 +2526,35 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: var(--olive);
   opacity: 0.55;
 }
+
+/* 라운드 만들기: 날짜·티오프 가운데 정렬 (iOS 는 값 영역을 따로 맞춰야 함) */
+.dt-input {
+  position: relative;
+  text-align: center;
+}
+.dt-input::-webkit-date-and-time-value {
+  text-align: center;
+}
+/* 크롬의 달력·시계 아이콘이 오른쪽 자리를 차지해 글자가 왼쪽으로 쏠리므로,
+   아이콘을 투명하게 칸 전체에 펼쳐 어디를 눌러도 선택창이 열리게 한다 */
+.dt-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* 라운드 만들기: 타당 금액 버튼 4개 같은 폭 */
+.unit-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.unit-chips .chip {
+  padding: 9px 0;
+  text-align: center;
+  white-space: nowrap;
+}

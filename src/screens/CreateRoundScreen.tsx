@@ -94,7 +94,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             <div className="field">
               <label>날짜</label>
               <input
-                className="input"
+                className="input dt-input"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -103,7 +103,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             <div className="field">
               <label>티오프 시간</label>
               <input
-                className="input"
+                className="input dt-input"
                 type="time"
                 value={teeTime}
                 onChange={(e) => setTeeTime(e.target.value)}
@@ -128,7 +128,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         <div className="section-title">타당 금액</div>
         <div className="card">
-          <div className="chips">
+          <div className="unit-chips">
             {UNITS.map((u) => (
               <button
                 key={u}
@@ -156,13 +156,15 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             <div className="field" style={{ marginTop: 12 }}>
               <input
                 className="input"
-                type="number"
+                type="text"
                 inputMode="numeric"
                 placeholder="금액 입력 (원)"
-                value={customUnit}
+                value={customUnit ? Number(customUnit).toLocaleString("ko-KR") : ""}
                 onChange={(e) => {
-                  setCustomUnit(e.target.value);
-                  setUnit(Number(e.target.value) || 0);
+                  // 콤마를 빼고 숫자만 저장, 화면에는 천 원 단위 콤마로 보여준다
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                  setCustomUnit(digits);
+                  setUnit(Number(digits) || 0);
                 }}
               />
             </div>
