@@ -344,8 +344,12 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     (op: SaveOp) => {
       if (!activeRoundId || !bundle) return;
       const isRecord = bundle.round.rules.gameMode === "record";
+      // 상세 기록(퍼트·티샷 등)은 돈과 상관없어 게임 방식·종료와 상관없이 본인 것만
+      if (op.kind === "stat") {
+        if (op.player !== myUid) return;
+      }
       // 기록 모드: 각자 자기 스코어·기록만 (파는 누구나), 종료 뒤에도 고칠 수 있다
-      if (isRecord) {
+      else if (isRecord) {
         if (op.kind !== "par" && op.player !== myUid) return;
         if (op.kind === "par" && bundle.round.status === "done" && bundle.round.host_uid !== myUid)
           return;

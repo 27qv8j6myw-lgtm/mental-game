@@ -185,15 +185,18 @@ async function flushOnce() {
 
 async function flushRound(roundId: string, me: string) {
   if (stalled.has(roundId)) {
-    // 끊긴 사이 라운드가 삭제되거나 종료됐을 수 있다. 종료된 라운드는 방장만 고칠 수 있다
-    // (기록 모드는 종료 뒤에도 각자 자기 기록을 고칠 수 있다)
+    // 끊긴 사이 라운드가 삭제되거나 종료됐을 수 있다. 종료된 라운드의 스코어·파는 방장만 고칠 수 있다
+    // (기록 모드는 종료 뒤에도 각자 자기 기록을, 내기 라운드도 본인 상세 기록은 고칠 수 있다)
     const meta = await withTimeout((signal) => getRoundMeta(roundId, signal));
-    if (
-      !meta ||
-      (meta.status === "done" && meta.host_uid !== me && meta.gameMode !== "record")
-    ) {
-      console.warn("더 이상 고칠 수 없는 라운드라 저장 대기 기록을 버림", roundId);
+    if (!meta) {
+      console.warn("더 이상 볼 수 없는 라운드라 저장 대기 기록을 버림", roundId);
       setQueue(roundId, []);
+    } else if (meta.status === "done" && meta.host_uid !== me && meta.gameMode !== "record") {
+      const keep = (queues.get(roundId) ?? []).filter((o) => o.kind === "stat" && o.player === me);
+      if (keep.length !== queues.get(roundId)?.length) {
+        console.warn("종료된 라운드라 스코어·파 저장 대기 기록을 버림", roundId);
+        setQueue(roundId, keep);
+      }
     }
   }
   for (;;) {

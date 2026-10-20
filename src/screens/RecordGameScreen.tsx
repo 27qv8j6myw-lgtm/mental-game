@@ -2,29 +2,9 @@ import { useRound } from "../round";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import { relLabel, scoreLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
-import type { Fairway, HoleStat, ParValue, Session, TeeLie } from "../types";
+import type { HoleStat, ParValue, Session } from "../types";
 import { SCORE_OPTS } from "./GameScreen";
-
-const PUTTS = [0, 1, 2, 3, 4, 5, 6];
-
-/** 티샷 방향: 훅(왼쪽)·적중·짧음(안 뜸)·슬라이스(오른쪽) */
-const FAIRWAYS: [Fairway, string, "hook" | "ring" | "short" | "slice"][] = [
-  ["left", "훅 (왼쪽)", "hook"],
-  ["hit", "적중", "ring"],
-  ["short", "짧음 (안 뜸)", "short"],
-  ["right", "슬라이스 (오른쪽)", "slice"],
-];
-/** 티샷 벙커·패널티: 방향과 함께 고를 수 있다 */
-const LIES: [TeeLie, string][] = [
-  ["bunker", "벙커"],
-  ["penalty", "패널티"],
-];
-
-const COUNTS: ["ob" | "hazard" | "sand", string][] = [
-  ["ob", "OB"],
-  ["hazard", "해저드"],
-  ["sand", "샌드샷"],
-];
+import HoleStatFields from "./HoleStatFields";
 
 const scoreClass = (rel: number) => (rel < 0 ? "under" : rel > 0 ? "over" : "even");
 
@@ -134,81 +114,7 @@ export default function RecordGameScreen({ session }: { session: Session }) {
                 ))}
               </div>
 
-              <div className="rec-label">퍼트</div>
-              <div className="score-grid" style={{ gridTemplateColumns: `repeat(${PUTTS.length}, 1fr)` }}>
-                {PUTTS.map((n) => (
-                  <button
-                    key={n}
-                    className={`sbtn ${stat.putts === n ? "active even" : ""}`}
-                    // 타수보다 많은 퍼트는 고를 수 없다
-                    disabled={strokes != null && n > strokes}
-                    onClick={() => update({ putts: stat.putts === n ? null : n })}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-
-              {hole.par !== 3 && (
-                <>
-                  <div className="rec-label">
-                    티샷 페어웨이 <small>(벙커/패널티와 티샷 방향 동시선택 가능)</small>
-                  </div>
-                  <div className="rec-fw-row">
-                    <div className="score-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-                      {FAIRWAYS.map(([f, label, icon]) => (
-                        <button
-                          key={f}
-                          className={`sbtn rec-fw ${stat.fairway === f ? `active ${f}` : ""}`}
-                          aria-label={label}
-                          aria-pressed={stat.fairway === f}
-                          onClick={() => update({ fairway: stat.fairway === f ? null : f })}
-                        >
-                          <Icon name={icon} size={20} strokeWidth={2.2} />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="score-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-                      {LIES.map(([l, label]) => (
-                        <button
-                          key={l}
-                          className={`sbtn rec-fw ${stat.lie === l ? `active ${l}` : ""}`}
-                          aria-pressed={stat.lie === l}
-                          onClick={() => update({ lie: stat.lie === l ? null : l })}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="rec-label">패널티 · 벙커</div>
-              <div className="rec-counts">
-                {COUNTS.map(([k, label]) => (
-                  <div className="rec-count" key={k}>
-                    <span className="rc-label">{label}</span>
-                    <div className="rc-ctrl">
-                      <button
-                        aria-label={`${label} 빼기`}
-                        disabled={stat[k] === 0}
-                        onClick={() => update({ [k]: Math.max(0, stat[k] - 1) })}
-                      >
-                        −
-                      </button>
-                      <b>{stat[k]}</b>
-                      <button
-                        aria-label={`${label} 더하기`}
-                        disabled={stat[k] >= 9}
-                        onClick={() => update({ [k]: stat[k] + 1 })}
-                      >
-                        ＋
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <HoleStatFields par={hole.par} strokes={strokes} stat={stat} onChange={update} />
             </div>
           </>
         )}

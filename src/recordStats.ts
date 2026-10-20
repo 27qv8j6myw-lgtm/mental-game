@@ -1,7 +1,7 @@
 import { differential, ratingFor } from "./kga";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
-import type { Fairway, HoleStat, RoundListItem, TeeLie } from "./types";
+import type { Fairway, GameMode, HoleStat, RoundListItem, TeeLie } from "./types";
 
 /*
  * 기록 모드 라운드 분석.
@@ -214,6 +214,8 @@ export interface RecordRound {
   courseName: string;
   courseTee: string;
   holeCount: number;
+  /** 기록 모드 또는 내 기록을 남긴 내기(타당·스킨스) 라운드 */
+  gameMode: GameMode;
   holes: HoleRecord[];
   summary: RecordSummary;
   /** 보정타수: KGA 레이팅이 있고 18홀을 다 친 라운드만 */
@@ -237,17 +239,23 @@ async function fetchStatRows(ids: string[]): Promise<StatRow[]> {
   }
 }
 
-/** 내 기록 모드 라운드(완료)를 최근 순으로. 라운드 목록을 이미 갖고 있으면 넘겨서 다시 받지 않는다 */
+/**
+ * 라운드 기록에 넣을 완료 라운드를 최근 순으로: 기록 모드 라운드 + 내 상세 기록(퍼트·티샷 등)을
+ * 한 홀이라도 남긴 내기 라운드. 라운드 목록을 이미 갖고 있으면 넘겨서 다시 받지 않는다
+ */
 export async function loadRecordRounds(
   myUid: string,
   rounds?: RoundListItem[]
 ): Promise<RecordRound[]> {
-  const list = (rounds ?? (await listMyRounds())).filter(
-    (r) => r.status === "done" && r.rules.gameMode === "record"
-  );
+  const done = (rounds ?? (await listMyRounds())).filter((r) => r.status === "done");
+  if (done.length === 0) return [];
+  // 상세 기록은 완료 라운드 전체에서 받아, 내 기록이 있는 내기 라운드를 고른다
+  const stats = await fetchStatRows(done.map((r) => r.id));
+  const recorded = new Set(stats.filter((s) => s.player_uid === myUid).map((s) => s.round_id));
+  const list = done.filter((r) => r.rules.gameMode === "record" || recorded.has(r.id));
   const ids = list.map((r) => r.id);
   if (ids.length === 0) return [];
-  const [pars, scores, stats, players] = await Promise.all([
+  const [pars, scores, players] = await Promise.all([
     fetchRows<{ round_id: string; hole_index: number; par: number }>(
       "round_holes",
       "round_id,hole_index,par",
@@ -258,7 +266,6 @@ export async function loadRecordRounds(
       "round_id,hole_index,player_uid,rel",
       ids
     ),
-    fetchStatRows(ids),
     // 보정타수에 쓸 레이팅(남/여)을 고르려고 라운드마다 내 성별을 받는다
     fetchRows<{ round_id: string; user_uid: string; gender: string }>(
       "round_players",
@@ -285,6 +292,7 @@ export async function loadRecordRounds(
         courseName: r.course_name,
         courseTee: r.course_tee ?? "",
         holeCount: r.hole_count,
+        gameMode: r.rules.gameMode ?? "stroke",
         holes,
         summary,
         differential:

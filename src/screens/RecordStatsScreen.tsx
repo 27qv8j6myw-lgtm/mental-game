@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { loadRecordRounds, summarize, type RecordRound } from "../recordStats";
-import { relLabel, teeLabel } from "../util";
+import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
-import { RecordAnalysis } from "./RecordAnalysis";
+import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 
 /** 2026-10-20 → 10/20 */
 const md = (d: string) => {
@@ -95,6 +95,18 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   const shown =
     scope === "all" ? rounds ?? [] : periods.find((p) => p.key === activeKey)?.rounds ?? [];
   const d = useMemo(() => digest(shown), [shown]);
+  // 내기 라운드는 정산 화면 대신 이 화면 안에서 내 기록 분석을 연다
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detail = rounds?.find((r) => r.roundId === detailId) ?? null;
+  const openDetail = (r: RecordRound) => {
+    if (r.gameMode === "record") openRound(r.roundId);
+    else {
+      setDetailId(r.roundId);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  if (detail) return <RoundDetail r={detail} onBack={() => setDetailId(null)} onClose={close} />;
 
   return (
     <div className="app">
@@ -214,12 +226,13 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                   <button
                     className="st-rec st-rec-btn"
                     key={r.roundId}
-                    onClick={() => openRound(r.roundId)}
+                    onClick={() => openDetail(r)}
                   >
                     <span className="st-rec-date">{md(r.date)}</span>
                     <span className="st-row-main">
                       <span className="st-row-name">
                         <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
+                        <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
                       </span>
                       <span className="st-row-sub">
                         {tee && `${tee} · `}
@@ -241,6 +254,78 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** 내기 라운드 하나의 내 기록 분석 (정산은 정산 결과 화면에서 본다) */
+function RoundDetail({
+  r,
+  onBack,
+  onClose,
+}: {
+  r: RecordRound;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const tee = teeLabel(r.courseTee);
+  return (
+    <div className="app">
+      <div className="topbar">
+        <div className="brand">
+          <span className="dot">
+            <Icon name="chart" size={18} />
+          </span>
+          {r.courseName || "라운드 기록"}
+        </div>
+        <button className="icon-btn" aria-label="닫기" onClick={onClose}>
+          <Icon name="close" size={20} />
+        </button>
+      </div>
+      <div className="sheet results">
+        <button className="st-back" onClick={onBack}>
+          <Icon name="chevronLeft" size={16} /> 라운드 기록
+        </button>
+        <div className="section-title">
+          {r.date}
+          {tee && ` · ${tee}`} · <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+        </div>
+        <div className="card rr-sum">
+          <div className="rr-total">
+            <b>{r.summary.holesPlayed === 0 ? "–" : r.summary.strokes}</b>
+            <span>타</span>
+            {r.summary.holesPlayed > 0 && <em>{relLabel(r.summary.toPar)}</em>}
+          </div>
+          <div className="st-golf">
+            <span>
+              전반 <b>{r.summary.out ?? "–"}</b>
+            </span>
+            {r.holeCount > 9 && (
+              <span>
+                후반 <b>{r.summary.in ?? "–"}</b>
+              </span>
+            )}
+            <span>
+              퍼트 <b>{r.summary.putts ?? "–"}</b>
+            </span>
+            <span>
+              {r.summary.holesPlayed}/{r.holeCount}홀
+            </span>
+          </div>
+          {r.differential != null && (
+            <div className="rr-adj">
+              <div className="rr-adj-main">
+                <span>보정타수</span>
+                <b>{r.differential.toFixed(1)}</b>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="section-title">분석</div>
+        <RecordAnalysis s={r.summary} />
+        <div className="section-title">스코어카드</div>
+        <RecordScorecard holes={r.holes} />
       </div>
     </div>
   );

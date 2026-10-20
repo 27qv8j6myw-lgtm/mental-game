@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   adjustedRel,
   birdieHoleNet,
@@ -9,16 +9,35 @@ import {
 } from "../betting";
 import { relLabel, scoreLabel, won, wonSigned } from "../util";
 import { Avatar, Icon } from "../icons";
-import type { ParValue, Session, Transfer } from "../types";
+import type { HoleStat, ParValue, Session, Transfer } from "../types";
 import { SkinPot, SkinStrip } from "./SkinsPanel";
+import { useRound } from "../round";
+import { EMPTY_STAT, girOf } from "../recordStats";
+import HoleStatFields from "./HoleStatFields";
 
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
 // → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
 export const SCORE_OPTS = [-3, -2, -1, 0, 1, 2, 3, 4, 5];
 
+/** 내 기록 입력칸을 펼쳐 둔 상태. 홀을 넘기거나 정산 탭을 다녀와도 그대로 */
+let statOpenSaved = false;
+
 export default function GameScreen({ session }: { session: Session }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore } = session;
   const hole = holes[idx];
+  const { myUid } = useRound();
+  // 내 이름을 누르면 내 기록(퍼트·티샷·벌타) 입력칸이 펼쳐진다. 남의 이름은 누를 수 없다.
+  // 방장의 '스코어 수정' 초안 중에는 숨긴다 (초안과 섞이지 않게)
+  const [statOpen, setStatOpenState] = useState(statOpenSaved);
+  const setStatOpen = (v: boolean) => {
+    statOpenSaved = v;
+    setStatOpenState(v);
+  };
+  const canStat = !!myUid && !session.editing && config.players.some((p) => p.id === myUid);
+  const myStat = (myUid && session.holeStats[idx]?.[myUid]) || EMPTY_STAT;
+  const updateMyStat = (patch: Partial<HoleStat>) => {
+    if (myUid) session.setStat(idx, myUid, { ...myStat, ...patch });
+  };
   // 정산 확정 후에는 방장의 '스코어 수정' 모드에서만 고칠 수 있다
   const readOnly = session.status === "done" && !session.editing;
 
@@ -192,11 +211,25 @@ export default function GameScreen({ session }: { session: Session }) {
             const net = running[p.id];
             const skinWin = !!skin && skin.winnerIds.includes(p.id);
             const adj = p.strokeAdj ?? 0;
+            const mine = canStat && p.id === myUid;
             return (
               <div className={`pscore-block ${skinWin ? "skin-win" : ""}`} key={p.id}>
                 <div className="player-head">
                   <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
-                  <span className="pname">{p.name || "?"}</span>
+                  {mine ? (
+                    <button
+                      className="pname pname-btn"
+                      aria-expanded={statOpen}
+                      onClick={() => setStatOpen(!statOpen)}
+                    >
+                      {p.name || "?"}
+                      <span className={`my-rec-chip ${statOpen ? "open" : ""}`}>
+                        내 기록 {statOpen ? "▴" : "▾"}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="pname">{p.name || "?"}</span>
+                  )}
                   {adj > 0 && (
                     <span className={`adj-chip ${hole.par === 3 ? "off" : ""}`}>
                       {hole.par === 3 ? "파3 보정 없음" : `${adj}타 보정`}
@@ -221,12 +254,34 @@ export default function GameScreen({ session }: { session: Session }) {
                       key={s}
                       className={`sbtn ${rel === s ? `active ${scoreClass(s)}` : ""}`}
                       disabled={readOnly}
-                      onClick={() => setScore(idx, p.id, rel === s ? null : s)}
+                      onClick={() => {
+                        const next = rel === s ? null : s;
+                        setScore(idx, p.id, next);
+                        // 내 퍼트는 타수보다 많을 수 없다 (기록 모드와 같은 규칙)
+                        if (mine && next != null && myStat.putts != null && myStat.putts > hole.par + next)
+                          updateMyStat({ putts: hole.par + next });
+                      }}
                     >
                       {relLabel(s)}
                     </button>
                   ))}
                 </div>
+                {mine && statOpen && (
+                  <div className="my-rec">
+                    {(() => {
+                      const g = girOf(hole.par, rel ?? null, myStat.putts);
+                      return g == null ? null : (
+                        <span className={`gir-chip ${g ? "on" : ""}`}>{g ? "GIR" : "GIR 아님"}</span>
+                      );
+                    })()}
+                    <HoleStatFields
+                      par={hole.par}
+                      strokes={rel == null ? null : hole.par + rel}
+                      stat={myStat}
+                      onChange={updateMyStat}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
