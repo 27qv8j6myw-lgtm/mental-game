@@ -94,7 +94,7 @@ export interface CourseRating {
   /** KGA 티 이름 (예: "WHITE") */
   tee: string;
   /** 그 티의 남/여 레이팅 */
-  ratings: { sex: "M" | "F"; cr: number; slope: number }[];
+  ratings: { sex: "M" | "F"; cr: number; slope: number; /** 기준 파 (예전 기록엔 없음 → 72) */ par?: number }[];
   /** KGA 계산기에서 자료를 모은 날짜 (예: "2026-10-20") */
   edition: string;
 }

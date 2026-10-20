@@ -15,6 +15,7 @@ import {
   exactClub,
   loadKga,
   matchTee,
+  ratingFor,
   searchClubs,
   similarClubs,
   type KgaClub,
@@ -23,6 +24,7 @@ import {
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
+import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import {
   GameModeField,
   MaxMultiplierField,
@@ -268,15 +270,24 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             {course && (
               <div className="kga-rating">
                 {rating ? (
-                  <span>
-                    KGA 레이팅{" "}
-                    {rating.ratings
-                      .map((r) => `${r.sex === "M" ? "남" : "여"} ${r.cr}/${r.slope}`)
-                      .join(" · ")}
-                  </span>
+                  <>
+                    <span>
+                      KGA 레이팅{" "}
+                      {rating.ratings
+                        .map((r) => `${r.sex === "M" ? "남" : "여"} ${r.cr}/${r.slope}`)
+                        .join(" · ")}
+                    </span>
+                    {/* 난이도·보기 플레이어 예상은 남자 레이팅 기준 (없으면 있는 것) */}
+                    <DifficultyChip slope={ratingFor(rating, "M")!.slope} />
+                  </>
                 ) : (
                   <span className="kga-miss">이 코스에는 고른 티의 KGA 레이팅이 없어요.</span>
                 )}
+              </div>
+            )}
+            {rating && (
+              <div className="kga-expect">
+                <BogeyExpect {...ratingFor(rating, "M")!} />
               </div>
             )}
           </div>

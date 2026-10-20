@@ -4317,3 +4317,41 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   top: 10px;
   right: 10px;
 }
+/* 코스 난이도 칩 (슬로프레이팅): 쉬움 초록 · 보통 회색 · 어려움 주황 · 매우 어려움 빨강 */
+.diff-chip {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.diff-chip.lv0 {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.diff-chip.lv1 {
+  background: var(--paper-3);
+  color: var(--ink-soft);
+}
+.diff-chip.lv2 {
+  background: var(--mustard-soft);
+  color: #b45309;
+}
+.diff-chip.lv3 {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+.kga-expect {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.rr-adj-diff {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}

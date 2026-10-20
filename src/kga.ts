@@ -144,7 +144,7 @@ export function courseRating(
     tee,
     ratings: course.tees
       .filter((t) => t[0] === tee)
-      .map(([, sex, cr, slope]) => ({ sex, cr, slope })),
+      .map(([, sex, cr, slope, , par]) => ({ sex, cr, slope, par })),
     edition: data.fetched,
   };
 }
@@ -159,3 +159,21 @@ export function ratingFor(rating: CourseRating | undefined | null, sex: "M" | "F
 /** 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프레이팅 (소수 첫째 자리) */
 export const differential = (gross: number, cr: number, slope: number) =>
   Math.round((((gross - cr) * 113) / slope) * 10) / 10;
+
+/**
+ * 코스 난이도 (슬로프레이팅 기준, 국내 코스끼리 비교한 4단계).
+ * 113 이 표준이지만 국내 화이트 티 대부분이 125~140 이라 그 안에서 나눈다
+ */
+export function difficulty(slope: number): { label: string; level: 0 | 1 | 2 | 3 } {
+  if (slope <= 124) return { label: "쉬움", level: 0 };
+  if (slope <= 131) return { label: "보통", level: 1 };
+  if (slope <= 138) return { label: "어려움", level: 2 };
+  return { label: "매우 어려움", level: 3 };
+}
+
+/**
+ * 보기 플레이어(표준 코스에서 90타, 핸디 18) 예상 파 대비 타수:
+ * 18 × 슬로프 ÷ 113 + (코스레이팅 − 파)  (WHS 코스 핸디캡 계산과 같은 식)
+ */
+export const bogeyOverPar = (cr: number, slope: number, par = 72) =>
+  Math.round((18 * slope) / 113 + (cr - par));

@@ -6,6 +6,7 @@ import { Avatar, Icon } from "../icons";
 import { differential, ratingFor } from "../kga";
 import type { CourseRating, Session } from "../types";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
+import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 
 /**
  * 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프레이팅.
@@ -32,6 +33,10 @@ function AdjustedScore({
         {rating.club} {rating.course} · {rating.tee} 티 {r.sex === "M" ? "남자" : "여자"}
         {!r.exact && " 레이팅"} · 코스레이팅 {r.cr} · 슬로프 {r.slope}
         {gross == null && <> · 18홀을 다 치면 계산돼요</>}
+      </div>
+      <div className="rr-adj-diff">
+        <DifficultyChip slope={r.slope} />
+        <BogeyExpect cr={r.cr} slope={r.slope} par={r.par} />
       </div>
     </div>
   );
