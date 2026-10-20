@@ -1,15 +1,91 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- 골프 내기 앱 아이콘: 흰 바탕, 연초록 그린, 회색 깃대, 달러 지폐가 펄럭이는 깃발 -->
-  <rect width="1024" height="1024" fill="#ffffff"/>
-  <ellipse cx="512" cy="790" rx="384" ry="98" fill="#A6DD96"/>
-  <g transform="translate(-53 0)">
-    <ellipse cx="348" cy="786" rx="62" ry="18" fill="#1F5A2C"/>
-    <rect x="330" y="200" width="36" height="588" rx="18" fill="#9CA3AF"/>
-    <path d="M366 236 C480 196 560 276 680 236 C740 216 780 206 800 210 L800 450 C780 446 740 456 680 476 C560 516 480 436 366 476 Z" fill="#16a34a"/>
-    <path d="M392 262 C490 226 566 300 680 262 C734 244 762 236 776 238 L776 428 C760 428 736 436 680 452 C566 490 490 416 392 452 Z" fill="none" stroke="#86efac" stroke-width="8"/>
-    <circle cx="585" cy="352" r="68" fill="#dcfce7"/>
-    <path d="M585 298 L585 406" stroke="#15803d" stroke-width="12" stroke-linecap="round"/>
-    <path d="M613 324 C604 309 560 304 556 330 C552 355 614 345 614 375 C614 401 566 401 555 384" fill="none" stroke="#15803d" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="607" cy="782" r="40" fill="#ffffff" stroke="#D7DCE3" stroke-width="4"/>
+  <!-- 골프 내기 앱 아이콘: 은은한 바탕, 잔디결 있는 그린, 금속 깃대, 문양 있는 달러 지폐가 펄럭이는 깃발 -->
+  <defs>
+    <radialGradient id="qBg" cx="0.5" cy="0.42" r="0.72">
+      <stop offset="0" stop-color="#EEFBF3"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </radialGradient>
+    <radialGradient id="qSurface" cx="0.5" cy="0.25" r="0.85">
+      <stop offset="0" stop-color="#D6F4C8"/>
+      <stop offset="1" stop-color="#9FDA8C"/>
+    </radialGradient>
+    <clipPath id="qSurfaceClip">
+      <ellipse cx="512" cy="786" rx="340" ry="80"/>
+    </clipPath>
+    <radialGradient id="qHole" cx="0.5" cy="0.65" r="0.6">
+      <stop offset="0" stop-color="#081C0E"/>
+      <stop offset="1" stop-color="#2C5E33"/>
+    </radialGradient>
+    <linearGradient id="qPole" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F3F5F7"/>
+      <stop offset="0.4" stop-color="#BCC3CC"/>
+      <stop offset="1" stop-color="#7E8794"/>
+    </linearGradient>
+    <radialGradient id="qCap" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#959DAA"/>
+    </radialGradient>
+    <linearGradient id="qBill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34D271"/>
+      <stop offset="1" stop-color="#0F7F37"/>
+    </linearGradient>
+    <linearGradient id="qWave" gradientUnits="userSpaceOnUse" x1="313" y1="0" x2="747" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="0.22" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="0.52" stop-color="#000000" stop-opacity="0.13"/>
+      <stop offset="0.78" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.08"/>
+    </linearGradient>
+    <radialGradient id="qMedal" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#FBFFFC"/>
+      <stop offset="1" stop-color="#C3F2D2"/>
+    </radialGradient>
+    <radialGradient id="qBall" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D3DAE3"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#qBg)"/>
+  <ellipse cx="512" cy="826" rx="396" ry="98" fill="#1B3A1F" fill-opacity="0.07"/>
+  <ellipse cx="512" cy="806" rx="384" ry="98" fill="#6CB25C"/>
+  <ellipse cx="512" cy="790" rx="384" ry="98" fill="#8CCF79"/>
+  <ellipse cx="512" cy="786" rx="340" ry="80" fill="url(#qSurface)"/>
+  <g clip-path="url(#qSurfaceClip)" fill="#FFFFFF" fill-opacity="0.13">
+    <rect x="150" y="640" width="58" height="300" transform="rotate(-24 179 790)"/>
+    <rect x="266" y="640" width="58" height="300" transform="rotate(-24 295 790)"/>
+    <rect x="382" y="640" width="58" height="300" transform="rotate(-24 411 790)"/>
+    <rect x="498" y="640" width="58" height="300" transform="rotate(-24 527 790)"/>
+    <rect x="614" y="640" width="58" height="300" transform="rotate(-24 643 790)"/>
+    <rect x="730" y="640" width="58" height="300" transform="rotate(-24 759 790)"/>
+  </g>
+  <ellipse cx="572" cy="818" rx="58" ry="12" fill="#2F6B2A" fill-opacity="0.2"/>
+  <ellipse cx="295" cy="786" rx="64" ry="20" fill="url(#qHole)"/>
+  <path d="M233 782 A64 20 0 0 1 357 782" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="3"/>
+  <rect x="277" y="200" width="36" height="588" rx="18" fill="url(#qPole)"/>
+  <rect x="283" y="214" width="6" height="560" rx="3" fill="#FFFFFF" fill-opacity="0.55"/>
+  <circle cx="295" cy="198" r="22" fill="url(#qCap)"/>
+  <path d="M317 250 C431 210 511 290 631 250 C691 230 731 220 751 224 L751 464 C731 460 691 470 631 490 C511 530 431 450 317 490 Z" fill="#0F5132" fill-opacity="0.09"/>
+  <path d="M313 236 C427 196 507 276 627 236 C687 216 727 206 747 210 L747 450 C727 446 687 456 627 476 C507 516 427 436 313 476 Z" fill="url(#qBill)"/>
+  <path d="M313 236 C427 196 507 276 627 236 C687 216 727 206 747 210 L747 450 C727 446 687 456 627 476 C507 516 427 436 313 476 Z" fill="url(#qWave)"/>
+  <path d="M339 262 C437 226 513 300 627 262 C681 244 709 236 723 238 L723 428 C707 428 683 436 627 452 C513 490 437 416 339 452 Z" fill="none" stroke="#A9EEC1" stroke-width="6" stroke-opacity="0.95"/>
+  <path d="M351 274 C443 241 515 312 627 274 C677 258 701 251 711 252 L711 416 C697 416 677 423 627 438 C515 474 443 404 351 438 Z" fill="none" stroke="#A9EEC1" stroke-width="2.5" stroke-opacity="0.7"/>
+  <path d="M320 244 C432 206 510 284 627 244 C686 225 726 215 744 218" fill="none" stroke="#FFFFFF" stroke-opacity="0.4" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="384" cy="298" r="17" fill="none" stroke="#C9F5D8" stroke-width="4"/>
+  <circle cx="384" cy="298" r="5" fill="#C9F5D8"/>
+  <circle cx="680" cy="410" r="17" fill="none" stroke="#C9F5D8" stroke-width="4"/>
+  <circle cx="680" cy="410" r="5" fill="#C9F5D8"/>
+  <circle cx="532" cy="352" r="72" fill="url(#qMedal)" stroke="#0E7A35" stroke-width="5"/>
+  <circle cx="532" cy="352" r="60" fill="none" stroke="#0E7A35" stroke-opacity="0.45" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>
+  <path d="M532 300 L532 404" stroke="#0E6B30" stroke-width="11" stroke-linecap="round"/>
+  <path d="M558 325 C550 311 509 306 505 330 C501 353 559 344 559 373 C559 397 515 397 504 381" fill="none" stroke="#0E6B30" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke="#7FD9A0" stroke-linecap="round">
+    <path d="M782 262 C812 254 842 254 872 262" stroke-width="10" stroke-opacity="0.85"/>
+    <path d="M800 324 C826 318 852 318 878 324" stroke-width="8" stroke-opacity="0.6"/>
+    <path d="M786 386 C808 381 830 381 852 386" stroke-width="7" stroke-opacity="0.45"/>
+  </g>
+  <circle cx="554" cy="782" r="40" fill="url(#qBall)" stroke="#C4CCD7" stroke-width="3"/>
+  <g fill="#BFC8D3" fill-opacity="0.65">
+    <circle cx="542" cy="771" r="4"/><circle cx="558" cy="766" r="4"/><circle cx="571" cy="779" r="4"/>
+    <circle cx="553" cy="785" r="4"/><circle cx="539" cy="794" r="4"/><circle cx="566" cy="796" r="4"/>
   </g>
 </svg>
