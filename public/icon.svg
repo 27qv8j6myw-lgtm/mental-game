@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 골프 내기 앱 아이콘: 흰 바탕, 연초록 그린, 회색 깃대, 달러 지폐가 펄럭이는 깃발 -->
+  <rect width="1024" height="1024" fill="#ffffff"/>
+  <ellipse cx="512" cy="790" rx="384" ry="98" fill="#A6DD96"/>
+  <g transform="translate(-53 0)">
+    <ellipse cx="348" cy="786" rx="62" ry="18" fill="#1F5A2C"/>
+    <rect x="330" y="200" width="36" height="588" rx="18" fill="#9CA3AF"/>
+    <path d="M366 236 C480 196 560 276 680 236 C740 216 780 206 800 210 L800 450 C780 446 740 456 680 476 C560 516 480 436 366 476 Z" fill="#16a34a"/>
+    <path d="M392 262 C490 226 566 300 680 262 C734 244 762 236 776 238 L776 428 C760 428 736 436 680 452 C566 490 490 416 392 452 Z" fill="none" stroke="#86efac" stroke-width="8"/>
+    <circle cx="585" cy="352" r="68" fill="#dcfce7"/>
+    <path d="M585 298 L585 406" stroke="#15803d" stroke-width="12" stroke-linecap="round"/>
+    <path d="M613 324 C604 309 560 304 556 330 C552 355 614 345 614 375 C614 401 566 401 555 384" fill="none" stroke="#15803d" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="607" cy="782" r="40" fill="#ffffff" stroke="#D7DCE3" stroke-width="4"/>
+  </g>
+</svg>
