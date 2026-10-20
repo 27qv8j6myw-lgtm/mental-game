@@ -754,8 +754,9 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   grid-template-columns: repeat(8, 1fr);
   gap: 6px;
 }
+/* PAR 마다 버튼 수(6~9)가 달라 폭은 줄을 꽉 채우고, 높이는 같게 맞춘다 */
 .sbtn {
-  aspect-ratio: 1 / 1;
+  height: 36px;
   border-radius: 10px;
   background: var(--paper);
   border: 1px solid var(--line-strong);

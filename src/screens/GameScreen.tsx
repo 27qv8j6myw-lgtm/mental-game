@@ -4,8 +4,9 @@ import { relLabel, scoreLabel, won, wonSigned } from "../util";
 import { Avatar, Icon } from "../icons";
 import type { ParValue, Session, Transfer } from "../types";
 
-// 홀 최대 타수는 더블파(파 대비 +par)까지라 그 위 버튼은 PAR 에 맞춰 숨긴다
-const SCORE_OPTS = [-2, -1, 0, 1, 2, 3, 4, 5];
+// 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
+// → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
+const SCORE_OPTS = [-3, -2, -1, 0, 1, 2, 3, 4, 5];
 
 export default function GameScreen({ session }: { session: Session }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore } = session;
@@ -40,6 +41,8 @@ export default function GameScreen({ session }: { session: Session }) {
     });
     return net;
   }, [holes, config, carries]);
+
+  const scoreOpts = SCORE_OPTS.filter((s) => s >= 1 - hole.par && s <= hole.par);
 
   const scoreClass = (rel: number) =>
     rel < 0 ? "under" : rel > 0 ? "over" : "even";
@@ -147,8 +150,11 @@ export default function GameScreen({ session }: { session: Session }) {
                     {net === 0 ? "±0" : wonSigned(net)}
                   </span>
                 </div>
-                <div className="score-grid">
-                  {SCORE_OPTS.filter((s) => s <= hole.par).map((s) => (
+                <div
+                  className="score-grid"
+                  style={{ gridTemplateColumns: `repeat(${scoreOpts.length}, 1fr)` }}
+                >
+                  {scoreOpts.map((s) => (
                     <button
                       key={s}
                       className={`sbtn ${rel === s ? `active ${scoreClass(s)}` : ""}`}
