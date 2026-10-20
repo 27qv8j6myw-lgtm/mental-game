@@ -299,6 +299,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       teeTime: r.tee_time,
       unit: r.unit,
       players,
+      gameMode: r.rules.gameMode ?? "stroke",
       payment: r.rules.payment ?? (r.handicap_settle === "pre" ? "cash" : "transfer"),
       handicapMode,
       baseUid,

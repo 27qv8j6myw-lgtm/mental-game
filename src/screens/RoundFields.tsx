@@ -1,6 +1,54 @@
-import type { BetRules, PaymentMethod, SettleTiming } from "../types";
-import { capLabel, settleNote } from "../util";
+import type { BetRules, GameMode, PaymentMethod, SettleTiming } from "../types";
+import { capLabel, GAME_MODE_LABEL, settleNote } from "../util";
 import { Icon } from "../icons";
+
+const GAME_MODES: GameMode[] = ["stroke", "skins"];
+
+/** 게임 방식: 타당 / 스킨스. 스킨스를 고르면 스킨스 룰을 바로 아래에 보여준다. */
+export function GameModeField({
+  value,
+  onChange,
+}: {
+  value: GameMode;
+  onChange: (v: GameMode) => void;
+}) {
+  return (
+    <>
+      <div className="segmented">
+        {GAME_MODES.map((m) => (
+          <button key={m} className={value === m ? "active" : ""} onClick={() => onChange(m)}>
+            {GAME_MODE_LABEL[m]}
+          </button>
+        ))}
+      </div>
+      <p className="hint" style={{ marginTop: 10 }}>
+        {value === "skins"
+          ? "홀마다 단독 최저 타수가 걸린 스킨을 모두 가져가요."
+          : "두 명씩 홀마다 타수 차이 × 타당 금액을 주고받아요."}
+      </p>
+      {value === "skins" && <SkinsRules />}
+    </>
+  );
+}
+
+/** 스킨스 기본 룰 안내 (배판 규칙의 기본 룰과 같은 모양) */
+export function SkinsRules() {
+  return (
+    <div className="base-rules">
+      <div className="br-title">
+        <Icon name="info" size={15} className="inline-ic" /> 스킨스 룰
+      </div>
+      <ul>
+        <li>홀마다 스킨 1개(타당 금액)가 걸려요.</li>
+        <li>단독 최저 타수가 그 홀에 쌓인 스킨을 모두 가져가요.</li>
+        <li>최저 타수가 2명 이상이면 다음 홀로 이월돼 스킨이 쌓여요.</li>
+        <li>맨 마지막 홀 뒤에 남은 스킨은 사라져요.</li>
+        <li>배판·버디 추가 정산은 없고, 핸디캡은 따로 정산해요.</li>
+        <li>홀 최대 타수는 더블파까지만 반영해요.</li>
+      </ul>
+    </div>
+  );
+}
 
 /** 지불 방법 + 핸디캡 정산 시점. 현금 지급은 사전 정산만 가능하다. */
 export function PaymentFields({

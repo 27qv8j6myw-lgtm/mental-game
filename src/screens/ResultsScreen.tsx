@@ -5,6 +5,7 @@ import {
   gameNet,
   handicapNet,
   holeBreakdowns,
+  skinsResult,
   totalNet,
 } from "../betting";
 import {
@@ -76,6 +77,10 @@ export default function ResultsScreen({
   const breakdowns = useMemo(() => holeBreakdowns(config, holes), [config, holes]);
   const hc = useMemo(() => handicapNet(config), [config]);
   const final = useMemo(() => totalNet(config, holes, isPost), [config, holes, isPost]);
+  const isSkins = config.gameMode === "skins";
+  const skins = useMemo(() => (isSkins ? skinsResult(config, holes) : null), [isSkins, config, holes]);
+  /** 섹션 번호: 타당 기준 번호를 받아, 스킨스는 버디 섹션이 없으니 그 뒤를 하나씩 당긴다 */
+  const N = (k: number) => "①②③④⑤⑥"[(isSkins && k > 2 ? k - 1 : k) - 1];
 
   const nameOf = (id: string) => config.players.find((p) => p.id === id)!;
   const isPlayed = (h: HoleScore) => Object.values(h.scores).some((s) => s !== null);
@@ -165,6 +170,7 @@ export default function ResultsScreen({
 
   const vHole = holes[vi];
   const vBd = breakdowns[vi];
+  const vSkin = skins?.holes[vi] ?? null;
 
   return (
     <>
@@ -173,7 +179,9 @@ export default function ResultsScreen({
           <Icon name="trophy" size={22} className="inline-ic" /> 최종 정산
         </div>
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
-          {playedHoles}개 홀 진행 · 타당 {won(config.unit)} · {PAYMENT_LABEL[config.payment]}
+          {playedHoles}개 홀 진행 ·{" "}
+          {isSkins ? `스킨스 · 스킨 1개 ${won(config.unit)}` : `타당 ${won(config.unit)}`} ·{" "}
+          {PAYMENT_LABEL[config.payment]}
         </div>
         {config.editLog.length > 0 && (
           <div className="hero-edited">
@@ -219,91 +227,144 @@ export default function ResultsScreen({
           덜 친 홀이 있으면 친 홀의 파만 합산해요.
         </p>
 
-        {/* 1) 게임 순수 정산 */}
-        <div className="section-title" style={{ marginTop: 20 }}>
-          ① 게임 순수 정산
-        </div>
-        <NetList net={game.net} />
-
-        {/* 2) 버디 추가 정산 */}
-        <div className="section-title">② 버디 추가 정산</div>
-        {!config.rules.birdieDouble && (
-          <p className="hint" style={{ margin: "0 2px 10px" }}>
-            버디는 <b>1타</b>, 이글은 <b>2타</b> 값(타당 금액 × 그 홀 배수)을 그 홀 다른 참여자
-            모두에게서 받아요. 합계 = 내 버디로 받은 돈 − 다른 사람 버디로 낸 돈.
-          </p>
-        )}
-        <div className="card">
-          {config.rules.birdieDouble ? (
-            <div className="empty-note">
-              버디 배판 규칙이라 버디 홀은 배판으로 처리되고 추가 정산은 없어요.
+        {skins ? (
+          <>
+            {/* 1) 스킨스 정산 */}
+            <div className="section-title" style={{ marginTop: 20 }}>
+              ① 스킨스 정산
             </div>
-          ) : (
-            config.players.map((p) => {
-              const v = bird.net[p.id] ?? 0;
-              const got = birdies.filter((e) => e.playerId === p.id);
-              const paid = birdies.filter((e) => e.payers.includes(p.id));
-              const gotSum = got.reduce((s, e) => s + e.amount, 0);
-              const paidSum = paid.reduce((s, e) => s + e.perPayer, 0);
-              const label =
-                got.length > 0 ? `버디 ${got.length}개` : paid.length > 0 ? "버디 정산" : "버디 없음";
-              return (
-                <div className="bd-player" key={p.id}>
-                  <div className="bd-head">
-                    <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
-                    <b>{p.name || "?"}</b>
-                    <span className="bd-tag">{label}</span>
-                    <span className={`bd-total ${tone(v)}`}>
-                      {v === 0 ? "±0원" : wonSigned(v)}
-                    </span>
-                  </div>
-                  {got.length > 0 && (
-                    <div className="bd-group">
-                      <div className="bd-gt">
-                        <span>내 버디로 받은 돈</span>
-                        <span className="pos">+{won(gotSum)}</span>
+            <p className="hint" style={{ margin: "0 2px 10px" }}>
+              단독 최저 타수가 그 홀에 걸린 스킨을 모두 가져가고, 다른 참여자 모두에게서{" "}
+              <b>스킨 수 × {won(config.unit)}</b>씩 받아요.
+            </p>
+            <NetList net={skins.net} />
+            <div className="card">
+              {skins.holes.every((h) => h.status === "pending") ? (
+                <div className="empty-note">아직 판정된 홀이 없어요.</div>
+              ) : (
+                <>
+                  {skins.holes.map((h, i) =>
+                    h.status === "pending" ? null : (
+                      <div className={`skin-log ${h.status}`} key={i}>
+                        <span className="sl-hole">{i + 1}번홀</span>
+                        {h.status === "won" && h.winnerId ? (
+                          <>
+                            <span className="sl-txt">
+                              <b>{nameOf(h.winnerId).name || "?"}</b> 스킨 {h.stake}개 · 1명당{" "}
+                              {won(h.stake * config.unit)}
+                            </span>
+                            <span className="sl-amt pos">+{won(h.amount)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="sl-txt">최저 동타 · 스킨 {h.stake}개 이월</span>
+                            <span className="sl-amt">–</span>
+                          </>
+                        )}
                       </div>
-                      {got.map((e, i) => (
-                        <div className="bd-item" key={i}>
-                          <span>
-                            {e.holeIndex + 1}번홀 {scoreLabel(holes[e.holeIndex].par, e.rel)}
-                            {e.strokes > 1 ? `(${e.strokes}타)` : ""} · {e.payers.length}명 ×{" "}
-                            {won(e.perPayer)}
-                            {e.multiplier > 1 ? ` (×${e.multiplier})` : ""}
-                          </span>
-                          <span>+{won(e.amount)}</span>
-                        </div>
-                      ))}
+                    )
+                  )}
+                  {skins.leftover > 0 && (
+                    <div className="skin-log gone">
+                      <span className="sl-hole">소멸</span>
+                      <span className="sl-txt">
+                        마지막 홀까지 남은 스킨 {skins.leftover}개는 주인 없이 사라졌어요
+                      </span>
                     </div>
                   )}
-                  {paid.length > 0 && (
-                    <div className="bd-group">
-                      <div className="bd-gt">
-                        <span>다른 사람 버디로 낸 돈</span>
-                        <span className="neg">-{won(paidSum)}</span>
-                      </div>
-                      {paid.map((e, i) => (
-                        <div className="bd-item" key={i}>
-                          <span>
-                            {e.holeIndex + 1}번홀 {nameOf(e.playerId).name || "?"}{" "}
-                            {scoreLabel(holes[e.holeIndex].par, e.rel)}
-                            {e.strokes > 1 ? `(${e.strokes}타)` : ""}
-                            {e.multiplier > 1 ? ` (×${e.multiplier})` : ""}
-                          </span>
-                          <span>-{won(e.perPayer)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* 1) 게임 순수 정산 */}
+            <div className="section-title" style={{ marginTop: 20 }}>
+              ① 게임 순수 정산
+            </div>
+            <NetList net={game.net} />
+
+            {/* 2) 버디 추가 정산 */}
+            <div className="section-title">② 버디 추가 정산</div>
+            {!config.rules.birdieDouble && (
+              <p className="hint" style={{ margin: "0 2px 10px" }}>
+                버디는 <b>1타</b>, 이글은 <b>2타</b> 값(타당 금액 × 그 홀 배수)을 그 홀 다른 참여자
+                모두에게서 받아요. 합계 = 내 버디로 받은 돈 − 다른 사람 버디로 낸 돈.
+              </p>
+            )}
+            <div className="card">
+              {config.rules.birdieDouble ? (
+                <div className="empty-note">
+                  버디 배판 규칙이라 버디 홀은 배판으로 처리되고 추가 정산은 없어요.
                 </div>
-              );
-            })
-          )}
-        </div>
+              ) : (
+                config.players.map((p) => {
+                  const v = bird.net[p.id] ?? 0;
+                  const got = birdies.filter((e) => e.playerId === p.id);
+                  const paid = birdies.filter((e) => e.payers.includes(p.id));
+                  const gotSum = got.reduce((s, e) => s + e.amount, 0);
+                  const paidSum = paid.reduce((s, e) => s + e.perPayer, 0);
+                  const label =
+                    got.length > 0 ? `버디 ${got.length}개` : paid.length > 0 ? "버디 정산" : "버디 없음";
+                  return (
+                    <div className="bd-player" key={p.id}>
+                      <div className="bd-head">
+                        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+                        <b>{p.name || "?"}</b>
+                        <span className="bd-tag">{label}</span>
+                        <span className={`bd-total ${tone(v)}`}>
+                          {v === 0 ? "±0원" : wonSigned(v)}
+                        </span>
+                      </div>
+                      {got.length > 0 && (
+                        <div className="bd-group">
+                          <div className="bd-gt">
+                            <span>내 버디로 받은 돈</span>
+                            <span className="pos">+{won(gotSum)}</span>
+                          </div>
+                          {got.map((e, i) => (
+                            <div className="bd-item" key={i}>
+                              <span>
+                                {e.holeIndex + 1}번홀 {scoreLabel(holes[e.holeIndex].par, e.rel)}
+                                {e.strokes > 1 ? `(${e.strokes}타)` : ""} · {e.payers.length}명 ×{" "}
+                                {won(e.perPayer)}
+                                {e.multiplier > 1 ? ` (×${e.multiplier})` : ""}
+                              </span>
+                              <span>+{won(e.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {paid.length > 0 && (
+                        <div className="bd-group">
+                          <div className="bd-gt">
+                            <span>다른 사람 버디로 낸 돈</span>
+                            <span className="neg">-{won(paidSum)}</span>
+                          </div>
+                          {paid.map((e, i) => (
+                            <div className="bd-item" key={i}>
+                              <span>
+                                {e.holeIndex + 1}번홀 {nameOf(e.playerId).name || "?"}{" "}
+                                {scoreLabel(holes[e.holeIndex].par, e.rel)}
+                                {e.strokes > 1 ? `(${e.strokes}타)` : ""}
+                                {e.multiplier > 1 ? ` (×${e.multiplier})` : ""}
+                              </span>
+                              <span>-{won(e.perPayer)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
 
         {/* 3) 핸디캡 정산 */}
         <div className="section-title">
-          ③ 핸디캡 정산 {isPost ? "(사후·합산)" : "(사전·현금)"}
+          {N(3)} 핸디캡 정산 {isPost ? "(사후·합산)" : "(사전·현금)"}
         </div>
         <p className="hint" style={{ margin: "0 2px 10px" }}>
           <b>{settleNote(config.handicapSettle)}</b>
@@ -337,9 +398,13 @@ export default function ResultsScreen({
         )}
 
         {/* 4) 최종 송금 */}
-        <div className="section-title">④ 최종 송금 (최소 횟수)</div>
+        <div className="section-title">{N(4)} 최종 송금 (최소 횟수)</div>
         <p className="hint" style={{ margin: "0 2px 10px" }}>
-          {isPost
+          {isSkins
+            ? isPost
+              ? "스킨 + 핸디캡을 모두 합산했습니다."
+              : "스킨만 합산 (핸디캡은 현금으로 사전 지급)."
+            : isPost
             ? "게임 + 버디 + 핸디캡을 모두 합산했습니다."
             : "게임 + 버디 합산 (핸디캡은 현금으로 사전 지급)."}
           {isTransfer && " 줄마다 받는 사람 계좌와 금액을 복사할 수 있어요."}
@@ -361,7 +426,7 @@ export default function ResultsScreen({
 
         {/* 5) 홀별 검증 */}
         <div className="section-title" style={{ marginTop: 20 }}>
-          ⑤ 홀별 검증
+          {N(5)} 홀별 검증
         </div>
         <div className="card verify">
           <div className="vf-nav">
@@ -400,7 +465,20 @@ export default function ResultsScreen({
           </div>
 
           <div className="vf-rate">
-            {vBd.allTie ? (
+            {vSkin ? (
+              <>
+                스킨 {vSkin.stake}개 · 1명당 {won(vSkin.stake * config.unit)}
+                <span className="vf-reasons">
+                  {vSkin.status === "won" && vSkin.winnerId
+                    ? `${nameOf(vSkin.winnerId).name || "?"} 단독 최저 → 스킨 ${vSkin.stake}개 획득`
+                    : vSkin.status === "carried"
+                    ? vi < holes.length - 1
+                      ? `최저 동타 → 다음 홀로 이월 (스킨 ${vSkin.stake + 1}개)`
+                      : "최저 동타 · 마지막 홀이라 남은 스킨 소멸"
+                    : "아직 모든 스코어가 입력되지 않았어요"}
+                </span>
+              </>
+            ) : vBd.allTie ? (
               <>
                 전원 동타 · 이 홀은 정산 없음
                 <span className="vf-reasons">
@@ -426,17 +504,23 @@ export default function ResultsScreen({
               <tr>
                 <th>이름</th>
                 <th>타수</th>
-                <th>게임</th>
-                <th>버디</th>
+                {vSkin ? (
+                  <th>이 홀</th>
+                ) : (
+                  <>
+                    <th>게임</th>
+                    <th>버디</th>
+                  </>
+                )}
                 <th>누적</th>
               </tr>
             </thead>
             <tbody>
               {config.players.map((p) => {
                 const rel = vHole.scores[p.id];
-                const g = vBd.game[p.id] ?? 0;
+                const g = (vSkin ? vSkin.net[p.id] : vBd.game[p.id]) ?? 0;
                 const b = vBd.birdie[p.id] ?? 0;
-                const c = vBd.cumulative[p.id] ?? 0;
+                const c = (vSkin ? vSkin.cumulative[p.id] : vBd.cumulative[p.id]) ?? 0;
                 return (
                   <tr key={p.id}>
                     <td className="vf-name">{p.name || "?"}</td>
@@ -451,7 +535,7 @@ export default function ResultsScreen({
                       </span>
                     </td>
                     <td className={tone(g)}>{signed(g)}</td>
-                    <td className={tone(b)}>{signed(b)}</td>
+                    {!vSkin && <td className={tone(b)}>{signed(b)}</td>}
                     <td className={`vf-cum ${tone(c)}`}>{signed(c)}</td>
                   </tr>
                 );
@@ -459,8 +543,9 @@ export default function ResultsScreen({
             </tbody>
           </table>
           <p className="hint" style={{ marginTop: 10 }}>
-            금액 단위는 원이에요. 누적은 이 홀까지의 게임 + 버디 합계이고, 마지막 홀의 누적이
-            ①+② 결과와 같아요. (핸디캡 제외)
+            {vSkin
+              ? "금액 단위는 원이에요. 누적은 이 홀까지의 스킨 합계이고, 마지막 홀의 누적이 ① 결과와 같아요. (핸디캡 제외)"
+              : "금액 단위는 원이에요. 누적은 이 홀까지의 게임 + 버디 합계이고, 마지막 홀의 누적이 ①+② 결과와 같아요. (핸디캡 제외)"}
           </p>
         </div>
 
@@ -468,7 +553,7 @@ export default function ResultsScreen({
         {(session.status === "done" || config.editLog.length > 0) && (
           <>
             <div className="section-title" style={{ marginTop: 20 }}>
-              ⑥ 정산 확정 후 수정 내역
+              {N(6)} 정산 확정 후 수정 내역
               {config.editLog.length > 0 ? ` (${config.editLog.length}건)` : ""}
             </div>
             {config.editLog.length === 0 ? (

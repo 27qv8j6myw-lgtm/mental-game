@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { BetRules, HandicapMode, PaymentMethod, SettleTiming } from "../types";
+import type { BetRules, GameMode, HandicapMode, PaymentMethod, SettleTiming } from "../types";
 import { localDate, localTime, won } from "../util";
 import { createRound } from "../rounds";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
-import { MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
+import { GameModeField, MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
 
 const UNITS = [1000, 2000, 5000];
 
@@ -18,6 +18,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const [teeTime, setTeeTime] = useState(() => localTime());
   const [unit, setUnit] = useState(1000);
   const [customUnit, setCustomUnit] = useState("");
+  const [gameMode, setGameMode] = useState<GameMode>("stroke");
   const [payment, setPayment] = useState<PaymentMethod>("transfer");
   const [handicapSettle, setHandicapSettle] = useState<SettleTiming>("post");
   const [handicapMode, setHandicapMode] = useState<HandicapMode>("avg");
@@ -46,7 +47,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
         date,
         teeTime,
         unit,
-        rules: { ...rules, payment, handicapMode },
+        rules: { ...rules, payment, handicapMode, gameMode },
         handicapSettle,
         holeCount,
         me: {
@@ -126,6 +127,11 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           </div>
         </div>
 
+        <div className="section-title">게임 방식</div>
+        <div className="card">
+          <GameModeField value={gameMode} onChange={setGameMode} />
+        </div>
+
         <div className="section-title">타당 금액</div>
         <div className="card">
           <div className="unit-chips">
@@ -169,6 +175,11 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               />
             </div>
           )}
+          {gameMode === "skins" && (
+            <p className="hint" style={{ marginTop: 10 }}>
+              스킨스에서는 스킨 1개 금액이에요.
+            </p>
+          )}
           <p className="warn-note">
             ⚠️ 과도한 금액 설정은 인간관계에 지장을 줄 수 있습니다.
           </p>
@@ -209,18 +220,22 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           </p>
         </div>
 
-        <div className="section-title">배수 총 상한</div>
-        <div className="card">
-          <MaxMultiplierField
-            value={rules.maxMultiplier ?? null}
-            onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
-          />
-        </div>
+        {gameMode === "stroke" && (
+          <>
+            <div className="section-title">배수 총 상한</div>
+            <div className="card">
+              <MaxMultiplierField
+                value={rules.maxMultiplier ?? null}
+                onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
+              />
+            </div>
 
-        <div className="section-title">배판 규칙</div>
-        <div className="card">
-          <RuleToggles rules={rules} onChange={setRules} />
-        </div>
+            <div className="section-title">배판 규칙</div>
+            <div className="card">
+              <RuleToggles rules={rules} onChange={setRules} />
+            </div>
+          </>
+        )}
 
         {err && (
           <div className="auth-err" style={{ color: "var(--loss)" }}>

@@ -90,7 +90,7 @@ export default function LobbyScreen() {
 
   if (!bundle || !session) return null;
   const round = bundle.round;
-  const { players, handicapMode, payment, baseUid } = session.config;
+  const { players, handicapMode, payment, baseUid, gameMode } = session.config;
   const needBase = handicapMode === "stroke" && !baseUid;
   const setBase = (uid: string) =>
     void updateRound({ rules: { ...round.rules, baseUid: uid } });
@@ -165,7 +165,8 @@ export default function LobbyScreen() {
           </button>
           <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
           <div className="cc-meta">
-            {round.date} · {round.tee_time} · {round.hole_count}홀 · 타당{" "}
+            {round.date} · {round.tee_time} · {round.hole_count}홀 ·{" "}
+            {gameMode === "skins" ? "스킨스 · 스킨 1개 " : "타당 "}
             {round.unit.toLocaleString()}원 · {PAYMENT_LABEL[payment]}
           </div>
         </div>

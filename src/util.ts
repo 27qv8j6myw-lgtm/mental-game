@@ -1,4 +1,9 @@
-import type { Gender, PaymentMethod, SettleTiming, StoredRules } from "./types";
+import type { GameMode, Gender, PaymentMethod, SettleTiming, StoredRules } from "./types";
+
+export const GAME_MODE_LABEL: Record<GameMode, string> = {
+  stroke: "타당",
+  skins: "스킨스",
+};
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "현금 지급",

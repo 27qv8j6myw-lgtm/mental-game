@@ -16,6 +16,8 @@ export interface Player {
 
 export type SettleTiming = "pre" | "post";
 export type PaymentMethod = "cash" | "transfer";
+/** stroke: 타당(두 명씩 타수 차) / skins: 홀마다 단독 최저 타수가 스킨을 가져감 */
+export type GameMode = "stroke" | "skins";
 /** avg: 평균 타수로 핸디 산출 / stroke: 최고수 대비 +N타로 직접 설정 */
 export type HandicapMode = "avg" | "stroke";
 
@@ -43,6 +45,8 @@ export interface BetRules {
 
 /** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
 export interface StoredRules extends BetRules {
+  /** 값이 없는 예전 라운드는 타당 */
+  gameMode?: GameMode;
   payment?: PaymentMethod;
   handicapMode?: HandicapMode;
   /** 최저핸디 대비 방식에서 방장이 정한 기준 인원(user_uid). 이 사람의 핸디는 0 */
@@ -71,6 +75,7 @@ export interface GameConfig {
   /** 타당 금액 (원) */
   unit: number;
   players: Player[];
+  gameMode: GameMode;
   payment: PaymentMethod;
   handicapMode: HandicapMode;
   /** 최저핸디 대비 방식의 기준 인원 (현재 참여자 중 한 명일 때만) */

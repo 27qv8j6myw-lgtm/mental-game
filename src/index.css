@@ -2087,6 +2087,49 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 900;
 }
 
+/* 정산(스킨스): 홀별 스킨 내역 */
+.skin-log {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.skin-log:last-child {
+  border-bottom: none;
+}
+.skin-log .sl-hole {
+  flex: none;
+  width: 50px;
+  white-space: nowrap;
+  font-weight: 800;
+  color: var(--ink);
+}
+.skin-log .sl-txt {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-soft);
+}
+.skin-log .sl-txt b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.skin-log .sl-amt {
+  flex: none;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.skin-log.carried .sl-txt,
+.skin-log.carried .sl-amt {
+  color: var(--olive-deep);
+}
+.skin-log.gone .sl-hole,
+.skin-log.gone .sl-txt {
+  color: var(--ink-faint);
+}
+
 .segmented button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -2474,6 +2517,32 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: var(--olive-soft);
   border-color: #c7dbff;
   color: var(--olive-deep);
+}
+
+/* 진행(스킨스): 아직 판정 전인 홀에 걸린 스킨 */
+.bet-banner.pending {
+  background: var(--paper-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.bet-banner .skin-count {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 36px;
+}
+.bet-banner .skin-count b {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.bet-banner .skin-count span {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
 }
 
 /* 배판 규칙 아래 기본 룰 */

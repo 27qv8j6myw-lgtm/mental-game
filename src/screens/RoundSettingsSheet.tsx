@@ -4,6 +4,7 @@ import { Avatar } from "../icons";
 import {
   appendEditLog,
   capLabel,
+  GAME_MODE_LABEL,
   hcLabel,
   onOff,
   PAYMENT_LABEL,
@@ -12,14 +13,15 @@ import {
 } from "../util";
 import type {
   BetRules,
+  GameMode,
   PaymentMethod,
   Session,
   SettleTiming,
   StoredRules,
 } from "../types";
-import { MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
+import { GameModeField, MaxMultiplierField, PaymentFields, RuleToggles } from "./RoundFields";
 
-/** 방장 전용: 게임 시작·정산 확정 후에도 지불 방법·핸디캡·배판 규칙을 고친다. */
+/** 방장 전용: 게임 시작·정산 확정 후에도 게임 방식·지불 방법·핸디캡·배판 규칙을 고친다. */
 export default function RoundSettingsSheet({
   session,
   onClose,
@@ -29,6 +31,8 @@ export default function RoundSettingsSheet({
 }) {
   const { bundle, myUid, updateRound } = useRound();
   const cfg = session.config;
+  const [gameMode, setGameMode] = useState<GameMode>(cfg.gameMode);
+  const isStroke = gameMode === "stroke";
   const [payment, setPayment] = useState<PaymentMethod>(cfg.payment);
   const [settle, setSettle] = useState<SettleTiming>(cfg.handicapSettle);
   const [rules, setRules] = useState<BetRules>({
@@ -92,6 +96,8 @@ export default function RoundSettingsSheet({
   /** 정산 확정 후 수정 내역에 남길 문장들 */
   const changes = () => {
     const items: string[] = [];
+    if (gameMode !== cfg.gameMode)
+      items.push(`게임 방식: ${GAME_MODE_LABEL[cfg.gameMode]} → ${GAME_MODE_LABEL[gameMode]}`);
     if (payment !== cfg.payment)
       items.push(`지불 방법: ${PAYMENT_LABEL[cfg.payment]} → ${PAYMENT_LABEL[payment]}`);
     if (settle !== cfg.handicapSettle)
@@ -107,6 +113,8 @@ export default function RoundSettingsSheet({
       if ((hc[p.id] ?? 0) !== p.handicap)
         items.push(`${name} 핸디: ${hcLabel(p.handicap)} → ${hcLabel(hc[p.id] ?? 0)}`);
     }
+    // 스킨스는 배판이 없으니 배수·배판 변경은 저장하지도, 기록하지도 않는다
+    if (!isStroke) return items;
     if (rules.maxMultiplier !== (cfg.rules.maxMultiplier === undefined ? 2 : cfg.rules.maxMultiplier))
       items.push(`배수 총 상한: ${capLabel(cfg.rules.maxMultiplier)} → ${capLabel(rules.maxMultiplier)}`);
     for (const [key, label] of RULE_LABELS) {
@@ -122,7 +130,8 @@ export default function RoundSettingsSheet({
     try {
       let next: StoredRules = {
         ...bundle.round.rules,
-        ...rules,
+        ...(isStroke && rules),
+        gameMode,
         payment,
         hcOverrides: hc,
         ...(isAvg && { avgOverrides: avg }),
@@ -175,6 +184,11 @@ export default function RoundSettingsSheet({
               />
             </div>
           ))}
+        </div>
+
+        <div className="section-title">게임 방식</div>
+        <div className="card">
+          <GameModeField value={gameMode} onChange={setGameMode} />
         </div>
 
         <div className="section-title">지불 방법</div>
@@ -235,18 +249,22 @@ export default function RoundSettingsSheet({
           )}
         </div>
 
-        <div className="section-title">배수 총 상한</div>
-        <div className="card">
-          <MaxMultiplierField
-            value={rules.maxMultiplier ?? null}
-            onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
-          />
-        </div>
+        {isStroke && (
+          <>
+            <div className="section-title">배수 총 상한</div>
+            <div className="card">
+              <MaxMultiplierField
+                value={rules.maxMultiplier ?? null}
+                onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
+              />
+            </div>
 
-        <div className="section-title">배판 규칙</div>
-        <div className="card">
-          <RuleToggles rules={rules} onChange={setRules} />
-        </div>
+            <div className="section-title">배판 규칙</div>
+            <div className="card">
+              <RuleToggles rules={rules} onChange={setRules} />
+            </div>
+          </>
+        )}
 
         </div>
 

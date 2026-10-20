@@ -344,7 +344,86 @@ export function birdieNet(config: GameConfig, holes: HoleScore[]) {
   return { net, transfers: settleNet(net) };
 }
 
-/** 전체 최종 정산 = 게임 + 버디 + (사후정산 시)핸디캡 */
+/* ---------- 스킨스 ---------- */
+
+export type SkinStatus = "pending" | "won" | "carried";
+
+export interface SkinHole {
+  /** 이 홀에 걸린 스킨 수 (이월 포함) */
+  stake: number;
+  /** pending: 아직 전원 입력 전 / won: 단독 최저가 가져감 / carried: 최저 동타로 이월 */
+  status: SkinStatus;
+  winnerId: string | null;
+  /** 승자가 받은 총액 */
+  amount: number;
+  /** 이 홀 정산 */
+  net: Record<string, number>;
+  /** 이 홀까지 누적 */
+  cumulative: Record<string, number>;
+}
+
+export interface SkinsResult {
+  holes: SkinHole[];
+  net: Record<string, number>;
+  transfers: Transfer[];
+  /** 마지막 홀이 동타로 끝나 주인 없이 사라진 스킨 수 */
+  leftover: number;
+}
+
+/**
+ * 스킨스: 홀마다 스킨 1개(타당 금액)가 걸리고, 단독 최저 타수가 쌓인 스킨을 모두 가져간다
+ * (다른 사람 모두에게서 스킨 수 × 타당 금액). 최저 타수가 2명 이상이면 다음 홀로 이월(스킨 +1),
+ * 마지막 홀 뒤 남은 스킨은 소멸. 배판·버디는 적용하지 않고 핸디캡은 별도 정산한다.
+ */
+export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult {
+  const { players, unit } = config;
+  const zero = () => Object.fromEntries(players.map((p) => [p.id, 0])) as Record<string, number>;
+  const total = zero();
+  let pot = 1;
+
+  const out: SkinHole[] = holes.map((hole) => {
+    const stake = pot;
+    const net = zero();
+    let status: SkinStatus = "pending";
+    let winnerId: string | null = null;
+    let amount = 0;
+
+    const complete = players.length >= 2 && players.every((p) => hole.scores[p.id] != null);
+    // 전원 입력 전인 홀은 판정하지 않고 걸린 스킨을 그대로 둔다
+    if (complete) {
+      const best = Math.min(...players.map((p) => hole.scores[p.id] as number));
+      const leaders = players.filter((p) => hole.scores[p.id] === best);
+      if (leaders.length === 1) {
+        status = "won";
+        winnerId = leaders[0].id;
+        const per = stake * unit;
+        for (const p of players) {
+          if (p.id === winnerId) continue;
+          net[p.id] -= per;
+          net[winnerId] += per;
+        }
+        amount = per * (players.length - 1);
+        pot = 1;
+      } else {
+        status = "carried";
+        pot = stake + 1;
+      }
+    }
+
+    for (const p of players) total[p.id] += net[p.id];
+    return { stake, status, winnerId, amount, net, cumulative: { ...total } };
+  });
+
+  const last = out[out.length - 1];
+  return {
+    holes: out,
+    net: total,
+    transfers: settleNet(total),
+    leftover: last && last.status === "carried" ? last.stake : 0,
+  };
+}
+
+/** 전체 최종 정산 = (타당: 게임 + 버디 / 스킨스: 스킨) + (사후정산 시)핸디캡 */
 export function totalNet(
   config: GameConfig,
   holes: HoleScore[],
@@ -353,8 +432,12 @@ export function totalNet(
   const net: Record<string, number> = {};
   for (const p of config.players) net[p.id] = 0;
 
-  addInto(net, gameNet(config, holes).net);
-  addInto(net, birdieNet(config, holes).net);
+  if (config.gameMode === "skins") {
+    addInto(net, skinsResult(config, holes).net);
+  } else {
+    addInto(net, gameNet(config, holes).net);
+    addInto(net, birdieNet(config, holes).net);
+  }
   if (includeHandicap) addInto(net, handicapNet(config).net);
 
   return { net, transfers: settleNet(net) };
