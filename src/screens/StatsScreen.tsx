@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
-import { loadStats, type PersonStats, type RoundRecord, type StatsResult } from "../stats";
+import { useRound } from "../round";
+import { loadStats, type PersonStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
 import { GAME_MODE_LABEL, wonSigned } from "../util";
 
@@ -12,31 +13,78 @@ const md = (d: string) => {
   return m && day ? `${Number(m)}/${Number(day)}` : d;
 };
 
-/** 라운드별 금액 막대 (오래된 → 최근, 최근 20라운드) */
-function NetBars({ history }: { history: RoundRecord[] }) {
-  const recent = history.slice(0, 20).reverse();
-  const max = Math.max(1, ...recent.map((r) => Math.abs(r.net)));
-  if (recent.length === 0) return null;
+/** 승·패·무 표기: 돈을 딴 라운드는 승, 잃은 라운드는 패, 본전은 무 */
+const record = (p: PersonStats) =>
+  `${p.wins}승 ${p.losses}패${p.draws > 0 ? ` ${p.draws}무` : ""}`;
+
+/** 승·무·패 막대. 위에는 승패 수, 막대 아래에는 양쪽 금액 */
+function WinLossBar({
+  win,
+  draw,
+  loss,
+  winLabel,
+  middle,
+  lossLabel,
+  leftAmt,
+  rightAmt,
+}: {
+  win: number;
+  draw: number;
+  loss: number;
+  winLabel: string;
+  middle: string;
+  lossLabel: string;
+  leftAmt: { label: string; value: number };
+  rightAmt: { label: string; value: number };
+}) {
   return (
-    <div className="st-bars" aria-label="라운드별 금액">
-      {recent.map((r) => (
-        <div className="st-bar" key={r.roundId} title={`${md(r.date)} ${money(r.net)}`}>
-          <div className="st-up">
-            {r.net > 0 && <span className="pos" style={{ height: `${(r.net / max) * 100}%` }} />}
-          </div>
-          <div className="st-down">
-            {r.net < 0 && <span className="neg" style={{ height: `${(-r.net / max) * 100}%` }} />}
-          </div>
-        </div>
-      ))}
+    <div className="card st-vs">
+      <div className="st-vs-score">
+        <span>
+          {winLabel} <b className="pos">{win}승</b>
+        </span>
+        <span className="st-vs-mid">{middle}</span>
+        <span>
+          <b className="neg">{loss}패</b> {lossLabel}
+        </span>
+      </div>
+      <div className="st-vs-bar">
+        {win > 0 && <span className="w" style={{ flexGrow: win }} />}
+        {draw > 0 && <span className="d" style={{ flexGrow: draw }} />}
+        {loss > 0 && <span className="l" style={{ flexGrow: loss }} />}
+      </div>
+      <div className="st-vs-amt">
+        <span>
+          {leftAmt.label && `${leftAmt.label} `}
+          <b className={tone(leftAmt.value)}>{money(leftAmt.value)}</b>
+        </span>
+        <span>
+          {rightAmt.label && `${rightAmt.label} `}
+          <b className={tone(rightAmt.value)}>{money(rightAmt.value)}</b>
+        </span>
+      </div>
     </div>
   );
 }
 
-/** 사람 요약 카드: 누적 금액 + 라운드·1위·딴/잃은 + 타수 */
-function PersonHero({ p, label }: { p: PersonStats; label: string }) {
+/** 사람 요약 카드: 누적 금액 + 라운드·1위·승패 + 타수. onOpen 이 있으면 눌러서 상세로 */
+function PersonHero({
+  p,
+  label,
+  onOpen,
+}: {
+  p: PersonStats;
+  label: string;
+  onOpen?: () => void;
+}) {
   return (
-    <div className="card st-hero">
+    <div
+      className={`card st-hero ${onOpen ? "st-hero-btn" : ""}`}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
+    >
       <div className="st-hero-top">
         <Avatar photoUrl={p.photoUrl} gender={p.gender} size={40} />
         <div className="st-hero-name">
@@ -44,6 +92,7 @@ function PersonHero({ p, label }: { p: PersonStats; label: string }) {
           <b>{p.name || "?"}</b>
         </div>
         <div className={`st-hero-amt ${tone(p.total)}`}>{money(p.total)}</div>
+        {onOpen && <Icon name="chevronRight" size={18} className="st-row-go" />}
       </div>
       <div className="st-chips">
         <span>
@@ -53,11 +102,11 @@ function PersonHero({ p, label }: { p: PersonStats; label: string }) {
           1위 <b>{p.firsts}</b>번
         </span>
         <span>
-          딴 <b>{p.wins}</b> · 잃은 <b>{p.losses}</b>
+          <b>{p.wins}</b>승 <b>{p.losses}</b>패
           {p.draws > 0 && (
             <>
               {" "}
-              · 본전 <b>{p.draws}</b>
+              <b>{p.draws}</b>무
             </>
           )}
         </span>
@@ -80,22 +129,32 @@ function PersonHero({ p, label }: { p: PersonStats; label: string }) {
           </span>
         )}
       </div>
-      <NetBars history={p.history} />
-      <p className="hint" style={{ marginTop: 8 }}>
-        막대는 최근 {Math.min(20, p.history.length)}라운드 금액이에요. 평균·베스트는 18홀을 다 친
-        라운드 기준이에요.
-      </p>
     </div>
   );
 }
 
+/**
+ * 라운드 정산 결과를 보고 돌아왔을 때 보던 사람 화면을 그대로 보여주려고 기억해 둔다.
+ * 전적 화면을 닫으면 지운다.
+ */
+let lastSelected: string | null = null;
+
 /** 전적: 나와 함께한 정산 확정 라운드 기준, 사람마다 기록과 누적 금액 */
 export default function StatsScreen({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
+  const { openRound } = useRound();
   const myUid = user?.uid ?? "";
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelectedState] = useState<string | null>(() => lastSelected);
+  const setSelected = (uid: string | null) => {
+    lastSelected = uid;
+    setSelectedState(uid);
+  };
+  const close = () => {
+    lastSelected = null;
+    onClose();
+  };
 
   useEffect(() => {
     if (!myUid) return;
@@ -108,6 +167,8 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   }, [myUid]);
 
   const person = selected ? stats?.people.find((p) => p.uid === selected) ?? null : null;
+  // 함께한 사람들 목록에는 나를 넣지 않는다 (나는 맨 위 카드)
+  const others = stats?.people.filter((p) => p.uid !== myUid) ?? [];
   const open = (uid: string) => {
     setSelected(uid);
     window.scrollTo(0, 0);
@@ -122,7 +183,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
           </span>
           {person ? person.name || "전적" : "전적"}
         </div>
-        <button className="icon-btn" aria-label="닫기" onClick={onClose}>
+        <button className="icon-btn" aria-label="닫기" onClick={close}>
           <Icon name="close" size={20} />
         </button>
       </div>
@@ -151,31 +212,20 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
 
         {stats && stats.roundCount > 0 && !person && (
           <>
-            <p className="hint" style={{ margin: "0 2px 12px" }}>
-              나와 함께한 정산 확정 라운드 {stats.roundCount}개 기준이에요. 금액은 핸디캡까지 실제로
-              주고받은 돈이에요.
-            </p>
-            {stats.me && <PersonHero p={stats.me} label="내 누적 금액" />}
+            {stats.me && (
+              <PersonHero p={stats.me} label="내 누적 금액" onOpen={() => open(myUid)} />
+            )}
 
-            <div className="section-title">함께한 사람들 {stats.people.length}명</div>
+            <div className="section-title">함께한 사람들 {others.length}명</div>
             <div className="card st-list">
-              {stats.people.map((p, i) => (
+              {others.map((p, i) => (
                 <button className="st-row" key={p.uid} onClick={() => open(p.uid)}>
                   <span className={`rank ${i === 0 && p.total > 0 ? "top" : ""}`}>{i + 1}</span>
                   <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
                   <span className="st-row-main">
-                    <span className="st-row-name">
-                      {p.name || "?"}
-                      {p.uid === myUid && <span className="me-tag">나</span>}
-                    </span>
+                    <span className="st-row-name">{p.name || "?"}</span>
                     <span className="st-row-sub">
-                      {p.rounds}라운드 · 1위 {p.firsts}번
-                      {p.vsMe && (
-                        <span className="nw">
-                          {" "}
-                          · 내가 {p.vsMe.win}승 {p.vsMe.loss}패
-                        </span>
-                      )}
+                      {p.rounds}라운드 · {record(p)}
                     </span>
                   </span>
                   <span className={`st-row-amt ${tone(p.total)}`}>{money(p.total)}</span>
@@ -183,10 +233,6 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
-            <p className="hint" style={{ margin: "2px 2px 0" }}>
-              다른 사람의 금액도 나와 함께한 라운드만 합친 거예요. 이름을 누르면 라운드별 기록을 볼
-              수 있어요.
-            </p>
           </>
         )}
 
@@ -200,43 +246,47 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
               label={person.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"}
             />
 
-            {person.vsMe && (
+            {person.vsMe ? (
               <>
                 <div className="section-title">나와 맞대결</div>
-                <div className="card st-vs">
-                  <div className="st-vs-score">
-                    <span>
-                      나 <b className="pos">{person.vsMe.win}승</b>
-                    </span>
-                    <span className="st-vs-mid">{person.vsMe.draw}무</span>
-                    <span>
-                      <b className="neg">{person.vsMe.loss}패</b> {person.name || "?"}
-                    </span>
-                  </div>
-                  <div className="st-vs-bar">
-                    {person.vsMe.win > 0 && (
-                      <span className="w" style={{ flexGrow: person.vsMe.win }} />
-                    )}
-                    {person.vsMe.draw > 0 && (
-                      <span className="d" style={{ flexGrow: person.vsMe.draw }} />
-                    )}
-                    {person.vsMe.loss > 0 && (
-                      <span className="l" style={{ flexGrow: person.vsMe.loss }} />
-                    )}
-                  </div>
-                  <p className="hint" style={{ marginTop: 8 }}>
-                    함께한 {person.rounds}라운드에서 금액을 더 딴 쪽이 이긴 걸로 셌어요. 같은
-                    라운드 합계는 나 {money(person.vsMe.myTotal)}, {person.name || "?"}{" "}
-                    {money(person.vsMe.theirTotal)}이에요.
-                  </p>
-                </div>
+                <WinLossBar
+                  win={person.vsMe.win}
+                  draw={person.vsMe.draw}
+                  loss={person.vsMe.loss}
+                  winLabel="나"
+                  middle={`${person.vsMe.draw}무`}
+                  lossLabel={person.name || "?"}
+                  leftAmt={{ label: "", value: person.vsMe.myTotal }}
+                  rightAmt={{ label: "", value: person.vsMe.theirTotal }}
+                />
+              </>
+            ) : (
+              <>
+                <div className="section-title">내 승패</div>
+                <WinLossBar
+                  win={person.wins}
+                  draw={person.draws}
+                  loss={person.losses}
+                  winLabel=""
+                  middle={`${person.draws}무 · 승률 ${Math.round((person.wins / Math.max(1, person.rounds)) * 100)}%`}
+                  lossLabel=""
+                  leftAmt={{
+                    label: "",
+                    value: person.history.reduce((t, r) => t + Math.max(0, r.net), 0),
+                  }}
+                  rightAmt={{
+                    label: "",
+                    value: person.history.reduce((t, r) => t + Math.min(0, r.net), 0),
+                  }}
+                />
               </>
             )}
 
             <div className="section-title">라운드별 기록 {person.history.length}개</div>
             <div className="card st-list">
               {person.history.map((r) => (
-                <div className="st-rec" key={r.roundId}>
+                // 누르면 그 라운드의 정산 결과 화면으로 (닫으면 다시 이 화면)
+                <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
                   <span className="st-rec-date">{md(r.date)}</span>
                   <span className="st-row-main">
                     <span className="st-row-name">
@@ -251,7 +301,8 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                     </span>
                   </span>
                   <span className={`st-row-amt ${tone(r.net)}`}>{money(r.net)}</span>
-                </div>
+                  <Icon name="chevronRight" size={16} className="st-row-go" />
+                </button>
               ))}
             </div>
           </>

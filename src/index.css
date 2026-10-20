@@ -3405,46 +3405,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 800;
 }
 
-/* 라운드별 금액 막대: 가운데 선 위는 딴 돈, 아래는 잃은 돈 */
-.st-bars {
-  display: flex;
-  gap: 3px;
-  height: 84px;
-  margin-top: 14px;
-  padding: 0 2px;
-}
-.st-bar {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.st-up,
-.st-down {
-  flex: 1;
-  display: flex;
-}
-.st-up {
-  align-items: flex-end;
-  border-bottom: 1px solid var(--line-strong);
-}
-.st-down {
-  align-items: flex-start;
-}
-.st-up span,
-.st-down span {
-  width: 100%;
-  min-height: 2px;
-}
-.st-up span {
-  border-radius: 3px 3px 0 0;
-  background: var(--gain);
-}
-.st-down span {
-  border-radius: 0 0 3px 3px;
-  background: var(--loss);
-}
-
 /* 사람 목록·라운드 기록 */
 .st-list {
   padding-top: 4px;
@@ -3580,6 +3540,34 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .st-vs-bar .l {
   background: var(--loss);
+}
+/* 막대 아래 양쪽 금액 */
+.st-vs-amt {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.st-vs-amt b {
+  margin-left: 2px;
+  font-weight: 800;
+}
+/* 전적: 라운드별 기록을 누르면 그 라운드 정산 결과로 */
+.st-rec-btn {
+  cursor: pointer;
+}
+.st-rec-btn:active {
+  opacity: 0.6;
+}
+/* 전적: 맨 위 내 카드를 누르면 내 상세 */
+.st-hero-btn {
+  cursor: pointer;
+}
+.st-hero-btn:active {
+  opacity: 0.7;
 }
 
 /* 홈: 내 전적 카드 */
