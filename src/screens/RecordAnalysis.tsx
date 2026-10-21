@@ -3,20 +3,49 @@ import { girOf } from "../recordStats";
 import { relLabel } from "../util";
 import { Icon } from "../icons";
 import type { Fairway } from "../types";
+import type { ReactNode } from "react";
+import type { TrendKey } from "../recordTrend";
 
 /** 0.333 → "33%". 분모가 0이면 "—" */
 const pct = (f: Frac) => (f.rate == null ? "—" : `${Math.round(f.rate * 100)}%`);
 const sub = (f: Frac, unit = "홀") => (f.d === 0 ? "기록 없음" : `${f.n}/${f.d}${unit}`);
 const one = (v: number | null) => (v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1));
 
-/** 지표 한 칸: 이름 · 큰 값 · 근거 */
-function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="rm-tile">
+/** 칸을 누르면 그 지표의 라운드별 추이를 펼친다 (라운드 기록 화면에서만) */
+export interface TrendPick {
+  active: TrendKey | null;
+  onPick: (k: TrendKey) => void;
+  /** 고른 지표의 추이 그래프 (분석 칸 바로 아래에 둔다) */
+  chart: ReactNode;
+}
+
+/** 지표 한 칸: 이름 · 큰 값 · 근거. 추이를 볼 수 있으면 누르는 칸 */
+function Metric({
+  label,
+  value,
+  note,
+  k,
+  trend,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  k?: TrendKey;
+  trend?: TrendPick;
+}) {
+  const body = (
+    <>
       <span className="rm-label">{label}</span>
       <b className="rm-value">{value}</b>
       {note && <span className="rm-note">{note}</span>}
-    </div>
+    </>
+  );
+  if (!trend || !k) return <div className="rm-tile">{body}</div>;
+  const on = trend.active === k;
+  return (
+    <button className={`rm-tile rm-btn ${on ? "on" : ""}`} aria-pressed={on} onClick={() => trend.onPick(k)}>
+      {body}
+    </button>
   );
 }
 
@@ -25,37 +54,79 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
  * 한 라운드(기록 분석 탭)와 여러 라운드 합산(라운드 기록)에서 함께 쓴다.
  * rounds 를 넘기면 벌타·샌드샷을 라운드당 값으로도 보여준다.
  */
-export function RecordAnalysis({ s, rounds }: { s: RecordSummary; rounds?: number }) {
+export function RecordAnalysis({
+  s,
+  rounds,
+  trend,
+}: {
+  s: RecordSummary;
+  rounds?: number;
+  /** 라운드 기록 화면: 칸을 누르면 추이 그래프 */
+  trend?: TrendPick;
+}) {
   const perRound = (n: number) =>
     rounds && rounds > 1 ? `라운드당 벌타 ${one(n / rounds)}` : undefined;
   return (
     <>
       <div className="card rm-grid">
-        <Metric label="페어웨이 적중률" value={pct(s.fairway)} note={sub(s.fairway)} />
-        <Metric label="GIR" value={pct(s.gir)} note={sub(s.gir)} />
         <Metric
+          k="fairway"
+          trend={trend}
+          label="페어웨이 적중률"
+          value={pct(s.fairway)}
+          note={sub(s.fairway)}
+        />
+        <Metric
+          k="gir"
+          trend={trend}
+          label="GIR"
+          value={pct(s.gir)}
+          note={sub(s.gir)}
+        />
+        <Metric
+          k="putts"
+          trend={trend}
           label="홀당 퍼트"
           value={one(s.avgPutts)}
           note={`1퍼트 ${s.onePutts} · 3퍼트+ ${s.threePutts}`}
         />
-        <Metric label="GIR 후 3퍼트" value={pct(s.girThreePutt)} note={sub(s.girThreePutt)} />
-        <Metric label="스크램블 (파 세이브)" value={pct(s.scrambling)} note={sub(s.scrambling)} />
         <Metric
+          k="girThreePutt"
+          trend={trend}
+          label="GIR 후 3퍼트"
+          value={pct(s.girThreePutt)}
+          note={sub(s.girThreePutt)}
+        />
+        <Metric
+          k="scrambling"
+          trend={trend}
+          label="스크램블 (파 세이브)"
+          value={pct(s.scrambling)}
+          note={sub(s.scrambling)}
+        />
+        <Metric
+          k="extraShots"
+          trend={trend}
           label="그린 놓친 홀 추가 샷"
           value={s.extraShots == null ? "—" : `+${one(s.extraShots)}`}
           note="그린까지 정규 타수보다"
         />
         <Metric
+          k="penalty"
+          trend={trend}
           label="OB · 해저드"
           value={`${s.ob} · ${s.hazard}`}
           note={perRound(s.ob + s.hazard) ?? "벌타 합계"}
         />
         <Metric
+          k="sand"
+          trend={trend}
           label="샌드샷"
           value={`${s.sandShots}`}
           note={`샌드 세이브 ${pct(s.sandSave)}${s.sandSave.d ? ` (${s.sandSave.n}/${s.sandSave.d})` : ""}`}
         />
       </div>
+      {trend?.chart}
       <div className="card">
         <div className="ad-ratio-title">티샷 결과 (파4·파5)</div>
         <TeeShotChart s={s} />

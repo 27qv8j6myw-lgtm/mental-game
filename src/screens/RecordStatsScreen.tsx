@@ -6,6 +6,8 @@ import { loadRecordRounds, summarize, type RecordRound } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
+import TrendChart from "./TrendChart";
+import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
 
 /** 2026-10-20 → 10/20 */
 const md = (d: string) => {
@@ -96,6 +98,34 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   const shown =
     scope === "all" ? rounds ?? [] : periods.find((p) => p.key === activeKey)?.rounds ?? [];
   const d = useMemo(() => digest(shown), [shown]);
+  // 추이: 평균 타수·보정타수·분석 칸을 누르면 그 아래에 라운드별 그래프 (같은 칸을 다시 누르면 접힘)
+  const [trendKey, setTrendKey] = useState<TrendKey | null>(null);
+  const pickTrend = (k: TrendKey) => setTrendKey((cur) => (cur === k ? null : k));
+  // 점 하나: 월별은 라운드 하나, 전체·연도별은 한 달 평균 (한 달치뿐이면 라운드별)
+  // 월별은 라운드가 적어서 바로 앞 기록 달의 라운드도 흐리게 함께 보여준다
+  const prevPeriod =
+    scope === "month" ? periods[periods.findIndex((p) => p.key === activeKey) + 1] ?? null : null;
+  const series = trendKey
+    ? trendSeries(shown, trendKey, scope === "month" ? "round" : "month", prevPeriod?.rounds ?? [])
+    : null;
+  const chart =
+    trendKey && series ? (
+      <TrendChart
+        key={`${trendKey}-${scope}-${activeKey}`}
+        k={trendKey}
+        points={series.points}
+        unit={series.unit}
+        overall={aggregate(shown, trendKey)}
+        beforeLabel={
+          prevPeriod
+            ? prevPeriod.key.slice(0, 4) === activeKey?.slice(0, 4)
+              ? `${Number(prevPeriod.key.slice(5, 7))}월`
+              : periodLabel(prevPeriod.key)
+            : undefined
+        }
+      />
+    ) : null;
+  const summaryTrend = trendKey === "strokes" || trendKey === "diff";
   // 내기 라운드는 정산 화면 대신 이 화면 안에서 내 기록 분석을 연다
   const [detailId, setDetailId] = useState<string | null>(null);
   // 기기 뒤로가기: 내기 라운드 분석 → 목록
@@ -186,10 +216,15 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
               </div>
             )}
             <div className="card rr-sum">
-              <div className="rr-total">
+              <button
+                className={`rr-total rr-pick ${trendKey === "strokes" ? "on" : ""}`}
+                aria-pressed={trendKey === "strokes"}
+                onClick={() => pickTrend("strokes")}
+              >
                 <b>{d.avg == null ? "–" : one(d.avg)}</b>
                 <span>평균 타수</span>
-              </div>
+                <em>{trendKey === "strokes" ? "추이 접기 ▴" : "추이 ▾"}</em>
+              </button>
               <div className="st-golf">
                 <span>
                   <b>{d.count}</b>라운드
@@ -203,23 +238,35 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                 </span>
               </div>
               {d.avgDiff != null && (
-                <div className="rr-adj">
+                <button
+                  className={`rr-adj rr-pick ${trendKey === "diff" ? "on" : ""}`}
+                  aria-pressed={trendKey === "diff"}
+                  onClick={() => pickTrend("diff")}
+                >
                   {/* 보정타수는 파 72에 더해 타수처럼 보여준다 (예: 8.4 → 80.4타) */}
                   <div className="rr-adj-main">
-                    <span>평균 보정타수 (파 72 기준)</span>
+                    <span>
+                      평균 보정타수 (파 72 기준) <em>{trendKey === "diff" ? "▴" : "▾"}</em>
+                    </span>
                     <b>{one(72 + d.avgDiff)}타</b>
                   </div>
                   <div className="rr-adj-sub">
                     파 72 + 보정타수 {one(d.avgDiff)} · 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프
                   </div>
-                </div>
+                </button>
               )}
             </div>
+            {summaryTrend && chart}
 
             <div className="section-title">
               분석 ({scope === "all" || !activeKey ? "전체 라운드" : periodLabel(activeKey)})
             </div>
-            <RecordAnalysis s={d.all} rounds={d.count} />
+            <p className="hint trend-hint">칸을 누르면 추이를 그래프로 볼 수 있어요.</p>
+            <RecordAnalysis
+              s={d.all}
+              rounds={d.count}
+              trend={{ active: trendKey, onPick: pickTrend, chart: summaryTrend ? null : chart }}
+            />
 
             <div className="section-title">라운드별 기록 {shown.length}개</div>
             <div className="card st-list">
