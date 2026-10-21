@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRound } from "../round";
+import { useBack } from "../back";
 import { Avatar } from "../icons";
 import {
   adjLabel,
@@ -42,6 +43,8 @@ export default function RoundSettingsSheet({
   onClose: () => void;
 }) {
   const { bundle, myUid, updateRound } = useRound();
+  // 기기 뒤로가기: 시트 닫기
+  useBack(true, onClose);
   const cfg = session.config;
   const [gameMode, setGameMode] = useState<GameMode>(cfg.gameMode);
   const isStroke = gameMode === "stroke";

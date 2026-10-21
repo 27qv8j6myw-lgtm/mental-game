@@ -143,13 +143,30 @@ export default function LobbyScreen() {
   const setHandicap = (h: number) =>
     void updateMe({ handicap: Math.max(0, Math.min(54, h)) });
 
+  /** 시작·삭제·나가기가 통신 문제로 안 됐을 때 안내 */
+  const [actionErr, setActionErr] = useState<string | null>(null);
   const doStart = async () => {
     setStarting(true);
+    setActionErr(null);
     try {
       await start();
     } catch (e) {
       console.error(e);
+      setActionErr("게임을 시작하지 못했어요. 연결을 확인하고 다시 눌러 주세요.");
       setStarting(false);
+    }
+  };
+  const doLeave = async () => {
+    setActionErr(null);
+    try {
+      await leave();
+    } catch (e) {
+      console.error(e);
+      setActionErr(
+        isHost
+          ? "라운드를 삭제하지 못했어요. 연결을 확인하고 다시 눌러 주세요."
+          : "라운드에서 나가지 못했어요. 연결을 확인하고 다시 눌러 주세요."
+      );
     }
   };
 
@@ -162,7 +179,7 @@ export default function LobbyScreen() {
           </span>
           대기실
         </div>
-        <button className="icon-btn" onClick={closeRound}>
+        <button className="icon-btn" aria-label="홈으로" onClick={() => closeRound()}>
           <Icon name="close" size={20} />
         </button>
       </div>
@@ -424,6 +441,7 @@ export default function LobbyScreen() {
       </div>
 
       <div className="actionbar">
+        {actionErr && <div className="action-err">{actionErr}</div>}
         {isHost ? (
           <button
             className="btn-primary"
@@ -451,7 +469,7 @@ export default function LobbyScreen() {
             const msg = isHost
               ? "라운드를 삭제할까요?\n참여한 사람 모두 이 라운드에서 나가게 돼요."
               : "이 라운드에서 나갈까요?\n다시 들어오려면 코드를 입력해야 해요.";
-            if (window.confirm(msg)) void leave();
+            if (window.confirm(msg)) void doLeave();
           }}
         >
           {isHost ? "라운드 삭제" : "나가기"}

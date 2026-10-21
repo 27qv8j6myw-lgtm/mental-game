@@ -111,9 +111,10 @@ export function clearPending(roundId: string) {
   setQueue(roundId, []);
 }
 
-/** 보내지 못하고 밀려 있는 저장 수. 처음 보내는 중인 값은 세지 않는다 */
+/** 보내지 못하고 밀려 있는 저장이 걸린 홀 수. 처음 보내는 중인 값은 세지 않는다 */
 export function waitingCount(roundId: string | null) {
-  return roundId && stalled.has(roundId) ? queues.get(roundId)?.length ?? 0 : 0;
+  if (!roundId || !stalled.has(roundId)) return 0;
+  return new Set((queues.get(roundId) ?? []).map((o) => o.hole)).size;
 }
 
 /** 서버에 아직 올라가지 않은 홀 저장이 있는 홀 번호들 ("2,3"). useSyncExternalStore 용으로 문자열 */
@@ -123,11 +124,14 @@ export function pendingHoleKey(roundId: string | null) {
   return [...new Set(holes)].sort((a, b) => a - b).join(",");
 }
 
-/** 서버가 거절해 버린 홀 저장. conflict: 다른 사람이 먼저 저장·수정함 / denied: 권한·값 문제 */
+/**
+ * 서버가 거절해 버린 저장. conflict: 다른 사람이 먼저 저장·수정함 / denied: 권한·값 문제 /
+ * locked: 통신이 끊긴 사이 그 홀이 저장(또는 라운드가 확정)돼서 이 폰에서 넣은 점수·파가 반영되지 않음
+ */
 export interface HoleRejection {
   roundId: string;
   hole: number;
-  reason: "conflict" | "denied";
+  reason: "conflict" | "denied" | "locked";
 }
 const rejectionListeners = new Set<(r: HoleRejection) => void>();
 export function subscribeHoleRejections(fn: (r: HoleRejection) => void) {
@@ -256,6 +260,8 @@ async function flushRound(roundId: string, me: string) {
   }
   // 홀 저장을 보냈으면 다 보낸 뒤 서버 값(저장한 사람·때, 수정 내역)으로 다시 맞춘다
   let refreshAfter = false;
+  /** 잠긴 홀이라 거절된 점수·파 (홀마다 한 번만 알린다) */
+  const lockedHoles = new Set<number>();
   for (;;) {
     const op = queues.get(roundId)?.[0];
     if (!op) break;
@@ -268,6 +274,10 @@ async function flushRound(roundId: string, me: string) {
       if (op.kind === "hole") {
         const reason = isConflict(e) ? "conflict" : "denied";
         for (const fn of rejectionListeners) fn({ roundId, hole: op.hole, reason });
+      } else if ((op.kind === "score" || op.kind === "par") && isLocked(e) && !lockedHoles.has(op.hole)) {
+        lockedHoles.add(op.hole);
+        refreshAfter = true;
+        for (const fn of rejectionListeners) fn({ roundId, hole: op.hole, reason: "locked" });
       }
     }
     // 보내는 사이 같은 칸에 새 값이 들어왔으면 그 값은 남겨 두고 다음 차례에 보낸다
@@ -284,6 +294,12 @@ const send = (roundId: string, op: SaveOp, signal: AbortSignal) =>
     : op.kind === "hole"
     ? apiSaveHole(roundId, op.hole, op.par, op.scores, op.baseVersion, op.items, signal)
     : apiSetPar(roundId, op.hole, op.par, signal);
+
+/** 저장된 홀·확정된 라운드라 바로 입력이 막힘 (holesave.sql 의 보호 트리거) */
+const isLocked = (e: unknown) => {
+  const msg = String((e as { message?: unknown } | null)?.message ?? "");
+  return msg.includes("HOLE_SAVED") || msg.includes("ROUND_DONE");
+};
 
 /** 홀 저장 충돌: 보던 사이 다른 사람이 그 홀을 먼저 저장·수정함 (holesave.sql) */
 const isConflict = (e: unknown) =>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRound } from "../round";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import { relLabel, scoreLabel, teeLabel } from "../util";
@@ -6,6 +6,7 @@ import { Avatar, Icon } from "../icons";
 import type { HoleStat, ParValue, Session } from "../types";
 import { SCORE_OPTS } from "./GameScreen";
 import HoleStatFields from "./HoleStatFields";
+import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
 
 const scoreClass = (rel: number) => (rel < 0 ? "under" : rel > 0 ? "over" : "even");
 
@@ -40,7 +41,7 @@ export default function RecordGameScreen({
   /** 저장 안 한 초안이 있는 동안 true (상단 버튼을 잠근다) */
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const { myUid } = useRound();
+  const { myUid, activeRoundId } = useRound();
   const { config, holes, holeStats, currentHole: idx, goHole, setPar, setScore, setStat } = session;
   const hole = holes[idx];
   const me = config.players.find((p) => p.id === myUid) ?? null;
@@ -63,6 +64,33 @@ export default function RecordGameScreen({
   const dirty = d.par !== hole.par || d.rel !== savedRel || !sameStat(d.stat, savedStat);
   // 홀을 옮기면 (초안이 있으면 옮길 수 없다) 비운다
   useEffect(() => setDraft(null), [idx]);
+
+  // 초안 보관: 폰이 잠기거나 앱이 다시 띄워져도 저장 안 한 입력이 남게
+  const restore = useRef<StoredDraft | null>(
+    (() => {
+      const s = loadDraft(activeRoundId);
+      return s && s.kind === "record" ? s : null;
+    })()
+  );
+  const restoreTries = useRef(0);
+  useEffect(() => {
+    const s = restore.current;
+    if (!s) return;
+    if (s.hole !== idx) {
+      // 처음 열 때 정해지는 홀보다 늦게 옮겨야 해서 몇 번 다시 시도한다
+      if (restoreTries.current++ < 3 && s.hole < holes.length) goHole(s.hole);
+      else restore.current = null;
+      return;
+    }
+    restore.current = null;
+    setDraft(s.data as Draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx]);
+  useEffect(() => {
+    if (restore.current) return;
+    if (draft && dirty) saveDraft({ roundId: activeRoundId ?? "", kind: "record", hole: draft.hole, data: draft });
+    else clearDraft(activeRoundId);
+  }, [draft, dirty, activeRoundId]);
   useEffect(() => onBusyChange?.(dirty), [dirty, onBusyChange]);
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
@@ -106,7 +134,7 @@ export default function RecordGameScreen({
             PAR {par}
             {tee && ` · ${tee}`} · {idx + 1} / {holes.length}
             {!!session.pendingSaves && (
-              <span className="pending"> · 저장 대기 {session.pendingSaves}개</span>
+              <span className="pending"> · 저장 대기 {session.pendingSaves}개 홀</span>
             )}
           </div>
         </div>
@@ -128,6 +156,14 @@ export default function RecordGameScreen({
               {session.status === "done" && !dirty && "끝난 라운드 · "}
               {dirty ? "저장 전 · 저장해야 기록돼요" : savedRel != null ? "✓ 저장됨" : "입력 전"}
             </div>
+            {session.notice && (
+              <div className="notice-bar" role="alert">
+                <span>{session.notice}</span>
+                <button aria-label="알림 닫기" onClick={() => session.setNotice(null)}>
+                  <Icon name="close" size={14} />
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div className="par-seg">

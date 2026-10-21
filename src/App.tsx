@@ -14,6 +14,8 @@ import AdminScreen from "./screens/AdminScreen";
 import StatsScreen from "./screens/StatsScreen";
 import { Icon } from "./icons";
 import { firstUnsaved } from "./model";
+import { useBack } from "./back";
+import { useOnline } from "./online";
 import type { Session } from "./types";
 
 export default function App() {
@@ -45,6 +47,10 @@ function MemberFlow() {
     if (round.activeRoundId && view === "create") setView("home");
   }, [round.activeRoundId, view]);
 
+  // 기기 뒤로가기: 라운드 → (전적·기록 등) 화면 → 홈 순서로 닫는다
+  useBack(view !== "home", () => setView("home"));
+  useBack(!!round.activeRoundId, () => round.closeRound());
+
   if (round.activeRoundId) {
     if (round.loading || !round.session) {
       return (
@@ -56,12 +62,22 @@ function MemberFlow() {
               </span>
               멘탈게임
             </div>
-            <button className="icon-btn" onClick={round.closeRound}>
+            <button className="icon-btn" aria-label="닫기" onClick={() => round.closeRound()}>
               <Icon name="close" size={20} />
             </button>
           </div>
           <div className="sheet center-col" style={{ justifyContent: "center" }}>
-            <div className="empty-note">라운드 불러오는 중…</div>
+            {round.loading ? (
+              <div className="empty-note">라운드 불러오는 중…</div>
+            ) : (
+              // 처음 여는 라운드인데 통신이 안 됨 (한 번 연 라운드는 기기에 보관한 화면으로 바로 열린다)
+              <div className="load-fail">
+                <div className="empty-note">라운드를 불러오지 못했어요.<br />연결을 확인하고 다시 시도해 주세요.</div>
+                <button className="btn-line wide" onClick={() => void round.refresh()}>
+                  다시 시도
+                </button>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -86,39 +102,61 @@ function MemberFlow() {
 
 function RoundPlay({ session }: { session: Session }) {
   const round = useRound();
-  const [tab, setTab] = useState<"game" | "result">(
-    session.status === "done" ? "result" : "game"
-  );
+  const [firstTab] = useState<"game" | "result">(session.status === "done" ? "result" : "game");
+  const [tab, setTab] = useState<"game" | "result">(firstTab);
   const showTab = (t: "game" | "result") => {
     setTab(t);
     window.scrollTo(0, 0);
   };
+  // 기기 뒤로가기: 다른 탭에 있으면 처음 탭으로
   // 기록 모드: 정산 대신 기록 분석
   const isRecord = session.config.gameMode === "record";
 
   // 홀 수정·내 기록 초안이 열려 있는 동안: 상단 버튼·탭바를 잠가(숨기지 않고: 화면이 밀리지 않게) 저장/취소로 끝내게 한다
   const [busy, setBusy] = useState(false);
   const onBusyChange = useCallback((b: boolean) => setBusy(b), []);
+  const online = useOnline();
+  useBack(tab !== firstTab, () => showTab(firstTab));
+  // 초안이 열려 있으면 뒤로가기로 나가지 않는다 (저장/취소로 끝낸다)
+  useBack(busy, () => false);
 
   // 홀 저장 방식: 저장 안 된 홀
   const unsaved = session.holeSave ? session.holes.filter((h) => h.saved === false).length : 0;
   const allSaved = session.holeSave && firstUnsaved(session.holes) < 0;
 
   /** 방장: 최종 확정 (확정하면 방장만 고칠 수 있다) */
+  const finishing = useRef(false);
+  /** 종료(확정)를 보낸다. 통신 실패면 알려 주고 다시 누를 수 있게 둔다 */
+  const doFinish = async () => {
+    if (finishing.current) return;
+    finishing.current = true;
+    try {
+      await round.finish();
+    } catch (e) {
+      console.error(e);
+      session.setNotice(
+        isRecord
+          ? "라운드를 종료하지 못했어요. 연결을 확인하고 다시 눌러 주세요"
+          : "최종 확정을 하지 못했어요. 연결을 확인하고 다시 눌러 주세요"
+      );
+    } finally {
+      finishing.current = false;
+    }
+  };
   const finalize = () => {
     if (isRecord) {
-      if (window.confirm("라운드를 종료할까요?\n종료해도 내 기록은 계속 고칠 수 있어요.")) void round.finish();
+      if (window.confirm("라운드를 종료할까요?\n종료해도 내 기록은 계속 고칠 수 있어요.")) void doFinish();
       return;
     }
     if (!session.holeSave) {
-      if (window.confirm("라운드를 종료하고 정산을 확정할까요?")) void round.finish();
+      if (window.confirm("라운드를 종료하고 정산을 확정할까요?")) void doFinish();
       return;
     }
     const msg =
       unsaved > 0
         ? `아직 저장 안 된 홀이 ${unsaved}개 있어요.\n지금 종료하면 저장된 ${session.holes.length - unsaved}개 홀만 정산돼요. 최종 확정할까요?`
         : "최종 확정할까요?\n확정하면 정산이 끝나고 방장만 스코어를 고칠 수 있어요.";
-    if (window.confirm(msg)) void round.finish();
+    if (window.confirm(msg)) void doFinish();
   };
 
   // 방장이 최종 확정하면 참여자 화면도 정산 결과로
@@ -136,6 +174,10 @@ function RoundPlay({ session }: { session: Session }) {
             <Icon name="flag" size={18} />
           </span>
           <span className="brand-name">{session.config.courseName || "멘탈게임"}</span>
+          {/* 통신이 끊겼거나 저장이 밀려 있으면: 입력은 이 폰에 보관했다가 연결되면 올린다 */}
+          {(!online || !!session.pendingSaves) && (
+            <span className="offline-pill">{online ? "저장 대기" : "오프라인"}</span>
+          )}
         </div>
         {/* 홀 진행 ↔ 정산 결과(기록 분석)는 아이콘으로, X 는 라운드 목록으로 */}
         <div className={`actions ${busy ? "locked" : ""}`}>
@@ -157,7 +199,7 @@ function RoundPlay({ session }: { session: Session }) {
           >
             <Icon name={isRecord ? "chart" : "trophy"} size={20} />
           </button>
-          <button className="icon-btn" aria-label="라운드 목록으로" disabled={busy} onClick={round.closeRound}>
+          <button className="icon-btn" aria-label="라운드 목록으로" disabled={busy} onClick={() => round.closeRound()}>
             <Icon name="close" size={20} />
           </button>
         </div>

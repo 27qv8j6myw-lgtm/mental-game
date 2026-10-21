@@ -15,6 +15,7 @@ import { useRound } from "../round";
 import { firstUnsaved, settledHoles } from "../model";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import HoleStatFields from "./HoleStatFields";
+import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
 
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
 // → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
@@ -31,6 +32,8 @@ const sameStat = (a: HoleStat, b: HoleStat) =>
 /** 저장된 홀을 고치는 중인 초안 (이 홀만) */
 interface HoleDraft {
   hole: number;
+  /** 수정을 시작할 때 이 홀의 version. 저장할 때 이 값으로 보내 그 사이 다른 사람이 고쳤으면 거절된다 */
+  version: number;
   par: ParValue;
   scores: Record<string, number | null>;
 }
@@ -56,7 +59,7 @@ export default function GameScreen({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore, status, holeSave } = session;
-  const { myUid } = useRound();
+  const { myUid, activeRoundId } = useRound();
   const hole = holes[idx];
   const lastIdx = holes.length - 1;
   const playing = status === "playing";
@@ -100,6 +103,55 @@ export default function GameScreen({
     setRec(null);
     setDraft((d) => (d && d.hole !== idx ? null : d));
   }, [idx]);
+
+  // ---- 초안 보관: 폰이 잠기거나 앱이 다시 띄워져도 저장 안 한 수정·내 기록이 남게 ----
+  /** 다시 열었을 때 되살릴 초안 (그 홀로 옮긴 뒤 채운다) */
+  const restore = useRef<StoredDraft | null>(
+    (() => {
+      const d = loadDraft(activeRoundId);
+      return d && (d.kind === "edit" || d.kind === "rec") ? d : null;
+    })()
+  );
+  const restoreTries = useRef(0);
+  useEffect(() => {
+    const d = restore.current;
+    if (!d) return;
+    if (d.hole !== idx) {
+      // 처음 열 때 정해지는 홀(저장 안 된 첫 홀)보다 늦게 옮겨야 해서 몇 번 다시 시도한다
+      if (restoreTries.current++ < 3 && d.hole < holes.length) goHole(d.hole);
+      else restore.current = null;
+      return;
+    }
+    restore.current = null;
+    if (d.kind === "edit") {
+      if ((hole.version ?? 0) !== d.version) {
+        clearDraft(activeRoundId);
+        session.setNotice(`그 사이 다른 사람이 ${idx + 1}번 홀을 고쳐서, 저장하지 않은 수정은 버렸어요`);
+        return;
+      }
+      const v = d.data as { par: ParValue; scores: Record<string, number | null> };
+      setDraft({ hole: idx, version: d.version ?? 0, par: v.par, scores: v.scores });
+    } else {
+      setRec(d.data as HoleStat);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx]);
+  useEffect(() => {
+    if (restore.current) return;
+    if (draft) {
+      saveDraft({
+        roundId: activeRoundId ?? "",
+        kind: "edit",
+        hole: draft.hole,
+        version: draft.version,
+        data: { par: draft.par, scores: draft.scores },
+      });
+    } else if (rec && recDirty) {
+      saveDraft({ roundId: activeRoundId ?? "", kind: "rec", hole: idx, data: rec });
+    } else {
+      clearDraft(activeRoundId);
+    }
+  }, [draft, rec, recDirty, idx, activeRoundId]);
 
   const busy = editing || recDirty;
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
@@ -256,14 +308,15 @@ export default function GameScreen({
   };
   const startEdit = () => {
     setRec(null);
-    setDraft({ hole: idx, par: hole.par, scores: { ...hole.scores } });
+    setDraft({ hole: idx, version: hole.version ?? 0, par: hole.par, scores: { ...hole.scores } });
   };
   const editItems = editing
     ? holeEditItems(idx, hole, view, (id) => nameOf(id)?.name || "?")
     : [];
   const saveEdit = () => {
     if (!editing || !allIn || editItems.length === 0) return;
-    session.saveHole(idx, view.par, fullScores(), editItems);
+    // 수정을 시작할 때의 version 으로 보낸다: 그 사이 다른 사람이 고쳤으면 서버가 거절하고 알려 준다
+    session.saveHole(idx, view.par, fullScores(), editItems, draft.version);
     setDraft(null);
   };
 
@@ -328,7 +381,7 @@ export default function GameScreen({
           <div className="lbl">
             PAR {view.par} · {idx + 1} / {holes.length}
             {!!session.pendingSaves && (
-              <span className="pending"> · 저장 대기 {session.pendingSaves}개</span>
+              <span className="pending"> · 저장 대기 {session.pendingSaves}개 홀</span>
             )}
           </div>
         </div>

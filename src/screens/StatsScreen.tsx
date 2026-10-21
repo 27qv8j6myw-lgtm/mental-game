@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
+import { useBack } from "../back";
 import { loadStats, type PersonStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
 import { GAME_MODE_LABEL, wonSigned } from "../util";
@@ -155,6 +156,8 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
     lastSelected = null;
     onClose();
   };
+  // 기기 뒤로가기: 사람 상세 → 전체 보기
+  useBack(!!selected, () => setSelected(null));
 
   useEffect(() => {
     if (!myUid) return;

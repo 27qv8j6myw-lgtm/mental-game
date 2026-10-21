@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
+import { useBack } from "../back";
 import { loadRecordRounds, summarize, type RecordRound } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
@@ -97,6 +98,8 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   const d = useMemo(() => digest(shown), [shown]);
   // 내기 라운드는 정산 화면 대신 이 화면 안에서 내 기록 분석을 연다
   const [detailId, setDetailId] = useState<string | null>(null);
+  // 기기 뒤로가기: 내기 라운드 분석 → 목록
+  useBack(!!detailId, () => setDetailId(null));
   const detail = rounds?.find((r) => r.roundId === detailId) ?? null;
   const openDetail = (r: RecordRound) => {
     if (r.gameMode === "record") openRound(r.roundId);

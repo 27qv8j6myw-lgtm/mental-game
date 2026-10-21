@@ -8,6 +8,13 @@ import { startUpdateCheck } from "./update";
 
 startUpdateCheck();
 
+// 신호가 없어도 앱 화면이 열리게 (배포판만: 개발 서버에서는 수정이 바로 보이도록 쓰지 않는다)
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("서비스 워커 등록 실패", e));
+  });
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>

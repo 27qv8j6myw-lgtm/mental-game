@@ -93,6 +93,15 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
       </div>
 
       <div className="sheet results">
+        {/* 알림 (최종 확정 실패 등): 정산 화면에서는 맨 위에 */}
+        {session.notice && (
+          <div className="notice-bar inline" role="alert">
+            <span>{session.notice}</span>
+            <button aria-label="알림 닫기" onClick={() => session.setNotice(null)}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
         {players.length > 1 && (
           <>
             <div className="section-title">타수 순위</div>

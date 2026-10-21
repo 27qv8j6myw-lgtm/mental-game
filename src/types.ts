@@ -243,7 +243,14 @@ export interface Session {
    * 홀 저장·수정: 파와 모든 참여자 스코어를 확정한다. 저장된 홀을 고칠 때는 수정 내역 문장(items)을 남긴다.
    * 라운드 중엔 누구나, 종료 후엔 방장만
    */
-  saveHole: (holeIndex: number, par: ParValue, scores: Record<string, number>, items: string[]) => void;
+  saveHole: (
+    holeIndex: number,
+    par: ParValue,
+    scores: Record<string, number>,
+    items: string[],
+    /** 보던 홀의 version (수정은 시작할 때 값). 없으면 지금 값 */
+    baseVersion?: number
+  ) => void;
   /** 서버에 아직 올라가지 않은 홀 저장이 있는 홀 */
   pendingHoles: ReadonlySet<number>;
   status: RoundStatus;

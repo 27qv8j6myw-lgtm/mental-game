@@ -96,7 +96,7 @@ export async function joinRoundByCode(
   });
   if (error) {
     if (error.message?.includes("ROUND_NOT_FOUND"))
-      throw new Error("해당 코드의 대기중 라운드를 찾을 수 없어요.");
+      throw new Error("이 코드로 들어갈 수 있는 라운드가 없어요. 코드를 다시 확인해 주세요 (이미 시작한 라운드에는 들어갈 수 없어요).");
     throw error;
   }
   return data as RoundRow;

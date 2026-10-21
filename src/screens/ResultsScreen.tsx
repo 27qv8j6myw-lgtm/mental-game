@@ -257,6 +257,15 @@ export default function ResultsScreen({
       </div>
 
       <div className="sheet results">
+        {/* 알림 (최종 확정 실패 등): 정산 화면에서는 맨 위에 */}
+        {session.notice && (
+          <div className="notice-bar inline" role="alert">
+            <span>{session.notice}</span>
+            <button aria-label="알림 닫기" onClick={() => session.setNotice(null)}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
         {session.isHost && (
           <div className="host-edit">
             {/* 라운드 중엔 누구나 홀 진행에서 저장된 홀을 '수정'한다. 종료 후엔 방장만 */}

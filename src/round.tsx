@@ -67,7 +67,8 @@ interface RoundCtx {
   status: RoundStatus | null;
   session: Session | null;
   openRound: (id: string) => void;
-  closeRound: () => void;
+  /** 라운드 화면 닫기. forget 이면 보관해 둔 화면 데이터도 지운다 */
+  closeRound: (forget?: boolean) => void;
   refresh: () => Promise<void>;
   updateMe: (patch: PlayerPatch) => Promise<void>;
   /** 방장 전용: 규칙·핸디 정산 시점·기준 인원·핸디 수정 */
@@ -156,11 +157,15 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     setLoading(true);
   }, []);
 
-  const closeRound = useCallback(() => {
+  /**
+   * 라운드 화면 닫기 (홈으로). 마지막으로 받은 화면 데이터는 남겨 둔다:
+   * 통신이 없을 때 홈에서 다시 열어도 바로 보이게. forget 이면 지운다 (로그아웃·삭제·나가기)
+   */
+  const closeRound = useCallback((forget = false) => {
     activeRef.current = null;
     resumedFor.current = null;
     writeActive(null);
-    writeCache(null);
+    if (forget) writeCache(null);
     setActiveRoundId(null);
     setBundle(null);
     setCurrentHole(0);
@@ -168,7 +173,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (mode === "signed-out") closeRound();
+    if (mode === "signed-out") closeRound(true);
   }, [mode, closeRound]);
 
   // 진행 중인 조회가 있으면 끝난 뒤 한 번 더 조회한다. (건너뛰면 마지막 변경이 화면에 반영되지 않음)
@@ -213,7 +218,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       .catch((e) => {
         console.error("라운드 조회 실패", e);
         // 삭제됐거나 더 이상 참여자가 아닌 라운드: 홈으로
-        if (alive && e?.code === "PGRST116") closeRound();
+        if (alive && e?.code === "PGRST116") closeRound(true);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -274,6 +279,8 @@ export function RoundProvider({ children }: { children: ReactNode }) {
         setNotice(
           r.reason === "conflict"
             ? `${r.hole + 1}번 홀은 다른 사람이 먼저 저장·수정해서 내 저장은 반영되지 않았어요. 저장된 스코어를 확인해 주세요`
+            : r.reason === "locked"
+            ? `${r.hole + 1}번 홀은 연결이 끊긴 사이 저장돼서, 이 폰에서 넣은 점수는 반영되지 않았어요`
             : `${r.hole + 1}번 홀 저장이 거절됐어요. 저장된 스코어를 확인해 주세요`
         );
         void refresh();
@@ -428,7 +435,13 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   );
 
   const saveHole = useCallback(
-    (holeIndex: number, par: ParValue, scores: Record<string, number>, items: string[]) => {
+    (
+      holeIndex: number,
+      par: ParValue,
+      scores: Record<string, number>,
+      items: string[],
+      baseVersion?: number
+    ) => {
       if (!bundle || !myUid) return;
       const row = bundle.holes.find((h) => h.hole_index === holeIndex);
       save({
@@ -436,7 +449,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
         hole: holeIndex,
         par,
         scores,
-        baseVersion: row?.version ?? 0,
+        baseVersion: baseVersion ?? row?.version ?? 0,
         items,
         by: myUid,
       });
@@ -498,7 +511,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     if (!activeRoundId || !myUid) return;
     await leaveOrDeleteRound(activeRoundId, myUid, isHost);
     clearPending(activeRoundId);
-    closeRound();
+    closeRound(true);
   }, [activeRoundId, myUid, isHost, closeRound]);
 
   const value: RoundCtx = {

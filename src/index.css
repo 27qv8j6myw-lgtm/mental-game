@@ -4613,3 +4613,69 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 700;
   color: #b45309;
 }
+/* 홈: 목록을 서버에서 못 받았을 때 (마지막으로 받은 목록을 보여주는 중) */
+.list-offline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--mustard-soft);
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 700;
+}
+.list-offline span {
+  flex: 1;
+}
+.list-offline button {
+  flex: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--paper);
+  color: #b45309;
+  font-weight: 800;
+  font-size: 12.5px;
+}
+/* 상단: 통신 끊김·저장 대기 (입력은 폰에 보관했다가 연결되면 올라간다) */
+.offline-pill {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--mustard-soft);
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+/* 대기실: 시작·삭제·나가기가 안 됐을 때 */
+.action-err {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+/* 라운드를 못 불러왔을 때: 안내 + 다시 시도 */
+.load-fail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.load-fail .btn-line.wide {
+  color: var(--ink);
+  width: auto;
+  padding: 10px 28px;
+}
+/* 정산 결과 화면의 알림: 겹쳐 띄우지 않고 맨 위에 */
+.notice-bar.inline {
+  position: static;
+  margin-bottom: 14px;
+  box-shadow: none;
+}
