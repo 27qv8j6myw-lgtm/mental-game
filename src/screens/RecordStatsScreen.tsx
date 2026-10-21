@@ -267,7 +267,6 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
             <div className="section-title">라운드별 기록 {shown.length}개</div>
             <div className="card st-list">
               {shown.map((r) => {
-                const tee = teeLabel(r.courseTee);
                 return (
                   <button
                     className="st-rec st-rec-btn"
@@ -280,13 +279,26 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                         <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
                         <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
                       </span>
+                      {/* 퍼트 · FW · GIR · 보정. 18홀을 다 치지 않은 라운드만 홀 수를 앞에. 줄이 넘어가도 항목은 끊지 않는다 */}
                       <span className="st-row-sub">
-                        {tee && `${tee} · `}
-                        {r.summary.holesPlayed}홀
-                        {r.summary.putts != null && ` · 퍼트 ${r.summary.putts}`}
-                        {r.summary.gir.rate != null &&
-                          ` · GIR ${Math.round(r.summary.gir.rate * 100)}%`}
-                        {r.differential != null && ` · 보정 ${r.differential.toFixed(1)}`}
+                        {[
+                          r.summary.holesPlayed !== 18 && `${r.summary.holesPlayed}홀`,
+                          r.summary.putts != null && `퍼트 ${r.summary.putts}`,
+                          r.summary.fairway.rate != null && `FW ${Math.round(r.summary.fairway.rate * 100)}%`,
+                          r.summary.gir.rate != null && `GIR ${Math.round(r.summary.gir.rate * 100)}%`,
+                          r.differential != null && `보정 ${r.differential.toFixed(1)}`,
+                        ]
+                          .filter((v): v is string => !!v)
+                          .map((v, i, all) => (
+                            // 가운뎃점은 앞 항목에 붙여, 줄이 넘어가도 새 줄이 점으로 시작하지 않게
+                            <span key={v}>
+                              <span className="nw">
+                                {v}
+                                {i < all.length - 1 && " ·"}
+                              </span>
+                              {i < all.length - 1 && " "}
+                            </span>
+                          ))}
                       </span>
                     </span>
                     {/* 타수는 오른쪽, 파 대비는 고정 폭: 줄마다 '타' 자리가 같다 */}
