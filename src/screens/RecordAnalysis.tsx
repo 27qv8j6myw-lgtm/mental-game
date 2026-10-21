@@ -167,7 +167,7 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
   return (
     <div className="ts-wrap">
       <div className="ts-gauge">
-        <svg viewBox="0 0 168 92" role="img" aria-label={`페어웨이 적중 ${pct(s.fairway)}`}>
+        <svg viewBox="-14 0 196 85" role="img" aria-label={`페어웨이 적중 ${pct(s.fairway)}`}>
           {/* 칠할 방향이 없을 때만 빈 반원 */}
           {arcTotal === 0 && <path d={arc} className="ts-track" />}
           {parts.map(([n, color], i) => {
@@ -192,7 +192,7 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
             페어웨이 적중
           </text>
         </svg>
-        {/* 반원 아래 양 끝: 왼쪽 훅, 오른쪽 슬라이스 */}
+        {/* 반원 양 끝 바로 밑: 퍼센트는 반원 끝 가운데, 화살표는 그 바깥 */}
         <div className="ts-dirs">
           <div className="ts-dir hook">
             <b>

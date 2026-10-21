@@ -4072,7 +4072,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   flex: 1;
   min-width: 0;
 }
-.ts-gauge svg {
+.ts-gauge > svg {
   display: block;
   width: 100%;
   max-width: 200px;
@@ -4251,30 +4251,43 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: #6b7280;
   border-color: #6b7280;
 }
-/* 반원 아래 양 끝 방향 비율: 왼쪽 훅 · 오른쪽 슬라이스 (비율 크게, 홀 수 작게) */
+/* 반원 양 끝 바로 밑 방향 비율: 왼쪽 훅 · 오른쪽 슬라이스 (비율 크게, 홀 수 작게)
+   반원(viewBox -14~182)의 양 끝 가운데는 폭의 16%·84% → 폭 32% 칸의 가운데에 퍼센트를 둔다 */
 .ts-dirs {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-top: 4px;
+  max-width: 200px;
+  margin: 0 auto;
 }
 .ts-dir {
+  width: 32%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1px;
 }
-.ts-dir.slice {
-  align-items: flex-end;
-}
 .ts-dir b {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  position: relative;
   font-family: var(--font-num);
   font-size: 18px;
   font-weight: 900;
+  line-height: 1.2;
   color: var(--ink);
   white-space: nowrap;
+}
+/* 화살표는 퍼센트 바깥쪽으로 */
+.ts-dir b svg {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.ts-dir.hook b svg {
+  right: 100%;
+  margin-right: 1px;
+}
+.ts-dir.slice b svg {
+  left: 100%;
+  margin-left: 1px;
 }
 .ts-dir.hook svg {
   color: var(--teal);
