@@ -131,6 +131,43 @@ export function matchTee(course: KgaCourse, tee: TeeBox): string | null {
   return null;
 }
 
+/** 티 이름(스코어카드의 "Regular" 등) → 티 박스. 알 수 없으면 null */
+export function teeBoxFromName(name: string): TeeBox | null {
+  const up = name.toUpperCase();
+  for (const [box, words] of Object.entries(TEE_WORDS) as [TeeBox, string[]][]) {
+    if (words.some((w) => up.includes(w))) return box;
+  }
+  // 한글 티 이름
+  const ko: [TeeBox, string][] = [
+    ["black", "블랙"],
+    ["blue", "블루"],
+    ["white", "화이트"],
+    ["red", "레드"],
+    ["senior", "시니어"],
+  ];
+  return ko.find(([, w]) => name.includes(w))?.[0] ?? null;
+}
+
+/**
+ * 스코어카드에 적힌 골프장 이름("클럽72 (오션)")으로 KGA 골프장·코스 찾기.
+ * 괄호 앞은 골프장, 괄호 안은 코스 이름의 일부로 본다. 코스를 정할 수 없으면 courseIdx -1.
+ * 괄호 앞 이름만 따로 쓰려면 clubPart
+ */
+export function findCourse(data: KgaData, printed: string): { club: KgaClub; courseIdx: number } | null {
+  const m = printed.match(/^(.*?)\s*[(（]([^)）]*)[)）]/);
+  const base = (m ? m[1] : printed).trim();
+  const hint = m ? norm(m[2]) : "";
+  // 이름이 같은 골프장만 (비슷한 이름은 확인 화면에서 추천으로 고른다)
+  const club = exactClub(data, base);
+  if (!club) return null;
+  if (club.courses.length === 1) return { club, courseIdx: 0 };
+  const courseIdx = hint ? club.courses.findIndex((c) => norm(c.name).includes(hint)) : -1;
+  return { club, courseIdx };
+}
+
+/** "클럽72 (오션)" → "클럽72" */
+export const clubPart = (printed: string) => printed.replace(/\s*[(（][^)）]*[)）].*$/, "").trim();
+
 /** 라운드에 저장할 레이팅: 고른 코스·티의 남/여 레이팅 */
 export function courseRating(
   data: KgaData,

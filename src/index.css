@@ -5063,3 +5063,247 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .tr-dot.before.on {
   fill: var(--ink-soft);
 }
+
+/* ============ 스코어카드 사진으로 기록 추가 ============ */
+.sc-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 12px 20px;
+  background: var(--paper);
+  color: var(--olive);
+  border-color: var(--line-strong);
+}
+.sc-notice {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.sc-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sc-intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.sc-photo {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--paper-2);
+}
+.sc-photo-ref {
+  max-height: none;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+}
+.sc-reading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.sc-spin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--paper-3);
+  border-top-color: var(--olive);
+  animation: sc-spin 0.9s linear infinite;
+}
+@keyframes sc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sc-err {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.sheet > .sc-err {
+  margin-bottom: 12px;
+}
+.sc-rating {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.sc-holes-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sc-photo-btn {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--olive);
+}
+.sc-card {
+  padding: 8px 6px;
+}
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.sc-table th {
+  padding: 4px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.sc-table th:first-child,
+.sc-table td:first-child {
+  width: 26px;
+}
+.sc-table th:nth-child(6) {
+  width: 62px;
+}
+.sc-table td {
+  padding: 3px 1px;
+  text-align: center;
+  border-top: 1px solid var(--line);
+}
+.sc-n {
+  font-weight: 800;
+  color: var(--ink-faint);
+}
+.sc-warn td {
+  background: var(--loss-soft);
+}
+.sc-par,
+.sc-fw {
+  width: 100%;
+  max-width: 38px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--paper-2);
+  font-family: var(--font-num);
+  font-weight: 800;
+  color: var(--ink);
+}
+.sc-fw {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--olive);
+}
+.sc-fw.none {
+  color: var(--ink-faint);
+}
+.sc-dash {
+  color: var(--ink-faint);
+}
+.sc-num {
+  width: 100%;
+  max-width: 40px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  text-align: center;
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.sc-num::-webkit-outer-spin-button,
+.sc-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.sc-num.sm {
+  max-width: 30px;
+}
+.sc-pen {
+  white-space: nowrap;
+}
+.sc-kind {
+  display: block;
+  margin: 3px auto 0;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--terra-soft);
+  color: var(--terra);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.sc-kind.hazard {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.sc-sum td {
+  padding: 7px 1px;
+  background: var(--paper-2);
+  font-family: var(--font-num);
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.sc-sum td:first-child {
+  font-family: var(--font);
+  font-size: 12px;
+  text-align: left;
+  padding-left: 6px;
+}
+.sc-sum.total td {
+  color: var(--ink);
+  font-size: 15px;
+}
+.sc-sum td.off {
+  color: var(--loss);
+}
+.sc-sum small {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+}
+.sc-warn-box {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+.sc-warn-box p {
+  margin: 0;
+}
+.sc-card + .hint,
+.sc-warn-box + .hint {
+  margin: 10px 2px 0;
+}
+.sheet .sc-card ~ .btn-primary {
+  margin-top: 16px;
+}
+.sc-again {
+  margin-top: 10px;
+}

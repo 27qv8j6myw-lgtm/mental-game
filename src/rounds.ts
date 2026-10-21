@@ -82,6 +82,53 @@ export async function createRound(p: CreateRoundParams): Promise<RoundRow> {
   return data as RoundRow;
 }
 
+/** 스코어카드 사진으로 만든 기록 라운드의 홀 하나 (hole_index 순서) */
+export interface ImportHole {
+  par: number;
+  /** 타수 (이 홀을 안 쳤으면 null) */
+  strokes: number | null;
+  stat: HoleStat;
+}
+
+/**
+ * 끝난 기록 라운드를 한 번에 만든다 (스코어카드 사진으로 기록 추가).
+ * 라운드 만들기 → 파·스코어·상세 기록 넣기 → 종료. 중간에 실패하면 만든 라운드를 지운다
+ */
+export async function importRecordRound(
+  p: Omit<CreateRoundParams, "unit" | "handicapSettle">,
+  holes: ImportHole[]
+): Promise<RoundRow> {
+  const db = requireDb();
+  const round = await createRound({ ...p, unit: 0, handicapSettle: "post" });
+  // 만든 사람(방장)이 곧 기록하는 사람
+  const uid = round.host_uid;
+  try {
+    const holeRows = holes.map((h, i) => ({ round_id: round.id, hole_index: i, par: h.par }));
+    const scoreRows = holes.flatMap((h, i) =>
+      h.strokes == null
+        ? []
+        : [{ round_id: round.id, hole_index: i, player_uid: uid, rel: h.strokes - h.par }]
+    );
+    const s = (st: HoleStat) => st.putts != null || st.fairway != null || st.ob + st.hazard + st.sand > 0;
+    const statRows = holes.flatMap((h, i) =>
+      s(h.stat) ? [{ round_id: round.id, hole_index: i, player_uid: uid, ...h.stat }] : []
+    );
+    const r1 = await db.from("round_holes").upsert(holeRows);
+    if (r1.error) throw r1.error;
+    const r2 = await db.from("round_scores").upsert(scoreRows);
+    if (r2.error) throw r2.error;
+    if (statRows.length > 0) {
+      const r3 = await db.from("round_hole_stats").upsert(statRows);
+      if (r3.error) throw r3.error;
+    }
+    await setRoundStatus(round.id, "done");
+    return { ...round, status: "done" };
+  } catch (e) {
+    await db.from("rounds").delete().eq("id", round.id);
+    throw e;
+  }
+}
+
 export async function joinRoundByCode(
   code: string,
   me: PlayerInfo

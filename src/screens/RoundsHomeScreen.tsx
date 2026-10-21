@@ -275,7 +275,8 @@ export default function RoundsHomeScreen({
           </span>
         </div>
         <div className="ri-sub">
-          {r.date} · {r.tee_time}
+          {r.date}
+          {r.tee_time && ` · ${r.tee_time}`}
           {teeLabel(r.course_tee) && ` · ${teeLabel(r.course_tee)}`}
           {r.host_uid === user?.uid ? " · 방장" : ""}
         </div>

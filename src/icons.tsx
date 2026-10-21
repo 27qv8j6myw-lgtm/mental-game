@@ -3,6 +3,7 @@ import type { Gender } from "./types";
 import { genderEmoji } from "./util";
 
 type IconName =
+  | "camera"
   | "flag"
   | "trophy"
   | "layers"
@@ -149,6 +150,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M12 5v13" />
       <path d="M7 13l5 5 5-5" />
+    </>
+  ),
+  // 스코어카드 사진으로 기록 추가
+  camera: (
+    <>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.5-2h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z" />
+      <circle cx="12" cy="13" r="3.5" />
     </>
   ),
 };
