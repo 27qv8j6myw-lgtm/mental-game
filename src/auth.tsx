@@ -20,6 +20,8 @@ export interface AuthUser {
   providers: string[];
   /** 계좌이체 라운드용으로 저장해 둔 내 계좌 (다음 라운드 자동 입력) */
   bank: { name: string; account: string } | null;
+  /** 대기실에서 고른 성별 (다음 라운드에도 쓴다. KGA 남/여 레이팅 선택에 필요). 고른 적 없으면 null */
+  gender: "male" | "female" | null;
 }
 
 interface AuthCtx {
@@ -32,6 +34,8 @@ interface AuthCtx {
   unlinkProvider: (provider: OAuthProvider) => Promise<void>;
   /** 내 계정(user_metadata)에 계좌를 저장해 다음 라운드에서도 쓴다 */
   saveBankAccount: (name: string, account: string) => Promise<void>;
+  /** 내 계정(user_metadata)에 성별을 저장해 다음 라운드에서도 쓴다 */
+  saveGender: (gender: "male" | "female") => Promise<void>;
   error: string | null;
   clearError: () => void;
 }
@@ -91,6 +95,7 @@ function mapUser(u: {
       typeof meta.bank_name === "string" && typeof meta.bank_account === "string"
         ? { name: meta.bank_name, account: meta.bank_account }
         : null,
+    gender: meta.mg_gender === "female" || meta.mg_gender === "male" ? meta.mg_gender : null,
   };
 }
 
@@ -194,6 +199,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data, error: e } = await supabase.auth.updateUser({
           data: { bank_name: name, bank_account: account },
         });
+        if (e) {
+          console.error(e);
+          return;
+        }
+        if (data.user) setUser(mapUser(data.user));
+      },
+      saveGender: async (gender) => {
+        if (!supabase) return;
+        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_gender: gender } });
         if (e) {
           console.error(e);
           return;

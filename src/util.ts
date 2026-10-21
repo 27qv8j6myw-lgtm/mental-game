@@ -54,8 +54,8 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
 
 export const settleNote = (s: SettleTiming) =>
   s === "pre"
-    ? "핸디캡 금액을 현금으로 사전 지급합니다."
-    : "핸디캡 금액을 계좌이체 금액에 자동 반영합니다.";
+    ? "핸디캡 금액은 현금으로 미리 주고받아요."
+    : "핸디캡 금액은 계좌이체 금액에 자동으로 반영돼요.";
 
 /** 핸디 표기: 0 → "0", 17 → "+17" */
 export const hcLabel = (h: number) => (h > 0 ? `+${h}` : `${h}`);

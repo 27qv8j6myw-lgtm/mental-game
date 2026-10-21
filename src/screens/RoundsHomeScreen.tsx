@@ -2,26 +2,18 @@ import { useEffect, useState } from "react";
 import { useAuth, type OAuthProvider } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
+import { takeInvite } from "../invite";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
 import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundListItem, RoundRow } from "../types";
 import { GAME_MODE_LABEL, teeLabel } from "../util";
 import { isAdmin } from "../admin";
-import { loadStats, type PersonStats } from "../stats";
-import { loadRecordRounds, type RecordRound } from "../recordStats";
-import { wonSigned } from "../util";
+import { loadStats } from "../stats";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
   playing: "진행중",
   done: "완료",
-};
-
-/** 18홀을 다 친 기록 라운드의 평균 타수 (소수 첫째 자리). 없으면 null */
-const recordAvg = (records: RecordRound[]) => {
-  const full = records.filter((r) => r.holeCount === 18 && r.summary.holesPlayed === 18);
-  if (full.length === 0) return null;
-  return Math.round((full.reduce((s, r) => s + r.summary.strokes, 0) / full.length) * 10) / 10;
 };
 
 const LINKABLE: { id: OAuthProvider; label: string }[] = [
@@ -47,16 +39,115 @@ function writeListCache(uid: string | undefined, list: RoundListItem[]) {
   }
 }
 
+/** 홈에 보여줄 끝난 라운드 수 (나머지는 전체 보기) */
+const RECENT = 5;
+
+/** 함께 친 사람 이름 (자리 순, 방장이 고친 이름 우선) */
+const playerNames = (r: RoundListItem) =>
+  [...r.round_players]
+    .sort((a, b) => a.seat_order - b.seat_order)
+    .map((p) => r.rules.nameOverrides?.[p.user_uid] ?? (p.name || "이름 미정"))
+    .join(", ");
+
+type RoundFilter = "all" | "stroke" | "skins" | "record" | "host";
+const FILTERS: [RoundFilter, string][] = [
+  ["all", "전체"],
+  ["stroke", "타당"],
+  ["skins", "스킨스"],
+  ["record", "기록"],
+  ["host", "내가 방장"],
+];
+
+/** 전체 라운드: 골프장·함께 친 사람으로 찾고, 종류로 거르고, 달마다 묶어 보여준다 */
+function AllRounds({
+  rounds,
+  myUid,
+  item,
+  onClose,
+}: {
+  rounds: RoundListItem[];
+  myUid: string;
+  item: (r: RoundListItem) => JSX.Element;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<RoundFilter>("all");
+  const query = q.trim().replace(/\s+/g, "").toLowerCase();
+  const shown = rounds.filter((r) => {
+    if (filter === "host" ? r.host_uid !== myUid : filter !== "all" && (r.rules.gameMode ?? "stroke") !== filter)
+      return false;
+    if (!query) return true;
+    const hay = `${r.course_name} ${playerNames(r)}`.replace(/\s+/g, "").toLowerCase();
+    return hay.includes(query);
+  });
+  // 달마다 묶기 (라운드 날짜, 없으면 만든 날). 최근 날짜가 위로
+  const dayOf = (r: RoundListItem) => `${r.date || r.created_at.slice(0, 10)} ${r.tee_time ?? ""}`;
+  const sorted = [...shown].sort((a, b) => dayOf(b).localeCompare(dayOf(a)));
+  const groups: { key: string; label: string; list: RoundListItem[] }[] = [];
+  for (const r of sorted) {
+    const d = r.date || r.created_at.slice(0, 10);
+    const key = d.slice(0, 7);
+    let g = groups.find((x) => x.key === key);
+    if (!g) {
+      const [y, m] = key.split("-");
+      g = { key, label: `${y}년 ${Number(m)}월`, list: [] };
+      groups.push(g);
+    }
+    g.list.push(r);
+  }
+  return (
+    <div className="app">
+      <div className="topbar">
+        <div className="brand">
+          <span className="dot">
+            <Icon name="flag" size={18} />
+          </span>
+          전체 라운드
+        </div>
+        <button className="icon-btn" aria-label="닫기" onClick={onClose}>
+          <Icon name="close" size={20} />
+        </button>
+      </div>
+      <div className="sheet">
+        <input
+          className="input"
+          placeholder="골프장·함께 친 사람 찾기"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <div className="round-filters">
+          {FILTERS.map(([f, label]) => (
+            <button key={f} className={`chip ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {groups.length === 0 ? (
+          <div className="card">
+            <div className="empty-note">{query ? "찾는 라운드가 없어요." : "라운드가 없어요."}</div>
+          </div>
+        ) : (
+          groups.map((g) => (
+            <div key={g.key}>
+              <div className="section-title">
+                {g.label} · {g.list.length}라운드
+              </div>
+              {g.list.map(item)}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 홈 (라운드 탭): 새 라운드·코드로 참여·진행 중·최근 라운드. 전적·기록은 하단 탭 */
 export default function RoundsHomeScreen({
   onCreate,
   onAdmin,
-  onStats,
-  onRecords,
 }: {
   onCreate: () => void;
   onAdmin: () => void;
-  onStats: () => void;
-  onRecords: () => void;
 }) {
   const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
     useAuth();
@@ -70,15 +161,14 @@ export default function RoundsHomeScreen({
   const [joining, setJoining] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  /** 전체 라운드 보기 (월별·검색·종류) */
+  const [showAll, setShowAll] = useState(false);
+  useBack(showAll, () => setShowAll(false));
   // 기기 뒤로가기: 프로필 메뉴 닫기
   useBack(menuOpen, () => setMenuOpen(false));
   const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
   // 관리자 계정이면 프로필 메뉴에 대시보드 버튼을 보여준다
   const [admin, setAdmin] = useState(false);
-  // 내 전적 요약 (정산 확정 라운드가 있을 때만 카드로 보여준다)
-  const [myStats, setMyStats] = useState<PersonStats | null>(null);
-  // 기록 모드(내기 없음) 라운드 요약 (끝낸 기록 라운드가 있을 때만 카드로 보여준다)
-  const [records, setRecords] = useState<RecordRound[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -87,14 +177,9 @@ export default function RoundsHomeScreen({
       const list = await listMyRounds();
       setRounds(list);
       writeListCache(user?.uid, list);
-      if (user?.uid) {
-        void loadStats(user.uid, list)
-          .then((st) => setMyStats(st.me))
-          .catch((e) => console.error("전적 불러오기 실패", e));
-        void loadRecordRounds(user.uid, list)
-          .then(setRecords)
-          .catch((e) => console.error("라운드 기록 불러오기 실패", e));
-      }
+      // 전적 탭을 바로 열 수 있게 미리 계산해 둔다 (결과는 stats.ts 가 보관)
+      if (user?.uid)
+        void loadStats(user.uid, list).catch((e) => console.error("전적 불러오기 실패", e));
     } catch (e) {
       console.error(e);
       setLoadFailed(true);
@@ -106,6 +191,12 @@ export default function RoundsHomeScreen({
   useEffect(() => {
     void load();
     void isAdmin().then(setAdmin);
+    // 초대 링크로 들어왔으면 그 라운드에 바로 참여 (로그인을 마친 뒤 홈이 처음 열릴 때)
+    const invited = takeInvite();
+    if (invited) {
+      setCode(invited);
+      void join(invited);
+    }
   }, []);
 
   const isAnon = !!user?.isAnonymous;
@@ -132,7 +223,7 @@ export default function RoundsHomeScreen({
   // 라운드 삭제는 방장만. (참여자가 빠지면 끝난 라운드의 정산이 바뀌므로 참여자용 삭제는 두지 않는다)
   const removeRound = async (r: RoundRow) => {
     if (r.host_uid !== user?.uid) return;
-    if (!window.confirm("이 라운드를 삭제할까요? 참여자 전원의 기록이 사라집니다.")) return;
+    if (!window.confirm("이 라운드를 삭제할까요? 참여자 모두의 기록이 사라져요.")) return;
     try {
       await leaveOrDeleteRound(r.id, user.uid, true);
       setRounds((rs) => {
@@ -146,14 +237,14 @@ export default function RoundsHomeScreen({
     }
   };
 
-  const join = async () => {
-    if (code.length !== 4 || joining) return;
+  const join = async (c: string = code) => {
+    if (c.length !== 4 || joining) return;
     setJoining(true);
     setErr(null);
     try {
-      const round = await joinRoundByCode(code, {
+      const round = await joinRoundByCode(c, {
         name: user?.displayName?.trim() || "나",
-        gender: "male",
+        gender: user?.gender ?? "male",
         avgScore: null,
         handicap: 0,
       });
@@ -169,6 +260,48 @@ export default function RoundsHomeScreen({
       setJoining(false);
     }
   };
+
+  /** 라운드 한 줄 (홈·전체 보기 공용) */
+  const item = (r: RoundListItem) => (
+    <div key={r.id} className="round-item">
+      <button className="ri-open" onClick={() => openRound(r.id)}>
+        <div className="ri-name">
+          <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
+          {/* 게임 방식: 값이 없는 예전 라운드는 타당 */}
+          <span className={`mode-tag ${r.rules.gameMode ?? "stroke"}`}>
+            {GAME_MODE_LABEL[r.rules.gameMode ?? "stroke"]}
+          </span>
+        </div>
+        <div className="ri-sub">
+          {r.date} · {r.tee_time}
+          {teeLabel(r.course_tee) && ` · ${teeLabel(r.course_tee)}`}
+          {r.host_uid === user?.uid ? " · 방장" : ""}
+        </div>
+        {r.round_players.length > 0 && <div className="ri-players">{playerNames(r)}</div>}
+      </button>
+      <div className="ri-right">
+        <span className={`badge st-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
+        {r.host_uid === user?.uid && (
+          <button className="ri-del" aria-label="라운드 삭제" onClick={() => void removeRound(r)}>
+            <Icon name="trash" size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+  const activeRounds = rounds.filter((r) => r.status !== "done");
+  const doneRounds = rounds.filter((r) => r.status === "done");
+
+  if (showAll) {
+    return (
+      <AllRounds
+        rounds={rounds}
+        myUid={user?.uid ?? ""}
+        item={item}
+        onClose={() => setShowAll(false)}
+      />
+    );
+  }
 
   return (
     <div className="app">
@@ -292,7 +425,7 @@ export default function RoundsHomeScreen({
             <button
               className="btn-primary sm"
               disabled={code.length !== 4 || joining}
-              onClick={join}
+              onClick={() => void join()}
             >
               {joining ? "…" : "참여"}
             </button>
@@ -304,54 +437,6 @@ export default function RoundsHomeScreen({
           )}
         </div>
 
-        {myStats && myStats.rounds > 0 && (
-          <>
-            <div className="section-title">내 전적</div>
-            <button className="card stats-card" onClick={onStats}>
-              <span className="sc-ic">
-                <Icon name="trophy" size={20} />
-              </span>
-              <span className="sc-main">
-                <b>누적 금액</b>
-                <span>
-                  {myStats.rounds}라운드 · 1위 {myStats.firsts}번
-                  {myStats.avg18 != null && (
-                    <span className="nw"> · 평균 {myStats.avg18}타</span>
-                  )}
-                </span>
-              </span>
-              <span
-                className={`sc-amt ${myStats.total > 0 ? "pos" : myStats.total < 0 ? "neg" : ""}`}
-              >
-                {myStats.total === 0 ? "±0원" : wonSigned(myStats.total)}
-              </span>
-              <Icon name="chevronRight" size={18} className="st-row-go" />
-            </button>
-          </>
-        )}
-
-        {records.length > 0 && (
-          <>
-            <div className="section-title">라운드 기록</div>
-            <button className="card stats-card" onClick={onRecords}>
-              <span className="sc-ic rec">
-                <Icon name="chart" size={20} />
-              </span>
-              <span className="sc-main">
-                <b>내 기록 분석</b>
-                <span>
-                  {records.length}라운드
-                  {recordAvg(records) != null && (
-                    <span className="nw"> · 평균 {recordAvg(records)}타</span>
-                  )}
-                </span>
-              </span>
-              <Icon name="chevronRight" size={18} className="st-row-go" />
-            </button>
-          </>
-        )}
-
-        <div className="section-title">내 라운드</div>
         {loadFailed && (
           <div className="list-offline">
             <span>
@@ -363,56 +448,42 @@ export default function RoundsHomeScreen({
           </div>
         )}
         {loading && rounds.length === 0 ? (
-          <div className="card">
-            <div className="empty-note">불러오는 중…</div>
-          </div>
+          <>
+            <div className="section-title">내 라운드</div>
+            <div className="card">
+              <div className="empty-note">불러오는 중…</div>
+            </div>
+          </>
         ) : rounds.length === 0 ? (
           loadFailed ? null : (
-            <div className="card">
-              <div className="empty-note">아직 참여한 라운드가 없어요.</div>
-            </div>
+            <>
+              <div className="section-title">내 라운드</div>
+              <div className="card">
+                <div className="empty-note">아직 참여한 라운드가 없어요.</div>
+              </div>
+            </>
           )
         ) : (
-          rounds.map((r) => (
-            <div key={r.id} className="round-item">
-              <button className="ri-open" onClick={() => openRound(r.id)}>
-                <div className="ri-name">
-                  <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
-                  {/* 게임 방식: 값이 없는 예전 라운드는 타당 */}
-                  <span className={`mode-tag ${r.rules.gameMode ?? "stroke"}`}>
-                    {GAME_MODE_LABEL[r.rules.gameMode ?? "stroke"]}
-                  </span>
-                </div>
-                <div className="ri-sub">
-                  {r.date} · {r.tee_time}
-                  {teeLabel(r.course_tee) && ` · ${teeLabel(r.course_tee)}`}
-                  {r.host_uid === user?.uid ? " · 방장" : ""}
-                </div>
-                {r.round_players.length > 0 && (
-                  <div className="ri-players">
-                    {[...r.round_players]
-                      .sort((a, b) => a.seat_order - b.seat_order)
-                      .map((p) => r.rules.nameOverrides?.[p.user_uid] ?? (p.name || "이름 미정"))
-                      .join(", ")}
-                  </div>
-                )}
-              </button>
-              <div className="ri-right">
-                <span className={`badge st-${r.status}`}>
-                  {STATUS_LABEL[r.status] ?? r.status}
-                </span>
-                {r.host_uid === user?.uid && (
-                  <button
-                    className="ri-del"
-                    aria-label="라운드 삭제"
-                    onClick={() => void removeRound(r)}
-                  >
-                    <Icon name="trash" size={18} />
+          <>
+            {/* 진행 중(대기·진행)은 늘 위에, 끝난 라운드는 최근 5개만 (나머지는 전체 보기) */}
+            {activeRounds.length > 0 && (
+              <>
+                <div className="section-title">진행 중</div>
+                {activeRounds.map(item)}
+              </>
+            )}
+            {doneRounds.length > 0 && (
+              <>
+                <div className="section-title">최근 라운드</div>
+                {doneRounds.slice(0, RECENT).map(item)}
+                {doneRounds.length > RECENT && (
+                  <button className="btn-line wide all-rounds-btn" onClick={() => setShowAll(true)}>
+                    전체 라운드 보기 ({rounds.length}개)
                   </button>
                 )}
-              </div>
-            </div>
-          ))
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

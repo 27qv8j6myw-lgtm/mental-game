@@ -358,7 +358,7 @@ export default function GameScreen({
     ? ["draft", "내 기록 입력 중"]
     : status === "done"
     ? saved
-      ? ["done", session.isHost ? "정산 확정 · 고칠 홀은 수정을 눌러요" : "정산 확정 · 방장만 고칠 수 있어요"]
+      ? ["done", session.isHost ? "최종 확정 · 고칠 홀은 수정을 눌러요" : "최종 확정 · 방장만 고칠 수 있어요"]
       : ["empty", "저장 안 된 홀 · 정산에서 빠졌어요"]
     : !saved
     ? ["draft", `저장 전 · ${filled}/${config.players.length}명 입력`]

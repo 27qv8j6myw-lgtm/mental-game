@@ -88,15 +88,44 @@ function MemberFlow() {
 
   if (view === "create") return <CreateRoundScreen onCancel={() => setView("home")} />;
   if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
-  if (view === "stats") return <StatsScreen onClose={() => setView("home")} />;
-  if (view === "records") return <RecordStatsScreen onClose={() => setView("home")} />;
+  // 홈·전적·기록은 하단 탭으로 오간다
+  const tabs = (
+    <div className="tabbar">
+      {(
+        [
+          ["home", "flag", "라운드"],
+          ["stats", "trophy", "전적"],
+          ["records", "chart", "기록"],
+        ] as const
+      ).map(([v, icon, label]) => (
+        <button
+          key={v}
+          className={view === v ? "active" : ""}
+          aria-pressed={view === v}
+          onClick={() => {
+            setView(v);
+            window.scrollTo(0, 0);
+          }}
+        >
+          <span className="ic">
+            <Icon name={icon} size={20} />
+          </span>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
   return (
-    <RoundsHomeScreen
-      onCreate={() => setView("create")}
-      onAdmin={() => setView("admin")}
-      onStats={() => setView("stats")}
-      onRecords={() => setView("records")}
-    />
+    <>
+      {view === "stats" ? (
+        <StatsScreen onClose={() => setView("home")} />
+      ) : view === "records" ? (
+        <RecordStatsScreen onClose={() => setView("home")} />
+      ) : (
+        <RoundsHomeScreen onCreate={() => setView("create")} onAdmin={() => setView("admin")} />
+      )}
+      {tabs}
+    </>
   );
 }
 
@@ -149,7 +178,7 @@ function RoundPlay({ session }: { session: Session }) {
       return;
     }
     if (!session.holeSave) {
-      if (window.confirm("라운드를 종료하고 정산을 확정할까요?")) void doFinish();
+      if (window.confirm("최종 확정할까요?\n확정하면 정산이 끝나고 방장만 스코어를 고칠 수 있어요.")) void doFinish();
       return;
     }
     const msg =
@@ -236,7 +265,7 @@ function RoundPlay({ session }: { session: Session }) {
           <div className="floating-finish">
             <button className="btn-primary" onClick={finalize}>
               <Icon name="finish" size={18} className="inline-ic" />{" "}
-              {isRecord ? "라운드 종료" : session.holeSave ? "최종 확정" : "라운드 종료하고 정산 확정"}
+              {isRecord ? "라운드 종료" : "최종 확정"}
             </button>
           </div>
         )}

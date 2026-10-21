@@ -14,6 +14,7 @@ import {
   RULE_LABELS,
   SETTLE_LABEL,
   SKINS_RULE_LABELS,
+  won,
 } from "../util";
 import { CLASSIC_SKINS } from "../betting";
 import type {
@@ -46,6 +47,10 @@ export default function RoundSettingsSheet({
   // 기기 뒤로가기: 시트 닫기
   useBack(true, onClose);
   const cfg = session.config;
+  // 게임 시작 전(대기실): 금액·홀 수도 바꿀 수 있고, 이름·핸디는 각자 대기실에서 고친다. 수정 내역은 남기지 않는다
+  const inLobby = session.status === "lobby";
+  const [unit, setUnit] = useState(cfg.unit);
+  const [holeCount, setHoleCount] = useState(bundle?.round.hole_count ?? 18);
   const [gameMode, setGameMode] = useState<GameMode>(cfg.gameMode);
   const isStroke = gameMode === "stroke";
   const [payment, setPayment] = useState<PaymentMethod>(cfg.payment);
@@ -160,6 +165,22 @@ export default function RoundSettingsSheet({
     setSaving(true);
     setErr(null);
     try {
+      if (inLobby) {
+        const next: StoredRules = {
+          ...bundle.round.rules,
+          ...(isStroke ? rules : { skins }),
+          gameMode,
+          payment,
+        };
+        await updateRound({
+          handicap_settle: settle,
+          rules: next,
+          ...(unit > 0 && { unit }),
+          hole_count: holeCount,
+        });
+        onClose();
+        return;
+      }
       let next: StoredRules = {
         ...bundle.round.rules,
         ...(isStroke ? rules : { skins }),
@@ -196,14 +217,53 @@ export default function RoundSettingsSheet({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="sm-head">
-          <h3>정산 설정 수정</h3>
+          <h3>{inLobby ? "라운드 설정 수정" : "정산 설정 수정"}</h3>
           <p className="hint">
-            방장만 고칠 수 있고, 저장하면 모든 참여자의 정산이 바로 다시 계산돼요.
+            {inLobby
+              ? "게임을 시작하기 전이라 금액·홀 수도 바꿀 수 있어요. 이름·핸디는 각자 대기실에서 고쳐요."
+              : "방장만 고칠 수 있고, 저장하면 모든 참여자의 정산이 바로 다시 계산돼요."}
           </p>
         </div>
 
         <div className="sm-body">
 
+        {inLobby && (
+          <>
+            <div className="section-title">{gameMode === "skins" ? "홀당 금액" : "타당 금액"}</div>
+            <div className="card">
+              <div className="unit-chips">
+                {[1000, 2000, 5000, 10000].map((u) => (
+                  <button key={u} className={`chip ${unit === u ? "active" : ""}`} onClick={() => setUnit(u)}>
+                    {won(u)}
+                  </button>
+                ))}
+              </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <input
+                  className="input"
+                  type="text"
+                  inputMode="numeric"
+                  aria-label="금액 직접 입력 (원)"
+                  value={unit ? unit.toLocaleString("ko-KR") : ""}
+                  onChange={(e) => setUnit(Number(e.target.value.replace(/\D/g, "").slice(0, 9)) || 0)}
+                />
+              </div>
+            </div>
+            <div className="section-title">홀 수</div>
+            <div className="card">
+              <div className="segmented">
+                {[9, 18].map((h) => (
+                  <button key={h} className={holeCount === h ? "active" : ""} onClick={() => setHoleCount(h)}>
+                    {h}홀
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {!inLobby && (
+        <>
         <div className="section-title">참여자 이름</div>
         <div className="card">
           {cfg.players.map((p) => (
@@ -219,6 +279,9 @@ export default function RoundSettingsSheet({
             </div>
           ))}
         </div>
+
+        </>
+        )}
 
         <div className="section-title">게임 방식</div>
         <div className="card">
@@ -239,6 +302,8 @@ export default function RoundSettingsSheet({
           />
         </div>
 
+        {!inLobby && (
+        <>
         <div className="section-title">
           핸디캡
           {cfg.handicapMode === "stroke" ? " (최저핸디 대비)" : isAdjust ? " (타수 보정)" : ""}
@@ -299,6 +364,8 @@ export default function RoundSettingsSheet({
             </p>
           )}
         </div>
+        </>
+        )}
 
         {!isStroke && (
           <>

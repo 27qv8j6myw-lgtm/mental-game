@@ -208,7 +208,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         {stats && stats.roundCount === 0 && (
           <div className="card">
             <div className="empty-note">
-              아직 정산 확정된 라운드가 없어요. 라운드를 끝내고 정산을 확정하면 전적이 쌓여요.
+              아직 최종 확정한 라운드가 없어요. 라운드를 끝내고 최종 확정하면 전적이 쌓여요.
             </div>
           </div>
         )}

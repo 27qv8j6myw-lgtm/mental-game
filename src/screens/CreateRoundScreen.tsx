@@ -8,7 +8,7 @@ import type {
   SkinsRules,
   TeeBox,
 } from "../types";
-import { DEFAULT_SKINS_RULES, localDate, localTime, TEE_BOXES, won } from "../util";
+import { capLabel, DEFAULT_SKINS_RULES, localDate, localTime, RULE_LABELS, TEE_BOXES, won } from "../util";
 import { createRound } from "../rounds";
 import {
   courseRating,
@@ -44,35 +44,73 @@ const HANDICAP_MODES: [HandicapMode, string][] = [
 const HANDICAP_HINT: Record<HandicapMode, string> = {
   avg: "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요.",
   stroke:
-    "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 고릅니다. 최저핸디 인원을 정해야 시작할 수 있어요.",
+    "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 골라요. 최저핸디 인원을 정해야 시작할 수 있어요.",
   adjust:
     "방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요. 보기 이상일 때만 빼주고 파 아래로는 내려가지 않아요. 핸디캡 금액 정산은 없어요.",
+};
+
+/** 지난번에 만든 라운드 설정 (다음에 만들 때 그대로 시작) */
+interface LastSetup {
+  holeCount: number;
+  tee: TeeBox;
+  gameMode: GameMode;
+  unit: number;
+  skinsRules: SkinsRules;
+  payment: PaymentMethod;
+  handicapSettle: SettleTiming;
+  handicapMode: HandicapMode;
+  rules: BetRules;
+}
+const SETUP_KEY = "mentalgame-last-setup";
+const COURSES_KEY = "mentalgame-recent-courses";
+const readJson = <T,>(key: string): T | null => {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? "null") as T | null;
+  } catch {
+    return null;
+  }
+};
+const writeJson = (key: string, v: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(v));
+  } catch {
+    /* 저장소를 쓸 수 없으면 기억하지 않는다 */
+  }
 };
 
 export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }) {
   const { user } = useAuth();
   const { openRound } = useRound();
+  // 지난 설정과 최근 골프장 (매주 같은 멤버·같은 내기면 이름만 고르면 된다)
+  const [last] = useState(() => readJson<LastSetup>(SETUP_KEY));
+  const [recentCourses] = useState(() => readJson<string[]>(COURSES_KEY) ?? []);
 
   const [courseName, setCourseName] = useState("");
   const [date, setDate] = useState(() => localDate());
   const [teeTime, setTeeTime] = useState(() => localTime());
-  const [tee, setTee] = useState<TeeBox>("white");
-  const [unit, setUnit] = useState(1000);
-  const [customUnit, setCustomUnit] = useState("");
-  const [gameMode, setGameMode] = useState<GameMode>("stroke");
-  const [skinsRules, setSkinsRules] = useState<SkinsRules>(DEFAULT_SKINS_RULES);
-  const [payment, setPayment] = useState<PaymentMethod>("transfer");
-  const [handicapSettle, setHandicapSettle] = useState<SettleTiming>("post");
-  const [handicapMode, setHandicapMode] = useState<HandicapMode>("avg");
-  const [rules, setRules] = useState<BetRules>({
-    parPenalty: true,
-    doublePar: false,
-    tie: false,
-    birdieDouble: false,
-    maxMultiplier: 2,
-  });
+  const [tee, setTee] = useState<TeeBox>(last?.tee ?? "white");
+  const [unit, setUnit] = useState(last?.unit ?? 1000);
+  const [customUnit, setCustomUnit] = useState(() =>
+    last && !UNITS.includes(last.unit) ? String(last.unit) : ""
+  );
+  const [gameMode, setGameMode] = useState<GameMode>(last?.gameMode ?? "stroke");
+  const [skinsRules, setSkinsRules] = useState<SkinsRules>(last?.skinsRules ?? DEFAULT_SKINS_RULES);
+  const [payment, setPayment] = useState<PaymentMethod>(last?.payment ?? "transfer");
+  const [handicapSettle, setHandicapSettle] = useState<SettleTiming>(last?.handicapSettle ?? "post");
+  const [handicapMode, setHandicapMode] = useState<HandicapMode>(last?.handicapMode ?? "avg");
+  const [rules, setRules] = useState<BetRules>(
+    last?.rules ?? {
+      parPenalty: true,
+      doublePar: false,
+      tie: false,
+      birdieDouble: false,
+      maxMultiplier: 2,
+    }
+  );
+  /** 배수 상한·배판 규칙 펼침 (처음엔 한 줄 요약만) */
+  const [rulesOpen, setRulesOpen] = useState(false);
 
-  const [holeCount, setHoleCount] = useState(18);
+  const [holeCount, setHoleCount] = useState(last?.holeCount ?? 18);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -136,15 +174,33 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
         holeCount,
         me: {
           name: user?.displayName?.trim() || "나",
-          gender: "male",
+          gender: user?.gender ?? "male",
           avgScore: null,
           handicap: 0,
         },
       });
+      // 다음에 만들 때 그대로 시작하도록 기억한다
+      writeJson(SETUP_KEY, {
+        holeCount,
+        tee,
+        gameMode,
+        unit: isRecord ? last?.unit ?? 1000 : unit,
+        skinsRules,
+        payment,
+        handicapSettle,
+        handicapMode,
+        rules,
+      } satisfies LastSetup);
+      const name = courseName.trim();
+      writeJson(COURSES_KEY, [name, ...recentCourses.filter((c) => c !== name)].slice(0, 5));
       openRound(round.id);
     } catch (e) {
       console.error(e);
-      setErr("라운드 생성에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setErr(
+        !navigator.onLine
+          ? "연결이 안 돼서 라운드를 만들지 못했어요. 연결을 확인하고 다시 눌러 주세요."
+          : "라운드 생성에 실패했어요. 잠시 후 다시 시도해 주세요."
+      );
       setBusy(false);
     }
   };
@@ -174,6 +230,17 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               value={courseName}
               onChange={(e) => onCourseName(e.target.value)}
             />
+            {/* 최근 골프장: 비어 있을 때 한 번에 고르기 */}
+            {!courseName.trim() && recentCourses.length > 0 && (
+              <div className="recent-courses">
+                <span>최근</span>
+                {recentCourses.map((c) => (
+                  <button key={c} className="chip" onClick={() => onCourseName(c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* KGA 목록에 있는 골프장 추천 (누르면 이름이 채워지고 코스를 고를 수 있다) */}
             {suggestions.length > 0 && (
               <div className="kga-sugg">
@@ -349,7 +416,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             </p>
           )}
           <p className="warn-note">
-            ⚠️ 과도한 금액 설정은 인간관계에 지장을 줄 수 있습니다.
+            ⚠️ 과도한 금액 설정은 인간관계에 지장을 줄 수 있어요.
           </p>
         </div>
 
@@ -397,17 +464,29 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         {gameMode === "stroke" && (
           <>
-            <div className="section-title">배수 총 상한</div>
-            <div className="card">
-              <MaxMultiplierField
-                value={rules.maxMultiplier ?? null}
-                onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
-              />
-            </div>
-
+            {/* 배수 상한·배판 규칙은 한 줄 요약으로 접어 두고, 바꿀 때만 펼친다 */}
             <div className="section-title">배판 규칙</div>
             <div className="card">
-              <RuleToggles rules={rules} onChange={setRules} />
+              <button className="rules-summary" aria-expanded={rulesOpen} onClick={() => setRulesOpen(!rulesOpen)}>
+                <span>
+                  {[
+                    ...RULE_LABELS.filter(([k]) => rules[k]).map(([, label]) => label),
+                    `배수 상한 ${capLabel(rules.maxMultiplier)}`,
+                  ].join(" · ")}
+                </span>
+                <em>{rulesOpen ? "접기 ▴" : "바꾸기 ▾"}</em>
+              </button>
+              {rulesOpen && (
+                <div className="rules-body">
+                  <RuleToggles rules={rules} onChange={setRules} />
+                  <div className="rules-cap">
+                    <MaxMultiplierField
+                      value={rules.maxMultiplier ?? null}
+                      onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -421,7 +500,15 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
       <div className="actionbar">
         <button className="btn-primary" disabled={!canSave || busy} onClick={submit}>
-          {busy ? "생성 중…" : isRecord ? "기록 라운드 만들기" : "라운드 만들고 코드 받기"}
+          {busy
+            ? "생성 중…"
+            : !courseName.trim()
+            ? "골프장 이름을 입력해 주세요"
+            : !isRecord && unit <= 0
+            ? "금액을 입력해 주세요"
+            : isRecord
+            ? "기록 라운드 만들기"
+            : "라운드 만들고 코드 받기"}
         </button>
       </div>
     </div>

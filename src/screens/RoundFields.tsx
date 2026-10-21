@@ -215,7 +215,7 @@ export function MaxMultiplierField({
       <p className="hint" style={{ marginTop: 10 }}>
         {hint}
       </p>
-      <p className="warn-note">⚠️ 과도한 배수 설정은 인간관계에 지장을 줄 수 있습니다.</p>
+      <p className="warn-note">⚠️ 과도한 배수 설정은 인간관계에 지장을 줄 수 있어요.</p>
     </>
   );
 }

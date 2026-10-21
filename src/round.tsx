@@ -56,7 +56,7 @@ type PlayerPatch = Partial<
     | "bank_account"
   >
 >;
-type RoundPatch = Partial<Pick<RoundRow, "rules" | "handicap_settle">>;
+type RoundPatch = Partial<Pick<RoundRow, "rules" | "handicap_settle" | "unit" | "hole_count">>;
 
 interface RoundCtx {
   activeRoundId: string | null;

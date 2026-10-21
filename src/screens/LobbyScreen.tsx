@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRound } from "../round";
+import { inviteLink } from "../invite";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
 import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, teeLabel, won } from "../util";
 import AccountField from "./AccountField";
 import { StrokeAdjField } from "./RoundFields";
+import RoundSettingsSheet from "./RoundSettingsSheet";
 import type { Gender } from "../types";
 
 const STROKE_PRESETS = [5, 10];
@@ -80,9 +82,11 @@ export default function LobbyScreen() {
     leave,
     closeRound,
   } = useRound();
-  const { user, saveBankAccount } = useAuth();
+  const { user, saveBankAccount, saveGender } = useAuth();
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
+  /** 방장: 라운드 설정 수정 시트 (금액·홀 수·게임 방식·지불·배판) */
+  const [editing, setEditing] = useState(false);
 
   const hcPreview = useMemo(
     () => (session ? handicapNet(session.config) : null),
@@ -111,17 +115,20 @@ export default function LobbyScreen() {
   const nameOf = (id: string) => players.find((p) => p.id === id)!;
 
   const share = async () => {
-    const text = `멘탈게임 라운드 초대 코드: ${round.join_code}`;
+    // 링크를 누르면 로그인 뒤 바로 이 라운드에 참여된다 (앱 안에서 코드를 입력해도 된다)
+    const link = inviteLink(round.join_code);
+    const text = `멘탈게임 라운드에 초대해요 (${round.course_name || "골프"})\n초대 코드: ${round.join_code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "멘탈게임", text });
+        await navigator.share({ title: "멘탈게임", text, url: link });
         return;
       }
-    } catch {
-      /* fall through */
+    } catch (e) {
+      // 공유 창에서 취소했으면 그대로 끝
+      if ((e as { name?: string } | null)?.name === "AbortError") return;
     }
     try {
-      await navigator.clipboard.writeText(round.join_code);
+      await navigator.clipboard.writeText(`${text}\n${link}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -129,7 +136,11 @@ export default function LobbyScreen() {
     }
   };
 
-  const setGender = (g: Gender) => void updateMe({ gender: g });
+  // 성별은 계정에도 저장해 다음 라운드에서도 쓴다 (기록 분석의 남/여 레이팅)
+  const setGender = (g: Gender) => {
+    void updateMe({ gender: g });
+    if (iAmLoggedIn) void saveGender(g);
+  };
   const onAvgChange = (val: string) => {
     if (val.trim() === "") {
       void updateMe({ avg_score: null });
@@ -188,10 +199,18 @@ export default function LobbyScreen() {
         <div className="code-card">
           <div className="cc-label">초대 코드</div>
           <div className="cc-code">{round.join_code}</div>
-          <button className="btn-line" onClick={share}>
-            <Icon name="share" size={15} className="inline-ic" />
-            {copied ? "복사됨!" : "코드 공유하기"}
-          </button>
+          <div className="cc-actions">
+            <button className="btn-line" onClick={share}>
+              <Icon name="share" size={15} className="inline-ic" />
+              {copied ? "복사됨!" : "코드 공유하기"}
+            </button>
+            {/* 시작 전에 금액·홀 수·규칙이 틀렸으면 다시 만들지 않고 고친다 */}
+            {isHost && !isRecord && session && (
+              <button className="btn-line" onClick={() => setEditing(true)}>
+                설정 수정
+              </button>
+            )}
+          </div>
           <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
           <div className="cc-meta">
             {round.date} · {round.tee_time} · {round.hole_count}홀 ·{" "}
@@ -238,7 +257,7 @@ export default function LobbyScreen() {
                 <p className="hint" style={{ marginTop: 8 }}>
                   {needBase
                     ? "최저핸디 인원을 정해야 게임을 시작할 수 있어요."
-                    : "나머지는 최저핸디 인원보다 몇 타를 더 받을지 각자 고릅니다."}
+                    : "나머지는 최저핸디 인원보다 몇 타를 더 받을지 각자 골라요."}
                 </p>
               </>
             ) : (
@@ -252,7 +271,7 @@ export default function LobbyScreen() {
         )}
         {bundle.players.map((p) => {
           const mine = p.user_uid === myUid;
-          const canEditGender = mine && !iAmLoggedIn;
+          const canEditGender = mine;
           return (
             <div className={`card lobby-player ${mine ? "mine" : ""}`} key={p.id}>
               <div className="lp-head">
@@ -408,11 +427,11 @@ export default function LobbyScreen() {
           </div>
           <p className="hint" style={{ margin: "0 2px 10px" }}>
             <b>{settleNote(round.handicap_settle)}</b> 각자 핸디캡을 조정하면 아래 정산이
-            실시간으로 갱신됩니다. 핸디가 낮은(잘 치는) 사람이 주는 쪽입니다.
+            실시간으로 바뀌어요. 핸디가 낮은(잘 치는) 사람이 주는 쪽이에요.
           </p>
           {!hcPreview || hcPreview.transfers.length === 0 ? (
             <div className="card">
-              <div className="empty-note">주고받을 핸디 정산이 없습니다.</div>
+              <div className="empty-note">주고받을 핸디 정산이 없어요.</div>
             </div>
           ) : (
             hcPreview.transfers.map((t, i) => {
@@ -475,6 +494,7 @@ export default function LobbyScreen() {
           {isHost ? "라운드 삭제" : "나가기"}
         </button>
       </div>
+      {editing && session && <RoundSettingsSheet session={session} onClose={() => setEditing(false)} />}
     </div>
   );
 }

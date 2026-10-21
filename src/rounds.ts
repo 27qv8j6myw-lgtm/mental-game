@@ -184,7 +184,7 @@ export async function updateMyPlayer(
 /** 방장 전용(RLS): 라운드 규칙·핸디 정산 시점 수정 */
 export async function updateRound(
   roundId: string,
-  patch: Partial<Pick<RoundRow, "rules" | "handicap_settle">>
+  patch: Partial<Pick<RoundRow, "rules" | "handicap_settle" | "unit" | "hole_count">>
 ): Promise<void> {
   const db = requireDb();
   const { error } = await db.from("rounds").update(patch).eq("id", roundId);

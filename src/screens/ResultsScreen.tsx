@@ -143,7 +143,7 @@ export default function ResultsScreen({
   const Transfers = ({ list, withAccount }: { list: Transfer[]; withAccount?: boolean }) =>
     list.length === 0 ? (
       <div className="card">
-        <div className="empty-note">주고받을 금액이 없습니다.</div>
+        <div className="empty-note">주고받을 금액이 없어요.</div>
       </div>
     ) : (
       <div>
@@ -545,7 +545,7 @@ export default function ResultsScreen({
           </p>
           {hc.transfers.length === 0 ? (
             <div className="card">
-              <div className="empty-note">핸디 차이가 없습니다.</div>
+              <div className="empty-note">핸디 차이가 없어요.</div>
             </div>
           ) : (
             <Transfers list={hc.transfers} />
@@ -567,7 +567,7 @@ export default function ResultsScreen({
           </div>
           {!isPost && (
             <p className="hint" style={{ margin: "-6px 2px 12px" }}>
-              핸디캡은 현금으로 미리 주고받으므로 최종 송금에는 포함되지 않았습니다.
+              핸디캡은 현금으로 미리 주고받아서 최종 송금에는 들어가지 않아요.
             </p>
           )}
           </>

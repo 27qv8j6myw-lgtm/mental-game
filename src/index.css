@@ -4679,3 +4679,80 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   margin-bottom: 14px;
   box-shadow: none;
 }
+/* 대기실 코드 카드: 공유 + (방장) 설정 수정 */
+.cc-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* 라운드 만들기: 최근 골프장 */
+.recent-courses {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.recent-courses > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  margin-right: 2px;
+}
+.recent-courses .chip {
+  padding: 6px 11px;
+  font-size: 13px;
+}
+/* 라운드 만들기: 배판 규칙 한 줄 요약 (눌러서 펼침) */
+.rules-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.rules-summary span {
+  flex: 1;
+  min-width: 0;
+  word-break: keep-all;
+}
+.rules-summary em {
+  flex: none;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--olive-deep);
+}
+.rules-body {
+  margin-top: 14px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.rules-cap {
+  margin-top: 14px;
+}
+/* 홈: 전체 라운드 보기 버튼 */
+.btn-line.wide.all-rounds-btn {
+  margin-top: 4px;
+  padding: 12px;
+  color: var(--olive-deep);
+  font-size: 14px;
+  background: var(--paper);
+  border-radius: 12px;
+}
+/* 전체 라운드: 종류 거르기 */
+.round-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 14px;
+}
+.round-filters .chip {
+  padding: 7px 12px;
+  font-size: 13px;
+}
