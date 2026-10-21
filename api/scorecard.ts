@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
  * 스코어카드 사진 읽기 (Vercel 함수, POST /api/scorecard)
  * 사진을 Claude 에 보내 홀별 파·타수·퍼트·티샷 방향·패널티·샌드샷과 인쇄된 합계를 JSON 으로 받는다.
  * 앱은 이 값을 확인 화면에 채워 보여주고, 사용자가 고친 뒤 기록 라운드로 저장한다 (src/scorecard.ts).
- * - 로그인한 사용자만: 앱의 Supabase 로그인 토큰을 Supabase 에 물어 확인한다
+ * - 관리자만: 앱의 Supabase 로그인 토큰으로 Supabase 의 is_admin() (supabase/admin.sql) 을 불러 확인한다
  * - 필요한 환경변수: ANTHROPIC_API_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
  */
 
@@ -88,25 +88,30 @@ const PROMPT = `This image should be a golf scorecard, often a screenshot export
 
 Copy what is printed. Never compute or guess a value; if a cell is unreadable or missing, use null.`;
 
-/** 앱 로그인 토큰이 맞는지 Supabase 에 묻는다 */
-async function isSignedIn(token: string): Promise<boolean> {
+/** 이 로그인 토큰의 사용자가 관리자인지 Supabase 에 묻는다. 토큰이 틀리거나 만료됐으면 "signed-out" */
+async function adminCheck(token: string): Promise<"admin" | "not-admin" | "signed-out"> {
   const url = env.VITE_SUPABASE_URL;
   const anon = env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !anon || !token) return false;
+  if (!url || !anon || !token) return "signed-out";
   try {
-    const r = await fetch(`${url}/auth/v1/user`, {
-      headers: { apikey: anon, authorization: `Bearer ${token}` },
+    const r = await fetch(`${url}/rest/v1/rpc/is_admin`, {
+      method: "POST",
+      headers: { apikey: anon, authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: "{}",
     });
-    return r.ok;
+    if (r.status === 401) return "signed-out";
+    return r.ok && (await r.json()) === true ? "admin" : "not-admin";
   } catch {
-    return false;
+    return "not-admin";
   }
 }
 
 export async function POST(request: Request): Promise<Response> {
   if (!env.ANTHROPIC_API_KEY) return json(503, { error: "NO_KEY" });
-  const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (!(await isSignedIn(token))) return json(401, { error: "UNAUTHORIZED" });
+  const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s*/i, "");
+  const who = await adminCheck(token);
+  if (who === "signed-out") return json(401, { error: "UNAUTHORIZED" });
+  if (who === "not-admin") return json(403, { error: "ADMIN_ONLY" });
 
   let body: { image?: unknown; mediaType?: unknown };
   try {

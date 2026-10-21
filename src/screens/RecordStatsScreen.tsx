@@ -7,7 +7,6 @@ import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import TrendChart from "./TrendChart";
-import ScorecardImportScreen from "./ScorecardImportScreen";
 import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
 
 /** 2026-10-20 → 10/20 */
@@ -72,8 +71,6 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
     onClose();
   };
 
-  // 사진으로 기록을 추가하면 다시 불러온다
-  const [reload, setReload] = useState(0);
   useEffect(() => {
     if (!myUid) return;
     loadRecordRounds(myUid)
@@ -82,11 +79,7 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
         console.error(e);
         setErr("라운드 기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
       });
-  }, [myUid, reload]);
-  // 스코어카드 사진으로 기록 추가 (기기 뒤로가기로 닫힌다)
-  const [importing, setImporting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  useBack(importing, () => setImporting(false));
+  }, [myUid]);
 
   // 기간별 묶음 (최근 순). 고른 기간이 없으면 가장 최근 기간
   const periods = useMemo(() => {
@@ -146,18 +139,6 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
     }
   };
 
-  if (importing)
-    return (
-      <ScorecardImportScreen
-        onBack={() => setImporting(false)}
-        onSaved={() => {
-          setImporting(false);
-          setNotice("사진으로 기록을 추가했어요.");
-          setReload((n) => n + 1);
-          window.scrollTo(0, 0);
-        }}
-      />
-    );
   if (detail) return <RoundDetail r={detail} onBack={() => setDetailId(null)} onClose={close} />;
 
   return (
@@ -175,11 +156,6 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
       </div>
 
       <div className="sheet results">
-        {notice && <div className="sc-notice">{notice}</div>}
-        <button className="btn-line wide sc-add" onClick={() => { setNotice(null); setImporting(true); }}>
-          <Icon name="camera" size={18} />
-          스코어카드 사진으로 추가
-        </button>
         {err && (
           <div className="card">
             <div className="empty-note" style={{ color: "var(--loss)" }}>

@@ -96,6 +96,8 @@ export async function readScorecard(img: { data: string; mediaType: string }): P
       ? "사진 읽기 기능이 아직 설정되지 않았어요 (서버에 API 키가 없어요)."
       : code === "UNAUTHORIZED"
         ? "로그인이 만료됐어요. 다시 로그인한 뒤 시도해 주세요."
+        : code === "ADMIN_ONLY"
+          ? "관리자만 쓸 수 있는 기능이에요."
         : code === "NOT_SCORECARD"
           ? "스코어카드 사진이 아닌 것 같아요. 홀별 타수가 보이는 사진을 골라 주세요."
           : code === "UNREADABLE"

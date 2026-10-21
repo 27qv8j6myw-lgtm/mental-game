@@ -11,6 +11,8 @@ import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { GAME_MODE_LABEL } from "../util";
 import type { GameMode } from "../types";
 import RatioBar from "./RatioBar";
+import ScorecardImportScreen from "./ScorecardImportScreen";
+import { useBack } from "../back";
 
 const STATUS_LABEL: Record<string, string> = { lobby: "대기중", playing: "진행중", done: "완료" };
 const HANDICAP_LABEL: Record<string, string> = {
@@ -136,6 +138,23 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
     void load();
   }, [load]);
 
+  // 스코어카드 사진으로 기록 추가 (관리자만, 기기 뒤로가기로 닫힌다)
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  useBack(importing, () => setImporting(false));
+  if (importing)
+    return (
+      <ScorecardImportScreen
+        onBack={() => setImporting(false)}
+        onSaved={() => {
+          setImporting(false);
+          setNotice("사진으로 기록을 추가했어요. 기록 탭에서 볼 수 있어요.");
+          window.scrollTo(0, 0);
+          void load();
+        }}
+      />
+    );
+
   return (
     <div className="app">
       <div className="topbar">
@@ -161,6 +180,17 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="sheet">
+        {notice && <div className="sc-notice">{notice}</div>}
+        <button
+          className="btn-line wide sc-add"
+          onClick={() => {
+            setNotice(null);
+            setImporting(true);
+          }}
+        >
+          <Icon name="camera" size={18} />
+          스코어카드 사진으로 기록 추가
+        </button>
         {err && (
           <div className="card">
             <div className="empty-note" style={{ color: "var(--loss)" }}>
