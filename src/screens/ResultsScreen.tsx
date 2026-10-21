@@ -26,6 +26,7 @@ import RoundSettingsSheet from "./RoundSettingsSheet";
 import AccountField from "./AccountField";
 import { useRound } from "../round";
 import { useAuth } from "../auth";
+import { settledHoles } from "../model";
 
 /** 클립보드 복사 (구형 브라우저는 textarea 로 대체) */
 async function copyToClipboard(text: string) {
@@ -70,7 +71,11 @@ export default function ResultsScreen({
   session: Session;
   onEditScores: () => void;
 }) {
-  const { config, holes } = session;
+  const { config } = session;
+  // 정산은 저장된 홀만 (홀 저장 방식에서 입력 중인 홀은 빠진다)
+  const holes = useMemo(() => settledHoles(session.holes), [session.holes]);
+  const savingNow = session.holeSave && session.status === "playing";
+  const savedCount = session.holes.filter((h) => h.saved !== false).length;
   const isPost = config.handicapSettle === "post";
   const [vi, setVi] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -237,13 +242,13 @@ export default function ResultsScreen({
           <Icon name="trophy" size={22} className="inline-ic" /> 최종 정산
         </div>
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
-          {playedHoles}개 홀 진행 ·{" "}
+          {savingNow ? `저장된 ${savedCount}/${holes.length}홀 기준` : `${playedHoles}개 홀 진행`} ·{" "}
           {isSkins ? `스킨스 · 스킨 1개 ${won(config.unit)}` : `타당 ${won(config.unit)}`} ·{" "}
           {PAYMENT_LABEL[config.payment]}
         </div>
         {config.editLog.length > 0 && (
           <div className="hero-edited">
-            정산 확정 후 {config.editLog.length}번 수정됨 · 맨 아래 수정 내역에서 확인
+            {config.editLog.length}번 수정됨 · 맨 아래 수정 내역에서 확인
           </div>
         )}
       </div>
@@ -251,9 +256,12 @@ export default function ResultsScreen({
       <div className="sheet results">
         {session.isHost && (
           <div className="host-edit">
-            <button className="btn-line" onClick={onEditScores}>
-              스코어 수정
-            </button>
+            {/* 라운드 중엔 누구나 홀 진행에서 저장된 홀을 '수정'한다. 종료 후엔 방장만 */}
+            {session.status === "done" && (
+              <button className="btn-line" onClick={onEditScores}>
+                스코어 수정
+              </button>
+            )}
             <button className="btn-line" onClick={() => setEditing(true)}>
               정산 설정 수정
             </button>
@@ -660,16 +668,16 @@ export default function ResultsScreen({
           )}
         </div>
 
-        {/* 6) 정산 확정 후 수정 내역: 모든 참여자에게 공개 */}
+        {/* 6) 수정 내역 (저장된 홀 수정, 종료 후 방장 수정): 모든 참여자에게 공개 */}
         {(session.status === "done" || config.editLog.length > 0) && (
           <>
             <div className="section-title" style={{ marginTop: 20 }}>
-              {N(6)} 정산 확정 후 수정 내역
+              {N(6)} 수정 내역
               {config.editLog.length > 0 ? ` (${config.editLog.length}건)` : ""}
             </div>
             {config.editLog.length === 0 ? (
               <div className="card">
-                <div className="empty-note">정산 확정 후 수정된 내용이 없어요.</div>
+                <div className="empty-note">수정된 내용이 없어요.</div>
               </div>
             ) : (
               [...config.editLog].reverse().map((e, i) => (

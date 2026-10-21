@@ -18,10 +18,22 @@ export interface PlayerInfo {
 /** round_hole_stats 행: 기록 모드 홀별 상세 기록 */
 export type HoleStatRow = HoleStat & { hole_index: number; player_uid: string };
 
+/**
+ * round_holes 행. saved_at·saved_by·version 은 홀 저장(supabase/holesave.sql) 칸:
+ * 저장된 홀이면 saved_at 이 있고, 저장·수정할 때마다 version 이 1씩 오른다
+ */
+export interface HoleRow {
+  hole_index: number;
+  par: number;
+  saved_at?: string | null;
+  saved_by?: string | null;
+  version?: number;
+}
+
 export interface RoundBundle {
   round: RoundRow;
   players: RoundPlayerRow[];
-  holes: { hole_index: number; par: number }[];
+  holes: HoleRow[];
   scores: { hole_index: number; player_uid: string; rel: number }[];
   /** 기록 모드 홀별 상세 기록. 기기에 보관된 예전 데이터에는 없을 수 있다 */
   stats?: HoleStatRow[];
@@ -57,7 +69,8 @@ export async function createRound(p: CreateRoundParams): Promise<RoundRow> {
     p_date: p.date,
     p_tee_time: p.teeTime,
     p_unit: p.unit,
-    p_rules: p.rules,
+    // 내기 라운드는 홀마다 저장하는 방식 (holesave.sql)
+    p_rules: p.rules.gameMode === "record" ? p.rules : { ...p.rules, holeSave: true },
     p_handicap_settle: p.handicapSettle,
     p_hole_count: p.holeCount,
     p_name: p.me.name,
@@ -109,7 +122,7 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
       .select("*")
       .eq("round_id", roundId)
       .order("seat_order", { ascending: true }),
-    db.from("round_holes").select("hole_index,par").eq("round_id", roundId),
+    db.from("round_holes").select("hole_index,par,saved_at,saved_by,version").eq("round_id", roundId),
     db
       .from("round_scores")
       .select("hole_index,player_uid,rel")
@@ -119,14 +132,22 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
       .select("hole_index,player_uid,putts,fairway,lie,ob,hazard,sand")
       .eq("round_id", roundId),
   ]);
+  // holesave.sql 을 아직 실행하지 않은 DB: 저장 칸 없이 파만 받는다 (라운드는 열리게)
+  let holeData = holes.data as HoleRow[] | null;
+  let holeError = holes.error;
+  if (holes.error?.code === "42703") {
+    const old = await db.from("round_holes").select("hole_index,par").eq("round_id", roundId);
+    holeData = old.data as HoleRow[] | null;
+    holeError = old.error;
+  }
   // 통신이 약해 일부만 실패하면 빈 스코어로 덮어 화면에서 사라지므로 하나라도 실패하면 전체를 실패로 본다
   const statsError = isMissingTable(stats.error) ? null : stats.error;
-  const error = round.error ?? players.error ?? holes.error ?? scores.error ?? statsError;
+  const error = round.error ?? players.error ?? holeError ?? scores.error ?? statsError;
   if (error) throw error;
   return {
     round: round.data as RoundRow,
     players: (players.data as RoundPlayerRow[]) ?? [],
-    holes: (holes.data as { hole_index: number; par: number }[]) ?? [],
+    holes: holeData ?? [],
     scores:
       (scores.data as { hole_index: number; player_uid: string; rel: number }[]) ??
       [],
@@ -238,6 +259,33 @@ export async function setHoleStat(
   const { error } = await db
     .from("round_hole_stats")
     .upsert({ round_id: roundId, hole_index: holeIndex, player_uid: playerUid, ...stat })
+    .abortSignal(signal);
+  if (error) throw error;
+}
+
+/**
+ * 홀 저장 (supabase/holesave.sql save_hole): 파와 모든 참여자 스코어를 한 번에 확정한다.
+ * 보던 사이 다른 사람이 먼저 저장했으면 HOLE_CONFLICT 로 거절된다
+ */
+export async function saveHole(
+  roundId: string,
+  holeIndex: number,
+  par: number,
+  scores: Record<string, number>,
+  baseVersion: number,
+  items: string[],
+  signal: AbortSignal
+): Promise<void> {
+  const db = requireDb();
+  const { error } = await db
+    .rpc("save_hole", {
+      p_round_id: roundId,
+      p_hole: holeIndex,
+      p_par: par,
+      p_scores: scores,
+      p_base_version: baseVersion,
+      p_items: items,
+    })
     .abortSignal(signal);
   if (error) throw error;
 }

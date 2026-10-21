@@ -1,5 +1,5 @@
 import type { RoundBundle } from "./rounds";
-import type { GameConfig, HoleScore, HoleStat, ParValue, Player, TeeLie } from "./types";
+import type { GameConfig, HoleScore, HoleStat, ParValue, Player, RoundRow, TeeLie } from "./types";
 
 /*
  * DB 라운드 묶음(RoundBundle) → 정산 계산에 쓰는 GameConfig·HoleScore.
@@ -47,21 +47,51 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
   };
 }
 
+/**
+ * 홀마다 저장하는 방식인지: 내기 라운드 중 holeSave 표시가 있거나 아직 끝나지 않은 것.
+ * (표시 없이 종료된 예전 라운드는 즉시 저장 방식이라 모든 홀을 저장된 것으로 본다)
+ */
+export const usesHoleSave = (r: Pick<RoundRow, "rules" | "status">) =>
+  r.rules.gameMode !== "record" && (r.rules.holeSave === true || r.status !== "done");
+
 export function bundleHoles(bundle: RoundBundle): HoleScore[] {
-  const parMap = new Map(bundle.holes.map((h) => [h.hole_index, h.par]));
+  const rowMap = new Map(bundle.holes.map((h) => [h.hole_index, h]));
   const scoreMap = new Map<string, number>();
   for (const s of bundle.scores) scoreMap.set(`${s.hole_index}:${s.player_uid}`, s.rel);
+  const holeSave = usesHoleSave(bundle.round);
+  const done = bundle.round.status === "done";
   return Array.from({ length: bundle.round.hole_count }, (_, i) => {
-    const par = (parMap.get(i) ?? 4) as ParValue;
+    const row = rowMap.get(i);
+    const par = (row?.par ?? 4) as ParValue;
+    const saved = !holeSave || !!row?.saved_at;
     const scores: Record<string, number | null> = {};
     for (const p of bundle.players) {
       const v = scoreMap.get(`${i}:${p.user_uid}`);
-      // 홀 최대 타수는 더블파(파 대비 +par)까지만 반영
-      scores[p.user_uid] = v === undefined ? null : Math.min(v, par);
+      // 홀 최대 타수는 더블파(파 대비 +par)까지만 반영.
+      // 저장하지 않고 끝난 홀(라운드를 일찍 마침)은 정산에서 빠지게 비운다
+      scores[p.user_uid] = v === undefined || (done && !saved) ? null : Math.min(v, par);
     }
-    return { par, scores };
+    return {
+      par,
+      scores,
+      saved,
+      savedBy: row?.saved_by ?? null,
+      savedAt: row?.saved_at ?? null,
+      version: row?.version ?? 0,
+    };
   });
 }
+
+/** 정산에 넣을 홀: 저장 안 된 홀(입력 중)은 스코어를 비운다 */
+export const settledHoles = (holes: HoleScore[]): HoleScore[] =>
+  holes.map((h) =>
+    h.saved === false
+      ? { ...h, scores: Object.fromEntries(Object.keys(h.scores).map((k) => [k, null])) }
+      : h
+  );
+
+/** 저장 안 된 첫 홀 (모두 저장됐으면 -1) */
+export const firstUnsaved = (holes: HoleScore[]) => holes.findIndex((h) => h.saved === false);
 
 /**
  * DB 의 티샷 결과 → 앱 값. OB·해저드로 나누기 전 앱이 쓴 'penalty' 는

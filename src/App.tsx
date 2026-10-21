@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth";
 import { useRound } from "./round";
 import GameScreen from "./screens/GameScreen";
@@ -13,8 +13,8 @@ import LobbyScreen from "./screens/LobbyScreen";
 import AdminScreen from "./screens/AdminScreen";
 import StatsScreen from "./screens/StatsScreen";
 import { Icon } from "./icons";
-import { appendEditLog, scoreText } from "./util";
-import type { HoleScore, Session } from "./types";
+import { firstUnsaved } from "./model";
+import type { Session } from "./types";
 
 export default function App() {
   const { mode } = useAuth();
@@ -93,74 +93,36 @@ function RoundPlay({ session }: { session: Session }) {
     setTab(t);
     window.scrollTo(0, 0);
   };
-  // 기록 모드: 정산 대신 기록 분석, 각자 자기 기록을 고치므로 '스코어 수정' 초안이 없다
+  // 기록 모드: 정산 대신 기록 분석
   const isRecord = session.config.gameMode === "record";
 
-  // 정산 확정 후 스코어 수정: 초안에만 반영하고 '수정 완료' 때 바뀐 것만 저장, '취소'면 버린다
-  const [draft, setDraft] = useState<HoleScore[] | null>(null);
-  const editing = draft !== null;
-  const view: Session = draft
-    ? {
-        ...session,
-        holes: draft,
-        editing: true,
-        // PAR 를 낮추면 더블파를 넘는 스코어는 더블파로 맞춘다
-        setPar: (i, par) =>
-          setDraft(
-            (d) =>
-              d &&
-              d.map((h, j) =>
-                j === i
-                  ? {
-                      par,
-                      scores: Object.fromEntries(
-                        Object.entries(h.scores).map(([k, v]) => [k, v == null ? v : Math.min(v, par)])
-                      ),
-                    }
-                  : h
-              )
-          ),
-        setScore: (i, pid, v) =>
-          setDraft(
-            (d) => d && d.map((h, j) => (j === i ? { ...h, scores: { ...h.scores, [pid]: v } } : h))
-          ),
-      }
-    : session;
+  // 홀 수정·내 기록 초안이 열려 있는 동안: 탭바·종료 버튼을 숨겨 저장/취소로 끝내게 한다
+  const [busy, setBusy] = useState(false);
+  const onBusyChange = useCallback((b: boolean) => setBusy(b), []);
 
-  const startEdit = () => {
-    setDraft(session.holes.map((h) => ({ par: h.par, scores: { ...h.scores } })));
-    showTab("game");
-  };
-  const commitEdit = () => {
-    const nameOf = (id: string) =>
-      session.config.players.find((p) => p.id === id)?.name || "?";
-    const items: string[] = [];
-    draft?.forEach((h, i) => {
-      const orig = session.holes[i];
-      if (h.par !== orig.par) {
-        session.setPar(i, h.par);
-        items.push(`${i + 1}번 홀 PAR ${orig.par} → ${h.par}`);
-      }
-      for (const pid of Object.keys(h.scores)) {
-        if (h.scores[pid] !== orig.scores[pid]) {
-          session.setScore(i, pid, h.scores[pid]);
-          items.push(
-            `${i + 1}번 홀 ${nameOf(pid)}: ${scoreText(orig.par, orig.scores[pid])} → ${scoreText(h.par, h.scores[pid])}`
-          );
-        }
-      }
-    });
-    if (items.length > 0 && round.bundle) {
-      const by = round.myUid ? nameOf(round.myUid) : "방장";
-      void round.updateRound({ rules: appendEditLog(round.bundle.round.rules, by, items) });
+  // 홀 저장 방식: 저장 안 된 홀
+  const unsaved = session.holeSave ? session.holes.filter((h) => h.saved === false).length : 0;
+  const allSaved = session.holeSave && firstUnsaved(session.holes) < 0;
+
+  /** 방장: 최종 확정 (확정하면 방장만 고칠 수 있다) */
+  const finalize = () => {
+    if (!session.holeSave) {
+      void round.finish();
+      return;
     }
-    setDraft(null);
-    showTab("result");
+    const msg =
+      unsaved > 0
+        ? `아직 저장 안 된 홀이 ${unsaved}개 있어요.\n지금 종료하면 저장된 ${session.holes.length - unsaved}개 홀만 정산돼요. 최종 확정할까요?`
+        : "최종 확정할까요?\n확정하면 정산이 끝나고 방장만 스코어를 고칠 수 있어요.";
+    if (window.confirm(msg)) void round.finish();
   };
-  const cancelEdit = () => {
-    setDraft(null);
-    showTab("result");
-  };
+
+  // 방장이 최종 확정하면 참여자 화면도 정산 결과로
+  const prevStatus = useRef(session.status);
+  useEffect(() => {
+    if (prevStatus.current === "playing" && session.status === "done") showTab("result");
+    prevStatus.current = session.status;
+  }, [session.status]);
 
   return (
     <div className="app">
@@ -169,12 +131,12 @@ function RoundPlay({ session }: { session: Session }) {
           <span className="dot">
             <Icon name="flag" size={18} />
           </span>
-          {editing ? "스코어 수정" : session.config.courseName || "멘탈게임"}
+          {session.config.courseName || "멘탈게임"}
         </div>
-        {!editing && (
+        {!busy && (
           <div className="actions">
             {round.isHost && session.status === "playing" && (
-              <button className="icon-btn" onClick={() => void round.finish()}>
+              <button className="icon-btn" aria-label="라운드 종료" onClick={finalize}>
                 <Icon name="finish" size={20} />
               </button>
             )}
@@ -187,26 +149,17 @@ function RoundPlay({ session }: { session: Session }) {
 
       {tab === "game" ? (
         isRecord ? (
-          <RecordGameScreen session={session} />
+          <RecordGameScreen session={session} onBusyChange={onBusyChange} />
         ) : (
-          <GameScreen session={view} />
+          <GameScreen session={session} onFinish={finalize} onBusyChange={onBusyChange} />
         )
       ) : isRecord ? (
         <RecordResultsScreen session={session} />
       ) : (
-        <ResultsScreen session={session} onEditScores={startEdit} />
+        <ResultsScreen session={session} onEditScores={() => showTab("game")} />
       )}
 
-      {editing ? (
-        <div className="edit-bar">
-          <button className="btn-ghost" onClick={cancelEdit}>
-            취소
-          </button>
-          <button className="btn-primary" onClick={commitEdit}>
-            수정 완료
-          </button>
-        </div>
-      ) : (
+      {!busy && (
         <div className="tabbar">
           <button className={tab === "game" ? "active" : ""} onClick={() => setTab("game")}>
             <span className="ic">
@@ -232,15 +185,18 @@ function RoundPlay({ session }: { session: Session }) {
         </div>
       )}
 
+      {/* 라운드 종료: 기록 모드는 마지막 홀·기록 분석에서, 내기 라운드는 모든 홀을 저장한 뒤 정산 결과에서
+          (홀 진행의 마지막 홀에서는 아래 버튼 줄에 '최종 확정'이 있다) */}
       {round.isHost &&
         session.status === "playing" &&
-        (tab === "result" ||
-          (tab === "game" &&
-            session.currentHole === session.holes.length - 1)) && (
+        !busy &&
+        (isRecord
+          ? tab === "result" || session.currentHole === session.holes.length - 1
+          : tab === "result" && (allSaved || !session.holeSave)) && (
           <div className="floating-finish">
-            <button className="btn-primary" onClick={() => void round.finish()}>
+            <button className="btn-primary" onClick={finalize}>
               <Icon name="finish" size={18} className="inline-ic" />{" "}
-              {isRecord ? "라운드 종료" : "라운드 종료하고 정산 확정"}
+              {isRecord ? "라운드 종료" : session.holeSave ? "최종 확정" : "라운드 종료하고 정산 확정"}
             </button>
           </div>
         )}

@@ -10,12 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth";
-import { bundleConfig, bundleHoleStats, bundleHoles } from "./model";
+import { bundleConfig, bundleHoleStats, bundleHoles, firstUnsaved, usesHoleSave } from "./model";
 import {
   applyOp,
   clearPending,
+  pendingHoleKey,
   queueSave,
   setPendingUser,
+  subscribeHoleRejections,
   subscribePending,
   waitingCount,
   withPending,
@@ -116,8 +118,16 @@ const writeCache = (b: RoundBundle | null) => {
   }
 };
 
-/** 마지막으로 스코어가 입력된 홀: 전원 입력이 끝났으면 다음 홀, 아니면 그 홀 */
+/**
+ * 라운드를 열 때 보여줄 홀.
+ * 홀 저장 방식: 저장 안 된 첫 홀 (모두 저장됐으면 마지막 홀) — 모든 참여자가 같은 홀에서 시작한다.
+ * 기록 모드·예전 라운드: 마지막으로 스코어가 입력된 홀 (전원 입력이 끝났으면 다음 홀)
+ */
 function resumeHole(b: RoundBundle): number {
+  if (usesHoleSave(b.round)) {
+    const i = firstUnsaved(bundleHoles(b));
+    return i < 0 ? b.round.hole_count - 1 : i;
+  }
   const last = b.scores.reduce((m, s) => Math.max(m, s.hole_index), -1);
   if (last < 0) return 0;
   const complete = b.players.every((p) =>
@@ -242,6 +252,34 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     [refresh]
   );
   const pendingSaves = useSyncExternalStore(subscribePending, () => waitingCount(activeRoundId));
+  const pendingHoleStr = useSyncExternalStore(subscribePending, () => pendingHoleKey(activeRoundId));
+  const pendingHoles = useMemo(
+    () => new Set(pendingHoleStr ? pendingHoleStr.split(",").map(Number) : []),
+    [pendingHoleStr]
+  );
+
+  // 알림 한 줄: 내 홀 저장이 거절됐을 때 등
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => setNotice(null), [activeRoundId]);
+  // 알림은 잠시 보여주고 사라진다 (X 로 바로 닫을 수도 있다)
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 10_000);
+    return () => clearTimeout(t);
+  }, [notice]);
+  useEffect(
+    () =>
+      subscribeHoleRejections((r) => {
+        if (r.roundId !== activeRef.current) return;
+        setNotice(
+          r.reason === "conflict"
+            ? `${r.hole + 1}번 홀은 다른 사람이 먼저 저장·수정해서 내 저장은 반영되지 않았어요. 저장된 스코어를 확인해 주세요`
+            : `${r.hole + 1}번 홀 저장이 거절됐어요. 저장된 스코어를 확인해 주세요`
+        );
+        void refresh();
+      }),
+    [refresh]
+  );
 
   useEffect(() => {
     if (!bundle || resumedFor.current === bundle.round.id) return;
@@ -350,12 +388,22 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       }
       // 기록 모드: 각자 자기 스코어·기록만 (파는 누구나), 종료 뒤에도 고칠 수 있다
       else if (isRecord) {
+        if (op.kind === "hole") return;
         if (op.kind !== "par" && op.player !== myUid) return;
         if (op.kind === "par" && bundle.round.status === "done" && bundle.round.host_uid !== myUid)
           return;
       }
-      // 종료된 라운드는 방장만 수정 가능
-      else if (bundle.round.status === "done" && bundle.round.host_uid !== myUid) return;
+      // 내기 라운드 홀 저장: 라운드 중엔 누구나, 종료 후엔 방장만
+      else if (op.kind === "hole") {
+        if (bundle.round.status === "lobby") return;
+        if (bundle.round.status === "done" && bundle.round.host_uid !== myUid) return;
+      }
+      // 내기 라운드 스코어·파 바로 입력: 진행 중, 아직 저장 안 된 홀만 (저장된 홀·종료 후엔 홀 저장으로만 고친다)
+      else {
+        if (bundle.round.status === "done") return;
+        const row = bundle.holes.find((h) => h.hole_index === op.hole);
+        if (usesHoleSave(bundle.round) && row?.saved_at) return;
+      }
       setBundle((prev) => (prev ? applyOp(prev, op) : prev));
       queueSave(activeRoundId, op);
     },
@@ -379,6 +427,23 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     [save]
   );
 
+  const saveHole = useCallback(
+    (holeIndex: number, par: ParValue, scores: Record<string, number>, items: string[]) => {
+      if (!bundle || !myUid) return;
+      const row = bundle.holes.find((h) => h.hole_index === holeIndex);
+      save({
+        kind: "hole",
+        hole: holeIndex,
+        par,
+        scores,
+        baseVersion: row?.version ?? 0,
+        items,
+        by: myUid,
+      });
+    },
+    [bundle, myUid, save]
+  );
+
   const session = useMemo<Session | null>(() => {
     if (!config || !status) return null;
     return {
@@ -391,9 +456,14 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       setScore,
       holeStats,
       setStat,
+      holeSave: !!bundle && usesHoleSave(bundle.round),
+      saveHole,
+      pendingHoles,
       status,
       isHost,
       pendingSaves,
+      notice,
+      setNotice,
     };
   }, [
     config,
@@ -403,10 +473,13 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     setPar,
     setScore,
     setStat,
+    saveHole,
+    pendingHoles,
     status,
     isHost,
     bundle,
     pendingSaves,
+    notice,
   ]);
 
   const start = useCallback(async () => {

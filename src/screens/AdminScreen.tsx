@@ -261,7 +261,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                   <b>{Number(stats.rounds.avg_players).toFixed(1)}명</b>
                 </div>
                 <div>
-                  <span>확정 후 수정된 라운드</span>
+                  <span>스코어 수정된 라운드</span>
                   <b>{num(stats.activity.edited_rounds)}개</b>
                 </div>
                 <div>

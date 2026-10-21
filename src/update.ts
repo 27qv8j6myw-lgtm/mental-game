@@ -42,8 +42,8 @@ function hasUnsavedWork(): boolean {
   const el = document.activeElement as HTMLElement | null;
   const typing =
     !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-  // 스코어 수정 바(.edit-bar), 정산 설정 수정 등 열린 시트(.modal-backdrop)
-  const editing = !!document.querySelector(".edit-bar, .modal-backdrop");
+  // 홀 수정 바(.edit-bar), 저장 안 한 내 기록·기록 모드 초안([data-unsaved]), 정산 설정 수정 등 열린 시트(.modal-backdrop)
+  const editing = !!document.querySelector(".edit-bar, [data-unsaved], .modal-backdrop");
   return typing || editing;
 }
 

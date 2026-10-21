@@ -27,7 +27,7 @@ export interface AdminStats {
     weekly: { week: string; count: number }[];
   };
   activity: {
-    /** 정산 확정 후 수정된 라운드 수 / 총 수정 횟수 */
+    /** 수정 내역이 있는 라운드 수 / 총 수정 횟수 (저장된 홀 수정·종료 후 방장 수정) */
     edited_rounds: number;
     edits: number;
     /** 최근 7일 라운드에 참여한 사람 수 */

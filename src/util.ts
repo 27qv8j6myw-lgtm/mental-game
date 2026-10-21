@@ -1,6 +1,7 @@
 import type {
   GameMode,
   Gender,
+  HoleScore,
   PaymentMethod,
   SettleTiming,
   SkinsRules,
@@ -94,7 +95,7 @@ export const relLabel = (rel: number) => {
   return rel > 0 ? `+${rel}` : `${rel}`;
 };
 
-/* ---------- 정산 확정 후 수정 내역 ---------- */
+/* ---------- 스코어 수정 내역 ---------- */
 
 export const SETTLE_LABEL: Record<SettleTiming, string> = {
   pre: "사전 정산",
@@ -119,6 +120,27 @@ export const capLabel = (v: number | null | undefined) =>
 /** 한 홀 스코어 표기: 5타(+1) / 미입력 */
 export const scoreText = (par: number, rel: number | null) =>
   rel == null ? "미입력" : `${par + rel}타(${relLabel(rel)})`;
+
+/**
+ * 한 홀을 고친 수정 내역 문장: "3번 홀 PAR 4 → 5", "3번 홀 박영수: 5타(+1) → 4타(E)".
+ * 바뀐 게 없으면 빈 배열
+ */
+export function holeEditItems(
+  index: number,
+  orig: Pick<HoleScore, "par" | "scores">,
+  next: Pick<HoleScore, "par" | "scores">,
+  nameOf: (id: string) => string
+): string[] {
+  const items: string[] = [];
+  if (next.par !== orig.par) items.push(`${index + 1}번 홀 PAR ${orig.par} → ${next.par}`);
+  for (const pid of Object.keys(next.scores)) {
+    const a = orig.scores[pid] ?? null;
+    const b = next.scores[pid] ?? null;
+    if (a !== b)
+      items.push(`${index + 1}번 홀 ${nameOf(pid)}: ${scoreText(orig.par, a)} → ${scoreText(next.par, b)}`);
+  }
+  return items;
+}
 
 export const appendEditLog = (
   rules: StoredRules,

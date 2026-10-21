@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import {
   getRoundMeta,
+  saveHole as apiSaveHole,
   setHoleStat as apiSetHoleStat,
   setPar as apiSetPar,
   setScore as apiSetScore,
@@ -12,13 +13,27 @@ import type { HoleStat } from "./types";
  * 스코어·파(·기록 모드 상세 기록) 저장 대기열
  * 골프장에서 통신이 끊겨도 입력이 사라지지 않도록, 저장할 값을 먼저 기기(localStorage)에 보관한 뒤 서버로 보낸다.
  * 보내지 못한 값은 다시 연결되거나 앱이 다시 보일 때, 앱을 다시 열 때 순서대로 다시 보낸다.
- * 같은 칸(라운드·홀·사람)은 마지막 값만 남긴다.
+ * 같은 칸(라운드·홀·사람)은 마지막 값만 남긴다. 홀 저장(hole)은 하나하나 순서대로 보낸다.
  */
 
 export type SaveOp =
   | { kind: "score"; hole: number; player: string; rel: number | null }
   | { kind: "par"; hole: number; par: number }
-  | { kind: "stat"; hole: number; player: string; stat: HoleStat };
+  | { kind: "stat"; hole: number; player: string; stat: HoleStat }
+  /**
+   * 홀 저장(내기 라운드): 파·모든 스코어를 한 번에 확정한다.
+   * baseVersion 은 저장 버튼을 누를 때 보던 홀의 version (다른 사람이 먼저 저장했으면 거절된다),
+   * items 는 저장된 홀을 고칠 때 남길 수정 내역, by 는 저장한 사람(화면에 먼저 보여줄 때 씀)
+   */
+  | {
+      kind: "hole";
+      hole: number;
+      par: number;
+      scores: Record<string, number>;
+      baseVersion: number;
+      items: string[];
+      by: string;
+    };
 type QueuedOp = SaveOp & { seq: number };
 
 /** 라운드 id 별로 보관한다 (앱을 강제 종료해도 남는다) */
@@ -58,7 +73,7 @@ const emit = (recoveredRoundId?: string) => {
   for (const fn of listeners) fn(recoveredRoundId);
 };
 
-/** 대기열이 바뀔 때 호출. 밀려 있던 라운드의 대기열을 다 보내면 그 라운드 id 를 함께 넘긴다 */
+/** 대기열이 바뀔 때 호출. 밀려 있던 라운드의 대기열이나 홀 저장을 다 보내면 그 라운드 id 를 함께 넘긴다 */
 export function subscribePending(fn: Listener) {
   listeners.add(fn);
   return () => {
@@ -78,10 +93,10 @@ function setQueue(roundId: string, ops: QueuedOp[]) {
   emit();
 }
 
-const sameCell = (a: SaveOp, b: SaveOp) =>
-  a.hole === b.hole &&
-  a.kind === b.kind &&
-  (a.kind === "par" || (b.kind !== "par" && a.player === b.player));
+const sameCell = (a: SaveOp, b: SaveOp) => {
+  if (a.hole !== b.hole || a.kind !== b.kind || a.kind === "hole" || b.kind === "hole") return false;
+  return a.kind === "par" || (b.kind !== "par" && a.player === b.player);
+};
 
 /** 저장할 값을 대기열에 넣고 바로 보낸다. 같은 칸에 대기 중인 값은 새 값으로 바뀐다 */
 export function queueSave(roundId: string, op: SaveOp) {
@@ -101,10 +116,49 @@ export function waitingCount(roundId: string | null) {
   return roundId && stalled.has(roundId) ? queues.get(roundId)?.length ?? 0 : 0;
 }
 
+/** 서버에 아직 올라가지 않은 홀 저장이 있는 홀 번호들 ("2,3"). useSyncExternalStore 용으로 문자열 */
+export function pendingHoleKey(roundId: string | null) {
+  if (!roundId) return "";
+  const holes = (queues.get(roundId) ?? []).filter((o) => o.kind === "hole").map((o) => o.hole);
+  return [...new Set(holes)].sort((a, b) => a - b).join(",");
+}
+
+/** 서버가 거절해 버린 홀 저장. conflict: 다른 사람이 먼저 저장·수정함 / denied: 권한·값 문제 */
+export interface HoleRejection {
+  roundId: string;
+  hole: number;
+  reason: "conflict" | "denied";
+}
+const rejectionListeners = new Set<(r: HoleRejection) => void>();
+export function subscribeHoleRejections(fn: (r: HoleRejection) => void) {
+  rejectionListeners.add(fn);
+  return () => {
+    rejectionListeners.delete(fn);
+  };
+}
+
 export function applyOp(b: RoundBundle, op: SaveOp): RoundBundle {
   if (op.kind === "par") {
+    const prev = b.holes.find((h) => h.hole_index === op.hole);
     const rest = b.holes.filter((h) => h.hole_index !== op.hole);
-    return { ...b, holes: [...rest, { hole_index: op.hole, par: op.par }] };
+    return { ...b, holes: [...rest, { ...prev, hole_index: op.hole, par: op.par }] };
+  }
+  if (op.kind === "hole") {
+    const holes = [
+      ...b.holes.filter((h) => h.hole_index !== op.hole),
+      {
+        hole_index: op.hole,
+        par: op.par,
+        saved_at: new Date().toISOString(),
+        saved_by: op.by,
+        version: op.baseVersion + 1,
+      },
+    ];
+    const scores = [
+      ...b.scores.filter((s) => s.hole_index !== op.hole || !(s.player_uid in op.scores)),
+      ...Object.entries(op.scores).map(([player_uid, rel]) => ({ hole_index: op.hole, player_uid, rel })),
+    ];
+    return { ...b, holes, scores };
   }
   if (op.kind === "stat") {
     const rest = (b.stats ?? []).filter(
@@ -192,6 +246,7 @@ async function flushRound(roundId: string, me: string) {
       console.warn("더 이상 볼 수 없는 라운드라 저장 대기 기록을 버림", roundId);
       setQueue(roundId, []);
     } else if (meta.status === "done" && meta.host_uid !== me && meta.gameMode !== "record") {
+      // (종료된 라운드의 홀 저장도 방장만: 비방장 것은 버린다)
       const keep = (queues.get(roundId) ?? []).filter((o) => o.kind === "stat" && o.player === me);
       if (keep.length !== queues.get(roundId)?.length) {
         console.warn("종료된 라운드라 스코어·파 저장 대기 기록을 버림", roundId);
@@ -199,19 +254,26 @@ async function flushRound(roundId: string, me: string) {
       }
     }
   }
+  // 홀 저장을 보냈으면 다 보낸 뒤 서버 값(저장한 사람·때, 수정 내역)으로 다시 맞춘다
+  let refreshAfter = false;
   for (;;) {
     const op = queues.get(roundId)?.[0];
     if (!op) break;
+    if (op.kind === "hole") refreshAfter = true;
     try {
       await withTimeout((signal) => send(roundId, op, signal));
     } catch (e) {
       if (!isRejected(e)) throw e;
       console.error("서버가 거절한 기록이라 버림", e);
+      if (op.kind === "hole") {
+        const reason = isConflict(e) ? "conflict" : "denied";
+        for (const fn of rejectionListeners) fn({ roundId, hole: op.hole, reason });
+      }
     }
     // 보내는 사이 같은 칸에 새 값이 들어왔으면 그 값은 남겨 두고 다음 차례에 보낸다
     setQueue(roundId, (queues.get(roundId) ?? []).filter((o) => o.seq !== op.seq));
   }
-  if (stalled.delete(roundId)) emit(roundId);
+  if (stalled.delete(roundId) || refreshAfter) emit(roundId);
 }
 
 const send = (roundId: string, op: SaveOp, signal: AbortSignal) =>
@@ -219,11 +281,18 @@ const send = (roundId: string, op: SaveOp, signal: AbortSignal) =>
     ? apiSetScore(roundId, op.hole, op.player, op.rel, signal)
     : op.kind === "stat"
     ? apiSetHoleStat(roundId, op.hole, op.player, op.stat, signal)
+    : op.kind === "hole"
+    ? apiSaveHole(roundId, op.hole, op.par, op.scores, op.baseVersion, op.items, signal)
     : apiSetPar(roundId, op.hole, op.par, signal);
 
+/** 홀 저장 충돌: 보던 사이 다른 사람이 그 홀을 먼저 저장·수정함 (holesave.sql) */
+const isConflict = (e: unknown) =>
+  String((e as { message?: unknown } | null)?.message ?? "").includes("HOLE_CONFLICT");
+
 /**
- * 다시 보내도 소용없는 거절: 라운드가 사라졌거나(23503) 더 이상 참여자가 아님(42501),
- * 허용 범위를 벗어난 값(23514), 상세 기록 테이블(record.sql)이 아직 없음(PGRST205·42P01).
+ * 다시 보내도 소용없는 거절: 라운드가 사라졌거나(23503) 더 이상 참여자가 아님·이미 저장된 홀·
+ * 종료 후 방장 아님(42501), 허용 범위를 벗어난 값(23514·22023), 상세 기록 테이블(record.sql)이나
+ * 홀 저장(holesave.sql)이 아직 없음(PGRST205·42P01·PGRST202), 홀 저장 충돌.
  * 버리지 않으면 대기열 맨 앞에 걸려 뒤의 스코어까지 못 보낸다
  */
 const isRejected = (e: unknown) => {
@@ -232,8 +301,11 @@ const isRejected = (e: unknown) => {
     code === "23503" ||
     code === "42501" ||
     code === "23514" ||
+    code === "22023" ||
     code === "PGRST205" ||
-    code === "42P01"
+    code === "PGRST202" ||
+    code === "42P01" ||
+    isConflict(e)
   );
 };
 

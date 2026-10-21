@@ -101,6 +101,11 @@ export interface CourseRating {
 
 /** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
 export interface StoredRules extends BetRules {
+  /**
+   * 홀마다 저장하는 방식 (supabase/holesave.sql). 저장된 홀만 정산하고, 저장된 홀은 '수정'으로만 고친다.
+   * 값이 없는 예전 내기 라운드도 진행 중이면 이 방식으로 보고, 이미 종료된 것은 모든 홀을 저장된 것으로 본다
+   */
+  holeSave?: boolean;
   /** KGA 코스레이팅 (골프장을 목록에서 골랐을 때만) */
   rating?: CourseRating;
   /** 값이 없는 예전 라운드는 타당 */
@@ -117,7 +122,7 @@ export interface StoredRules extends BetRules {
   strokeAdj?: Record<string, number>;
   /** 방장이 고친 참여자 이름 (user_uid → 이름). 참여자 행의 이름보다 우선 */
   nameOverrides?: Record<string, string>;
-  /** 정산 확정 후 수정 내역 (모든 참여자에게 공개) */
+  /** 스코어 수정 내역: 저장된 홀을 고친 것, 종료 후 방장이 고친 것 (모든 참여자에게 공개) */
   editLog?: EditLogEntry[];
 }
 
@@ -156,6 +161,16 @@ export interface HoleScore {
   par: ParValue;
   /** playerId -> 파 대비 타수 (-2 ~ +5). null 이면 미입력 */
   scores: Record<string, number | null>;
+  /**
+   * 홀 저장 방식 라운드에서 저장 안 된 홀이면 false (정산에서 빠진다).
+   * 값이 없으면 저장된 것으로 본다 (예전 라운드·기록 모드·정산 계산용으로 만든 홀)
+   */
+  saved?: boolean;
+  /** 마지막으로 저장·수정한 사람 (user_uid)·때 */
+  savedBy?: string | null;
+  savedAt?: string | null;
+  /** 저장·수정할 때마다 1씩 오른다. 처음 저장 전이면 0 */
+  version?: number;
 }
 
 /** 한 명이 다른 한 명에게 보내는 송금 */
@@ -222,10 +237,20 @@ export interface Session {
   holeStats: Record<string, HoleStat>[];
   /** 기록 모드: 홀별 상세 기록 저장 (본인 것만) */
   setStat: (holeIndex: number, playerId: string, stat: HoleStat) => void;
+  /** 홀마다 저장하는 방식(내기 라운드)인지 */
+  holeSave: boolean;
+  /**
+   * 홀 저장·수정: 파와 모든 참여자 스코어를 확정한다. 저장된 홀을 고칠 때는 수정 내역 문장(items)을 남긴다.
+   * 라운드 중엔 누구나, 종료 후엔 방장만
+   */
+  saveHole: (holeIndex: number, par: ParValue, scores: Record<string, number>, items: string[]) => void;
+  /** 서버에 아직 올라가지 않은 홀 저장이 있는 홀 */
+  pendingHoles: ReadonlySet<number>;
   status: RoundStatus;
   isHost: boolean;
-  /** 정산 확정 후 방장이 스코어를 고치는 중. 수정 완료 전까지는 저장되지 않는 초안이다 */
-  editing?: boolean;
   /** 통신이 끊겨 아직 서버에 저장되지 못한 스코어·파 수 (기기에 보관 중) */
   pendingSaves?: number;
+  /** 알림 한 줄 (예: 박영수님이 먼저 저장했어요). 닫으면 null */
+  notice: string | null;
+  setNotice: (text: string | null) => void;
 }

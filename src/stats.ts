@@ -223,13 +223,15 @@ export async function loadStats(myUid: string, rounds?: RoundListItem[]): Promis
   if (cache?.key === key) return cache.result;
 
   const ids = done.map((r) => r.id);
+  type HoleRow = { round_id: string; hole_index: number; par: number; saved_at?: string | null };
   const [players, holes, scores] = await Promise.all([
     fetchRows<RoundPlayerRow>("round_players", "*", ids),
-    fetchRows<{ round_id: string; hole_index: number; par: number }>(
-      "round_holes",
-      "round_id,hole_index,par",
-      ids
-    ),
+    // 홀 저장 방식 라운드는 저장된 홀만 정산하므로 saved_at 도 받는다
+    // (holesave.sql 을 아직 실행하지 않은 DB 면 그 칸 없이)
+    fetchRows<HoleRow>("round_holes", "round_id,hole_index,par,saved_at", ids).catch((e) => {
+      if (e?.code !== "42703") throw e;
+      return fetchRows<HoleRow>("round_holes", "round_id,hole_index,par", ids);
+    }),
     fetchRows<{ round_id: string; hole_index: number; player_uid: string; rel: number }>(
       "round_scores",
       "round_id,hole_index,player_uid,rel",
