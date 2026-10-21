@@ -247,7 +247,8 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                     <b>{one(72 + d.avgDiff)}타</b>
                   </div>
                   <div className="rr-adj-sub">
-                    파 72 + 보정타수 {one(d.avgDiff)} · 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프
+                    파 72 + 보정타수 {one(d.avgDiff)}
+                    <span className="rr-adj-formula">보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프</span>
                   </div>
                 </button>
               )}
@@ -279,14 +280,13 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                         <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
                         <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
                       </span>
-                      {/* 퍼트 · FW · GIR · 보정. 18홀을 다 치지 않은 라운드만 홀 수를 앞에. 줄이 넘어가도 항목은 끊지 않는다 */}
+                      {/* 퍼트 · FW · GIR. 18홀을 다 치지 않은 라운드만 홀 수를 앞에. 줄이 넘어가도 항목은 끊지 않는다 */}
                       <span className="st-row-sub">
                         {[
                           r.summary.holesPlayed !== 18 && `${r.summary.holesPlayed}홀`,
                           r.summary.putts != null && `퍼트 ${r.summary.putts}`,
                           r.summary.fairway.rate != null && `FW ${Math.round(r.summary.fairway.rate * 100)}%`,
                           r.summary.gir.rate != null && `GIR ${Math.round(r.summary.gir.rate * 100)}%`,
-                          r.differential != null && `보정 ${r.differential.toFixed(1)}`,
                         ]
                           .filter((v): v is string => !!v)
                           .map((v, i, all) => (

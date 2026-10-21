@@ -4252,6 +4252,10 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
   line-height: 1.5;
 }
+/* 보정타수 산식: 한 줄 아래에 */
+.rr-adj-formula {
+  display: block;
+}
 /* 티샷 입력: 방향 4칸 + 벙커·패널티 2칸 (함께 고를 수 있다) */
 .rec-label small {
   font-size: 11px;
