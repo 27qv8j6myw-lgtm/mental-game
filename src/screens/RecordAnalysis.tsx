@@ -140,55 +140,53 @@ export function RecordAnalysis({
 }
 
 /**
- * 티샷 결과: 반원에 방향(훅·적중·짧음·슬라이스) 비중, 오른쪽에 벙커·OB·해저드.
- * 방향 비율과 페어웨이 적중률은 방향을 적은 홀 기준, 벙커·OB·해저드는 전체 티샷(친 파4·5 홀) 중 비중
+ * 티샷 결과: 반원에 방향(가운데 = 적중, 왼쪽 = 훅, 오른쪽 = 슬라이스) 비중, 오른쪽에 벙커·OB·해저드.
+ * 짧음(기타)은 방향이 아니어서 반원에서 빼고 아래 가운데에 따로 적는다 (반원 양 끝의 빈 곳이 그만큼).
+ * 방향 비율과 페어웨이 적중률은 방향을 적은 홀 기준, 벙커·OB·해저드는 전체 티샷(친 파4·5 홀) 중 비중. 개수보다 비율을 크게
  */
 function TeeShotChart({ s }: { s: RecordSummary }) {
   const { left, hit, short, right } = s.mix;
-  const dirShare = (n: number) => (s.fairway.d === 0 ? "—" : `${Math.round((n / s.fairway.d) * 100)}%`);
+  const d = s.fairway.d;
+  const dirShare = (n: number) => (d === 0 ? "—" : `${Math.round((n / d) * 100)}%`);
   const allShare = (n: number) => (s.teeShots === 0 ? "—" : `${Math.round((n / s.teeShots) * 100)}%`);
-  // 반원: 왼쪽 끝 = 훅 → 적중 → 짧음 → 오른쪽 끝 = 슬라이스
   const R = 66;
   const cx = 84;
   const cy = 80;
   const len = Math.PI * R;
   const arc = `M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`;
-  const parts = (
-    [
-      [left, "var(--teal)"],
-      [hit, "var(--gain)"],
-      [short, "#9ca3af"],
-      [right, "#60a5fa"],
-    ] as [number, string][]
-  ).filter(([n]) => n > 0);
-  const arcTotal = left + hit + short + right;
-  const GAP = parts.length > 1 ? 3 : 0;
-  let at = 0;
-  const item = (icon: "hook" | "ring" | "short" | "slice", label: string, n: number) => (
-    <span>
-      <Icon name={icon} size={13} /> {label} <b>{n}</b>
-      <small>{dirShare(n)}</small>
-    </span>
-  );
+  /** 방향을 적은 홀 중 비중만큼의 반원 길이 */
+  const L = (n: number) => (d === 0 ? 0 : (len * n) / d);
+  // 적중을 꼭대기 가운데에 두고 훅은 그 왼쪽, 슬라이스는 오른쪽에 붙인다. 한쪽으로 쏠려 끝을 넘으면 안으로 민다
+  let start = len / 2 - L(hit) / 2 - L(left);
+  const end = start + L(left) + L(hit) + L(right);
+  if (start < 0) start = 0;
+  else if (end > len) start -= end - len;
+  const parts: [number, string][] = [
+    [left, "var(--teal)"],
+    [hit, "var(--gain)"],
+    [right, "#60a5fa"],
+  ];
+  const GAP = parts.filter(([n]) => n > 0).length > 1 ? 3 : 0;
+  let at = start;
   return (
     <div className="ts-wrap">
       <div className="ts-gauge">
         <svg viewBox="0 0 168 92" role="img" aria-label={`페어웨이 적중 ${pct(s.fairway)}`}>
           <path d={arc} className="ts-track" />
           {parts.map(([n, color], i) => {
-            const seg = (len * n) / arcTotal;
-            const el = (
+            const seg = L(n);
+            const from = at;
+            at += seg;
+            return n === 0 ? null : (
               <path
                 key={i}
                 d={arc}
                 className="ts-seg"
                 style={{ stroke: color }}
                 strokeDasharray={`${Math.max(0, seg - GAP)} ${len}`}
-                strokeDashoffset={-at}
+                strokeDashoffset={-(from + GAP / 2)}
               />
             );
-            at += seg;
-            return el;
           })}
           <text x={cx} y={cy - 16} className="ts-pct">
             {pct(s.fairway)}
@@ -197,6 +195,28 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
             페어웨이 적중
           </text>
         </svg>
+        {/* 반원 아래: 왼쪽 끝 훅, 오른쪽 끝 슬라이스, 가운데 기타(짧음) */}
+        <div className="ts-dirs">
+          <div className="ts-dir hook">
+            <b>
+              <Icon name="hook" size={14} strokeWidth={2.4} />
+              {dirShare(left)}
+            </b>
+            <small>훅 {left}</small>
+          </div>
+          <div className="ts-dir etc">
+            <b>기타 {dirShare(short)}</b>
+            <small>짧음 {short}</small>
+          </div>
+          <div className="ts-dir slice">
+            <b>
+              {dirShare(right)}
+              <Icon name="slice" size={14} strokeWidth={2.4} />
+            </b>
+            <small>슬라이스 {right}</small>
+          </div>
+        </div>
+        {s.noDirection > 0 && <span className="ts-dir-note">방향 미입력 {s.noDirection}홀은 빼고 계산</span>}
       </div>
       <div className="ts-side">
         {(
@@ -208,25 +228,11 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
         ).map(([k, label]) => (
           <div className={`ts-box ${k}`} key={k}>
             <span>{label}</span>
-            <b>{s.lies[k]}</b>
-            <small>{allShare(s.lies[k])}</small>
+            <b>{allShare(s.lies[k])}</b>
+            <small>{s.lies[k]}번</small>
           </div>
         ))}
         <span className="ts-side-note">전체 티샷 {s.teeShots}개 중</span>
-      </div>
-      {/* 범례는 카드 폭 전체: 첫째 줄 훅·적중·슬라이스 / 둘째 줄 짧음·미입력 */}
-      <div className="ts-legends">
-        <div className="ts-legend">
-          {item("hook", "훅", left)}
-          {item("ring", "적중", hit)}
-          {item("slice", "슬라이스", right)}
-        </div>
-        <div className="ts-legend">
-          {item("short", "짧음", short)}
-          <span>
-            미입력 <b>{s.noDirection}</b>
-          </span>
-        </div>
       </div>
     </div>
   );

@@ -62,12 +62,14 @@ export default function TrendChart({
   let lo = Math.min(...values);
   let hi = Math.max(...values);
   if (meta.percent) {
-    lo = Math.max(0, Math.floor((lo - 10) / 10) * 10);
-    hi = Math.min(100, Math.ceil((hi + 10) / 10) * 10);
+    // (세로 축 숫자가 없으니 0 아래로 내려가도 된다: 0% 점이 바닥에 붙지 않게)
+    lo = Math.floor((lo - 10) / 10) * 10;
+    hi = Math.ceil((hi + 10) / 10) * 10;
   } else {
     const span = Math.max(hi - lo, meta.decimals === 0 ? 2 : 0.4);
     const pad = span * 0.2;
-    lo = Math.max(0, lo - pad);
+    // 0 아래로도 여백을 둔다 (OB 0개처럼 가장 작은 값이 바닥에 붙어 날짜와 겹치지 않게)
+    lo = lo - pad;
     hi = hi + pad;
   }
   const x = (i: number) => PAD.l + ((W - PAD.l - PAD.r) * i) / (n - 1);
@@ -94,7 +96,8 @@ export default function TrendChart({
   const p = points[sel];
   // 고른 점의 값 글자: 옆 점으로 이어지는 선과 겹치지 않게, 선이 위에서 내려오면 점 아래에 쓴다
   const nb = points[sel > 0 ? sel - 1 : sel + 1];
-  const below = !!nb && nb.value > p.value;
+  // 단, 아래에 쓰면 날짜 줄에 닿는 경우엔 위에 쓴다
+  const below = !!nb && nb.value > p.value && y(p.value) + 20 <= H - PAD.b + 2;
   const valueY = below ? y(p.value) + 20 : y(p.value) - 12;
 
   return (

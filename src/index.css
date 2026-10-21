@@ -4068,10 +4068,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   align-items: center;
   gap: 12px;
 }
-/* 범례: 반원·벙커/OB/해저드 아래 카드 폭 전체 */
-.ts-legends {
-  flex: 1 0 100%;
-}
 .ts-gauge {
   flex: 1;
   min-width: 0;
@@ -4103,31 +4099,9 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 700;
   fill: var(--ink-faint);
 }
-.ts-legend {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-.ts-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  white-space: nowrap;
-}
-.ts-legend b {
-  color: var(--ink);
-  font-weight: 800;
-}
-.ts-legend small {
-  color: var(--ink-faint);
-  font-weight: 700;
-}
 .ts-side {
   flex: none;
-  width: 86px;
+  width: 92px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -4277,8 +4251,60 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: #6b7280;
   border-color: #6b7280;
 }
-.ts-legend + .ts-legend {
-  margin-top: 2px;
+/* 반원 아래 방향 비율: 왼쪽 끝 훅 · 가운데 기타 · 오른쪽 끝 슬라이스 (비율 크게, 홀 수 작게) */
+.ts-dirs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 4px;
+  margin-top: 6px;
+}
+.ts-dir {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ts-dir.etc {
+  align-items: center;
+}
+.ts-dir.slice {
+  align-items: flex-end;
+}
+.ts-dir b {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.ts-dir.hook svg {
+  color: var(--teal);
+}
+.ts-dir.slice svg {
+  color: #60a5fa;
+}
+.ts-dir.etc b {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-faint);
+}
+.ts-dir small {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.ts-dir-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-align: center;
 }
 .ts-side-note {
   font-size: 10.5px;
