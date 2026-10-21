@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   fetchAdminStats,
+  fetchAiGrants,
   fetchRecentRounds,
   fetchRecentUsers,
+  setAiGrant,
   type AdminRound,
   type AdminStats,
   type AdminUser,
+  type AiGrant,
 } from "../admin";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { GAME_MODE_LABEL } from "../util";
@@ -113,10 +116,29 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [range, setRange] = useState<"daily" | "weekly">("daily");
+  /** AI 분석을 허용한 사람 (null: insight.sql 을 아직 실행하지 않아 권한을 줄 수 없음) */
+  const [grants, setGrants] = useState<AiGrant[] | null>([]);
+  const [grantBusy, setGrantBusy] = useState<string | null>(null);
+  const loadGrants = useCallback(async () => {
+    setGrants(await fetchAiGrants().catch(() => null));
+  }, []);
+  const toggleGrant = async (userId: string, on: boolean) => {
+    setGrantBusy(userId);
+    try {
+      await setAiGrant(userId, on);
+      await loadGrants();
+    } catch (e) {
+      console.error(e);
+      setNotice("AI 분석 권한을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setGrantBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
+    void loadGrants();
     try {
       const [s, r, u] = await Promise.all([
         fetchAdminStats(),
@@ -132,7 +154,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadGrants]);
 
   useEffect(() => {
     void load();
@@ -369,6 +391,39 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
+            {/* AI 분석 권한: 관리자는 늘 쓸 수 있고, 여기서 허용한 사람은 내 기록에서 쓸 수 있다 */}
+            <div className="section-title">AI 분석 권한 {grants ? `${grants.length}명` : ""}</div>
+            <div className="card ad-list">
+              {grants === null ? (
+                <div className="empty-note">Supabase 에서 insight.sql 을 실행하면 권한을 줄 수 있어요.</div>
+              ) : grants.length === 0 ? (
+                <div className="empty-note">아직 허용한 사람이 없어요. 아래 최근 가입자에서 'AI 허용'을 눌러 주세요.</div>
+              ) : (
+                grants.map((g) => (
+                  <div className="ad-row" key={g.user_id}>
+                    <div className="ad-row-main">
+                      <div className="ri-name">
+                        <span className="ri-title">{g.name || "이름 없음"}</span>
+                      </div>
+                      <div className="ri-sub">
+                        <Segs items={[g.email_masked ?? "이메일 없음", `허용 ${mdLocal(g.created_at)}`]} />
+                      </div>
+                    </div>
+                    <button
+                      className="ad-ai on"
+                      disabled={grantBusy === g.user_id}
+                      onClick={() => void toggleGrant(g.user_id, false)}
+                    >
+                      해제
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="hint" style={{ margin: "6px 2px 0" }}>
+              관리자는 늘 쓸 수 있어요. 허용한 사람은 자기 기록에서만 AI 분석을 만들고 볼 수 있어요.
+            </p>
+
             <div className="section-title">최근 가입자 {users.length}명</div>
             {users.length === 0 ? (
               <div className="card">
@@ -404,7 +459,20 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                         />
                       </div>
                     </div>
-                    <span className="ad-count">라운드 {num(u.round_count)}</span>
+                    <div className="ad-row-side">
+                      <span className="ad-count">라운드 {num(u.round_count)}</span>
+                      {grants && (
+                        <button
+                          className={`ad-ai ${grants.some((g) => g.user_id === u.user_id) ? "on" : ""}`}
+                          disabled={grantBusy === u.user_id}
+                          onClick={() =>
+                            void toggleGrant(u.user_id, !grants.some((g) => g.user_id === u.user_id))
+                          }
+                        >
+                          {grants.some((g) => g.user_id === u.user_id) ? "AI 허용됨" : "AI 허용"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -5,6 +5,8 @@ import { Icon } from "../icons";
 import type { Fairway } from "../types";
 import type { ReactNode } from "react";
 import type { TrendKey } from "../recordTrend";
+import type { InsightSections } from "../insight";
+import { InsightBox } from "./Insight";
 
 /** 0.333 → "33%". 분모가 0이면 "—" */
 const pct = (f: Frac) => (f.rate == null ? "—" : `${Math.round(f.rate * 100)}%`);
@@ -58,11 +60,14 @@ export function RecordAnalysis({
   s,
   rounds,
   trend,
+  insight,
 }: {
   s: RecordSummary;
   rounds?: number;
   /** 라운드 기록 화면: 칸을 누르면 추이 그래프 */
   trend?: TrendPick;
+  /** 관리자 AI 분석: 지표 칸 아래 · 티샷 결과 · 스코어 분포 카드 안 */
+  insight?: Partial<InsightSections>;
 }) {
   const perRound = (n: number) =>
     rounds && rounds > 1 ? `라운드당 벌타 ${one(n / rounds)}` : undefined;
@@ -127,13 +132,20 @@ export function RecordAnalysis({
         />
       </div>
       {trend?.chart}
+      {insight?.stats && (
+        <div className="card insight-card">
+          <InsightBox text={insight.stats} />
+        </div>
+      )}
       <div className="card">
         <div className="ad-ratio-title">티샷 결과 (파4·파5)</div>
         <TeeShotChart s={s} />
+        <InsightBox text={insight?.teeShot} />
       </div>
       <div className="card">
-        <div className="ad-ratio-title">스코어 분포</div>
-        <ScoreBars s={s} />
+        <div className="ad-ratio-title">스코어 분포{rounds && rounds > 1 ? " (라운드당 평균)" : ""}</div>
+        <ScoreBars s={s} rounds={rounds} />
+        <InsightBox text={insight?.scoring} />
       </div>
     </>
   );
@@ -237,8 +249,9 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
   );
 }
 
-/** 스코어 분포: 세로 막대 (홀 수와 비중) */
-function ScoreBars({ s }: { s: RecordSummary }) {
+/** 스코어 분포: 세로 막대 (홀 수와 비중). 여러 라운드를 합친 화면(rounds)에서는 개수를 라운드당 평균으로 */
+function ScoreBars({ s, rounds }: { s: RecordSummary; rounds?: number }) {
+  const avg = !!rounds && rounds > 1;
   const items: [string, number, string][] = [
     ["이글", s.dist.eagle, "#9f1239"],
     ["버디", s.dist.birdie, "var(--terra)"],
@@ -251,10 +264,10 @@ function ScoreBars({ s }: { s: RecordSummary }) {
   // 막대 높이 = 전체 홀 중 비율 (39% 면 39% 높이)
   const ratio = (n: number) => (total === 0 ? 0 : n / total);
   return (
-    <div className="sd-bars">
+    <div className={`sd-bars ${avg ? "avg" : ""}`}>
       {items.map(([label, n, color]) => (
         <div className="sd-col" key={label}>
-          <span className="sd-n">{n}</span>
+          <span className="sd-n">{avg ? one(n / rounds!) : n}</span>
           <div className="sd-track">
             <div className="sd-bar" style={{ height: `${ratio(n) * 100}%`, background: color }} />
           </div>

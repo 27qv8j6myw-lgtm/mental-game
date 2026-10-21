@@ -92,3 +92,31 @@ export async function fetchRecentUsers(limit = 30): Promise<AdminUser[]> {
   if (error) throw error;
   return (data ?? []) as AdminUser[];
 }
+
+/** AI 분석을 쓸 수 있나 (관리자 또는 관리자가 허용한 사람). insight.sql 을 아직 실행하지 않았으면 관리자만 */
+export async function canUseAi(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc("can_use_ai");
+  if (error) return isAdmin();
+  return data === true;
+}
+
+export interface AiGrant {
+  user_id: string;
+  name: string;
+  email_masked: string | null;
+  created_at: string;
+}
+
+/** 관리자: AI 분석을 허용한 사람들 */
+export async function fetchAiGrants(): Promise<AiGrant[]> {
+  const { data, error } = await requireDb().rpc("admin_ai_grants");
+  if (error) throw error;
+  return (data ?? []) as AiGrant[];
+}
+
+/** 관리자: AI 분석 허용 / 해제 */
+export async function setAiGrant(userId: string, on: boolean): Promise<void> {
+  const { error } = await requireDb().rpc("admin_set_ai_grant", { p_user_id: userId, p_on: on });
+  if (error) throw error;
+}

@@ -74,12 +74,15 @@ export async function prepareImage(file: File): Promise<{ data: string; mediaTyp
   return { data, mediaType: "image/jpeg", url };
 }
 
+/** 서버 함수 주소 (api/*.ts). 로컬 테스트 때만 VITE_API_BASE 로 다른 서버를 가리킨다 */
+export const apiUrl = (name: string) => `${import.meta.env.VITE_API_BASE ?? ""}/api/${name}`;
+
 /** 사진 읽기 요청. 실패하면 사용자에게 보여줄 문장으로 던진다 */
 export async function readScorecard(img: { data: string; mediaType: string }): Promise<ScorecardRead> {
   const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : null;
   let res: Response;
   try {
-    res = await fetch(import.meta.env.VITE_SCORECARD_API || "/api/scorecard", {
+    res = await fetch(apiUrl("scorecard"), {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token ?? ""}` },
       body: JSON.stringify({ image: img.data, mediaType: img.mediaType }),

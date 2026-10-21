@@ -12,6 +12,9 @@
   "functions": {
     "api/scorecard.ts": {
       "maxDuration": 60
+    },
+    "api/insight.ts": {
+      "maxDuration": 60
     }
   }
 }

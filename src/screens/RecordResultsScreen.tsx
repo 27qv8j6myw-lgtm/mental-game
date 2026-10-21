@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useRound } from "../round";
-import { EMPTY_STAT, summarize, type HoleRecord } from "../recordStats";
-import { relLabel, teeLabel } from "../util";
+import { EMPTY_STAT, loadRecordRounds, summarize, type HoleRecord } from "../recordStats";
+import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
 import { differential, ratingFor } from "../kga";
 import type { CourseRating, Session } from "../types";
@@ -9,6 +9,8 @@ import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderScorecard } from "../shareImage";
+import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./Insight";
+import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
 
 /**
  * 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프레이팅.
@@ -46,7 +48,7 @@ function AdjustedScore({
 
 /** 기록 분석 탭: 한 사람(기본: 나)의 이 라운드 분석과 스코어카드. 여럿이면 타수 순위도 */
 export default function RecordResultsScreen({ session }: { session: Session }) {
-  const { myUid } = useRound();
+  const { myUid, activeRoundId } = useRound();
   const { config, holes, holeStats } = session;
   const players = config.players;
   const [pick, setPick] = useState<string | null>(null);
@@ -83,9 +85,43 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
   const tee = teeLabel(config.courseTee);
   const played = Math.max(0, ...[...byPlayer.values()].map((v) => v.s.holesPlayed));
   const [sharing, setSharing] = useState(false);
+  const rSel = ratingFor(config.rating, selected?.gender === "female" ? "F" : "M");
+  const diffSel =
+    rSel && mine && holes.length === 18 && mine.s.holesPlayed === 18
+      ? differential(mine.s.strokes, rSel.cr, rSel.slope)
+      : null;
+  // AI 분석: 관리자는 누구 기록이든, 허용된 사람은 내 기록만.
+  // 평소·같은 코스 기록은 고른 사람이 나일 때 내 지난 라운드에서
+  const access = useAiAccess(myUid);
+  const canAi = access.admin || (access.ai && selectedId === myUid);
+  const ai = useRoundInsight({
+    roundId: activeRoundId,
+    playerUid: selectedId,
+    enabled: canAi,
+    fingerprint: insightFingerprint(mine?.recs ?? []),
+    build: async () => {
+      const past =
+        selectedId === myUid ? (await loadRecordRounds(myUid)).filter((x) => x.roundId !== activeRoundId) : [];
+      const here = { name: config.courseName, rating: config.rating, holeCount: holes.length };
+      return buildInsightInput(
+        {
+          date: config.date,
+          course: courseTitle(config.courseName, config.rating),
+          holeCount: holes.length,
+          mode: GAME_MODE_LABEL[config.gameMode],
+          differential: diffSel,
+        },
+        mine?.recs ?? [],
+        past.map((x) => x.holes),
+        past
+          .filter((x) => isSameCourse(here, { name: x.courseName, rating: x.rating, holeCount: x.holeCount }))
+          .map((x) => x.holes)
+      );
+    },
+  });
   /** 고른 사람의 스코어카드 이미지 */
   const makeScorecard = () => {
-    const r = ratingFor(config.rating, selected?.gender === "female" ? "F" : "M");
+    const r = rSel;
     const full = holes.length === 18 && mine?.s.holesPlayed === 18;
     return renderScorecard({
       date: config.date,
@@ -200,11 +236,13 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
               </button>
             )}
 
+            {canAi && mine.s.holesPlayed > 0 && <InsightAction state={ai} />}
             <div className="section-title">분석</div>
-            <RecordAnalysis s={mine.s} />
+            <RecordAnalysis s={mine.s} insight={canAi ? ai.insight ?? undefined : undefined} />
 
             <div className="section-title">스코어카드</div>
             <RecordScorecard holes={mine.recs} />
+            {canAi && <InsightSummary state={ai} />}
           </>
         )}
       </div>

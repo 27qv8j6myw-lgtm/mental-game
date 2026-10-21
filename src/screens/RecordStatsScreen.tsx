@@ -11,6 +11,8 @@ import TrendChart from "./TrendChart";
 import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
 import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderScorecard } from "../shareImage";
+import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./Insight";
+import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 const mean = (xs: number[]) => (xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length);
@@ -137,7 +139,8 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
     }
   };
 
-  if (detail) return <RoundDetail r={detail} onBack={() => setDetailId(null)} onClose={close} />;
+  if (detail)
+    return <RoundDetail r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} onClose={close} />;
 
   return (
     <div className="app">
@@ -323,16 +326,44 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
 /** 내기 라운드 하나의 내 기록 분석 (정산은 정산 결과 화면에서 본다) */
 function RoundDetail({
   r,
+  all,
   onBack,
   onClose,
 }: {
   r: RecordRound;
+  /** 내 기록 라운드 전체 (AI 분석의 평소 기록) */
+  all: RecordRound[];
   onBack: () => void;
   onClose: () => void;
 }) {
   const tee = teeLabel(r.courseTee);
   const { user } = useAuth();
   const [sharing, setSharing] = useState(false);
+  // AI 분석 (관리자·허용된 사람): 이 라운드의 내 기록 + 다른 라운드 평균 + 같은 코스 평균
+  const { ai: canAi } = useAiAccess(user?.uid);
+  const past = all.filter((x) => x.roundId !== r.roundId);
+  const here = { name: r.courseName, rating: r.rating, holeCount: r.holeCount };
+  const ai = useRoundInsight({
+    roundId: r.roundId,
+    playerUid: user?.uid ?? "",
+    enabled: canAi,
+    fingerprint: insightFingerprint(r.holes),
+    build: async () =>
+      buildInsightInput(
+        {
+          date: r.date,
+          course: courseTitle(r.courseName, r.rating),
+          holeCount: r.holeCount,
+          mode: GAME_MODE_LABEL[r.gameMode],
+          differential: r.differential,
+        },
+        r.holes,
+        past.map((x) => x.holes),
+        past
+          .filter((x) => isSameCourse(here, { name: x.courseName, rating: x.rating, holeCount: x.holeCount }))
+          .map((x) => x.holes)
+      ),
+  });
   /** 내 스코어카드 이미지 (내기 라운드에서 남긴 내 기록도) */
   const makeScorecard = () =>
     renderScorecard({
@@ -410,10 +441,12 @@ function RoundDetail({
           <Icon name="share" size={17} />
           스코어카드 이미지로 공유·저장
         </button>
+        {canAi && <InsightAction state={ai} />}
         <div className="section-title">분석</div>
-        <RecordAnalysis s={r.summary} />
+        <RecordAnalysis s={r.summary} insight={canAi ? ai.insight ?? undefined : undefined} />
         <div className="section-title">스코어카드</div>
         <RecordScorecard holes={r.holes} />
+        {canAi && <InsightSummary state={ai} />}
       </div>
       {sharing && (
         <ShareImageSheet
