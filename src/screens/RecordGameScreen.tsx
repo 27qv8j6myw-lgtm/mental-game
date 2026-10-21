@@ -27,14 +27,17 @@ interface Draft {
 
 /**
  * 기록 모드 홀 진행: 내 스코어·퍼트·티샷·벌타를 입력하고, 함께 친 사람은 스코어만 본다.
- * 입력은 초안이고 [저장]을 눌러야 올라간다 ([취소]면 원래대로). 초안이 있는 동안은 홀을 옮길 수 없다
+ * 입력은 초안이고 아래 바의 [저장]을 눌러야 올라간다 ([취소]면 원래대로). 초안이 있는 동안은 홀을 옮길 수 없다
  */
 export default function RecordGameScreen({
   session,
+  onFinish,
   onBusyChange,
 }: {
   session: Session;
-  /** 저장 안 한 초안이 있는 동안 true (탭바를 숨긴다) */
+  /** 방장: 라운드 종료 (마지막 홀 아래 바) */
+  onFinish: () => void;
+  /** 저장 안 한 초안이 있는 동안 true (상단 버튼을 잠근다) */
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { myUid } = useRound();
@@ -98,12 +101,6 @@ export default function RecordGameScreen({
               <span className="pending"> · 저장 대기 {session.pendingSaves}개</span>
             )}
           </div>
-          {me &&
-            (dirty ? (
-              <span className="hole-state draft">저장 전</span>
-            ) : savedRel != null ? (
-              <span className="hole-state saved">✓ 저장됨</span>
-            ) : null)}
         </div>
         <button
           className="navbtn"
@@ -114,11 +111,15 @@ export default function RecordGameScreen({
         </button>
       </div>
 
-      <div className="sheet">
-        {session.status === "done" && (
-          <div className="ro-banner">
-            <span>기록이 끝난 라운드예요.</span>
-            <span>내 기록은 계속 고칠 수 있어요.</span>
+      {/* 아래 저장/취소 줄 자리를 늘 비워 둔다 (나타나도 화면이 밀리지 않게) */}
+      <div className="sheet bar-space">
+        {/* 이 홀 내 기록 상태: PAR 위 늘 같은 자리 (끝난 라운드도 내 기록은 고칠 수 있다) */}
+        {me && (
+          <div className="status-slot">
+            <div className={`hole-status ${dirty ? "draft" : savedRel != null ? "saved" : "empty"}`} role="status">
+              {session.status === "done" && !dirty && "끝난 라운드 · "}
+              {dirty ? "저장 전 · 저장해야 기록돼요" : savedRel != null ? "✓ 저장됨" : "입력 전"}
+            </div>
           </div>
         )}
         <div className="par-seg">
@@ -208,14 +209,29 @@ export default function RecordGameScreen({
         )}
       </div>
 
-      {dirty && (
-        <div className="edit-bar">
-          <button className="btn-ghost" onClick={() => setDraft(null)}>
-            취소
-          </button>
-          <button className="btn-primary" onClick={save}>
-            저장
-          </button>
+      {/* 아래 바: 저장/취소 (마지막 홀은 방장의 라운드 종료) */}
+      {me && (
+        <div className="play-bar" data-unsaved={dirty || undefined}>
+          <div className="pb-actions">
+            {dirty ? (
+              <>
+                <button className="btn-ghost" onClick={() => setDraft(null)}>
+                  취소
+                </button>
+                <button className="btn-primary" onClick={save}>
+                  저장
+                </button>
+              </>
+            ) : session.isHost && session.status === "playing" && idx === holes.length - 1 ? (
+              <button className="btn-primary" onClick={onFinish}>
+                <Icon name="finish" size={18} className="inline-ic" /> 라운드 종료
+              </button>
+            ) : (
+              <button className="btn-primary" disabled>
+                저장
+              </button>
+            )}
+          </div>
         </div>
       )}
     </>

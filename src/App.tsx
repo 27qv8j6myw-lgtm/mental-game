@@ -96,7 +96,7 @@ function RoundPlay({ session }: { session: Session }) {
   // 기록 모드: 정산 대신 기록 분석
   const isRecord = session.config.gameMode === "record";
 
-  // 홀 수정·내 기록 초안이 열려 있는 동안: 탭바·종료 버튼을 숨겨 저장/취소로 끝내게 한다
+  // 홀 수정·내 기록 초안이 열려 있는 동안: 상단 버튼·탭바를 잠가(숨기지 않고: 화면이 밀리지 않게) 저장/취소로 끝내게 한다
   const [busy, setBusy] = useState(false);
   const onBusyChange = useCallback((b: boolean) => setBusy(b), []);
 
@@ -131,27 +131,49 @@ function RoundPlay({ session }: { session: Session }) {
           <span className="dot">
             <Icon name="flag" size={18} />
           </span>
-          {session.config.courseName || "멘탈게임"}
+          <span className="brand-name">{session.config.courseName || "멘탈게임"}</span>
         </div>
-        {!busy && (
-          <div className="actions">
-            {round.isHost && session.status === "playing" && (
-              <button className="icon-btn" aria-label="라운드 종료" onClick={finalize}>
-                <Icon name="finish" size={20} />
-              </button>
-            )}
-            <button className="icon-btn" onClick={round.closeRound}>
-              <Icon name="close" size={20} />
+        {/* 홀 진행 ↔ 정산 결과(기록 분석)는 아이콘으로, X 는 라운드 목록으로 */}
+        <div className={`actions ${busy ? "locked" : ""}`}>
+          <button
+            className={`icon-btn ${tab === "game" ? "on" : ""}`}
+            aria-label="홀 진행"
+            aria-pressed={tab === "game"}
+            disabled={busy}
+            onClick={() => showTab("game")}
+          >
+            <Icon name="flag" size={20} />
+          </button>
+          <button
+            className={`icon-btn ${tab === "result" ? "on" : ""}`}
+            aria-label={isRecord ? "기록 분석" : "정산 결과"}
+            aria-pressed={tab === "result"}
+            disabled={busy}
+            onClick={() => showTab("result")}
+          >
+            <Icon name={isRecord ? "chart" : "trophy"} size={20} />
+          </button>
+          {round.isHost && session.status === "playing" && (
+            <button className="icon-btn" aria-label="라운드 종료" disabled={busy} onClick={finalize}>
+              <Icon name="finish" size={20} />
             </button>
-          </div>
-        )}
+          )}
+          <button className="icon-btn" aria-label="라운드 목록으로" disabled={busy} onClick={round.closeRound}>
+            <Icon name="close" size={20} />
+          </button>
+        </div>
       </div>
 
       {tab === "game" ? (
         isRecord ? (
-          <RecordGameScreen session={session} onBusyChange={onBusyChange} />
+          <RecordGameScreen session={session} onFinish={finalize} onBusyChange={onBusyChange} />
         ) : (
-          <GameScreen session={session} onFinish={finalize} onBusyChange={onBusyChange} />
+          <GameScreen
+            session={session}
+            onFinish={finalize}
+            onShowResult={() => showTab("result")}
+            onBusyChange={onBusyChange}
+          />
         )
       ) : isRecord ? (
         <RecordResultsScreen session={session} />
@@ -159,40 +181,12 @@ function RoundPlay({ session }: { session: Session }) {
         <ResultsScreen session={session} onEditScores={() => showTab("game")} />
       )}
 
-      {!busy && (
-        <div className="tabbar">
-          <button className={tab === "game" ? "active" : ""} onClick={() => setTab("game")}>
-            <span className="ic">
-              <Icon name="flag" size={20} />
-            </span>
-            홀 진행
-          </button>
-          <button
-            className={tab === "result" ? "active" : ""}
-            onClick={() => setTab("result")}
-          >
-            <span className="ic">
-              <Icon name="trophy" size={20} />
-            </span>
-            {isRecord ? "기록 분석" : "정산 결과"}
-          </button>
-          <button onClick={round.closeRound}>
-            <span className="ic">
-              <Icon name="layers" size={20} />
-            </span>
-            라운드
-          </button>
-        </div>
-      )}
-
-      {/* 라운드 종료: 기록 모드는 마지막 홀·기록 분석에서, 내기 라운드는 모든 홀을 저장한 뒤 정산 결과에서
-          (홀 진행의 마지막 홀에서는 아래 버튼 줄에 '최종 확정'이 있다) */}
+      {/* 정산 결과·기록 분석 화면의 라운드 종료 (홀 진행에서는 아래 버튼 줄에 있다).
+          내기 라운드는 모든 홀을 저장한 뒤에만 */}
       {round.isHost &&
         session.status === "playing" &&
-        !busy &&
-        (isRecord
-          ? tab === "result" || session.currentHole === session.holes.length - 1
-          : tab === "result" && (allSaved || !session.holeSave)) && (
+        tab === "result" &&
+        (isRecord || allSaved || !session.holeSave) && (
           <div className="floating-finish">
             <button className="btn-primary" onClick={finalize}>
               <Icon name="finish" size={18} className="inline-ic" />{" "}

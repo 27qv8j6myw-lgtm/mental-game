@@ -39,16 +39,20 @@ interface HoleDraft {
  * 홀 진행 (타당·스킨스).
  * 저장 전 홀은 모두가 함께 입력하고(바로 공유), [N번 홀 저장]을 눌러야 확정돼 정산에 들어간다.
  * 저장된 홀은 잠기고 [수정] → 취소/저장으로만 고친다(수정 내역이 남음). 마지막 홀까지 저장하면 방장이 최종 확정.
- * onBusyChange: 홀 수정·내 기록 초안이 열려 있는 동안 true (탭바를 숨겨 다른 화면으로 못 가게)
+ * 아래 바에 이 홀의 상태(저장 전·저장됨·수정 중)와 버튼(저장·수정·취소/저장·최종 확정)을 함께 둔다.
+ * onBusyChange: 홀 수정·내 기록 초안이 열려 있는 동안 true (상단 버튼을 잠가 다른 화면으로 못 가게)
  */
 export default function GameScreen({
   session,
   onFinish,
+  onShowResult,
   onBusyChange,
 }: {
   session: Session;
   /** 방장: 최종 확정 */
   onFinish: () => void;
+  /** 정산 결과 보기 */
+  onShowResult: () => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore, status, holeSave } = session;
@@ -66,8 +70,8 @@ export default function GameScreen({
   const editing = draft !== null && draft.hole === idx;
   // 저장 전 홀은 지금처럼 바로 입력 (진행 중일 때만)
   const live = holeSave && playing && !saved;
-  // 수정: 라운드 중엔 저장된 홀을 누구나, 종료 후엔 방장이 어느 홀이든
-  const canEdit = holeSave && (playing ? saved : status === "done" && session.isHost);
+  // 수정: 라운드 중엔 저장된 홀을 누구나, 종료 후엔 방장이 어느 홀이든 (홀 저장 전에 끝난 예전 라운드도)
+  const canEdit = playing ? holeSave && saved : status === "done" && session.isHost;
   const view: HoleScore = editing ? { ...hole, par: draft.par, scores: draft.scores } : hole;
   const inputOn = live || editing;
   const filled = config.players.filter((p) => view.scores[p.id] != null).length;
@@ -108,15 +112,11 @@ export default function GameScreen({
   useEffect(() => {
     const prev = seen.current;
     seen.current = { idx, saved };
+    // (따로 알리지 않는다: 다음 홀로 넘어가고, 돌아가 보면 '저장됨 · 누가'가 나온다)
     if (!holeSave || !playing || !prev || prev.idx !== idx || prev.saved || !saved) return;
-    const by = hole.savedBy && hole.savedBy !== myUid ? nameOf(hole.savedBy)?.name : null;
-    if (busyRef.current) {
-      if (by) session.setNotice(`${by}님이 ${idx + 1}번 홀을 저장했어요`);
-      return;
-    }
+    if (busyRef.current) return;
     const f = firstUnsaved(holes);
     goHole(f < 0 ? lastIdx : f);
-    if (by) session.setNotice(`${by}님이 ${idx + 1}번 홀을 저장했어요`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, saved]);
 
@@ -262,25 +262,23 @@ export default function GameScreen({
     const when = hole.savedAt ? localTime(new Date(hole.savedAt)) : null;
     return [who, when].filter(Boolean).join(" ");
   };
-  const statusChip = !holeSave ? null : editing ? (
-    <span className="hole-state editing">수정 중</span>
-  ) : !saved ? (
-    <span className="hole-state draft">
-      저장 전 · {filled}/{config.players.length}명 입력
-    </span>
-  ) : pending ? (
-    <span className="hole-state wait">
-      {session.pendingSaves ? "저장 대기 · 연결되면 올라가요" : "저장 중…"}
-    </span>
-  ) : hole.savedAt ? (
-    <span className="hole-state saved">
-      ✓ {(hole.version ?? 0) > 1 ? "수정됨" : "저장됨"} · {savedLine()}
-    </span>
-  ) : status === "done" ? null : (
-    <span className="hole-state saved">
-      ✓ 저장됨
-    </span>
-  );
+  // 이 홀 상태 한 줄 (PAR 위 고정 자리)
+  const lastAllSaved = playing && allSaved && idx === lastIdx;
+  const barStatus: [kind: string, text: string] = editing
+    ? ["editing", "수정 중 · 저장하면 수정 내역에 남아요"]
+    : recDirty
+    ? ["draft", "내 기록 입력 중"]
+    : status === "done"
+    ? saved
+      ? ["done", session.isHost ? "정산 확정 · 고칠 홀은 수정을 눌러요" : "정산 확정 · 방장만 고칠 수 있어요"]
+      : ["empty", "저장 안 된 홀 · 정산에서 빠졌어요"]
+    : !saved
+    ? ["draft", `저장 전 · ${filled}/${config.players.length}명 입력`]
+    : pending
+    ? ["wait", session.pendingSaves ? "저장 대기 · 연결되면 올라가요" : "저장 중…"]
+    : lastAllSaved
+    ? ["saved", session.isHost ? "✓ 모든 홀 저장됨 · 최종 확정을 눌러 주세요" : "✓ 모든 홀 저장됨 · 방장이 최종 확정하면 끝나요"]
+    : ["saved", `✓ ${(hole.version ?? 0) > 1 ? "수정됨" : "저장됨"}${hole.savedAt ? ` · ${savedLine()}` : ""}`];
 
   const previewNote = editing ? " (수정 미리보기)" : live ? " (저장 전 미리보기)" : "";
 
@@ -298,7 +296,6 @@ export default function GameScreen({
               <span className="pending"> · 저장 대기 {session.pendingSaves}개</span>
             )}
           </div>
-          {statusChip}
         </div>
         <button
           className="navbtn"
@@ -309,37 +306,22 @@ export default function GameScreen({
         </button>
       </div>
 
-      <div className="sheet">
-        {session.notice && (
-          <div className="notice-bar" role="status">
-            <span>{session.notice}</span>
-            <button aria-label="알림 닫기" onClick={() => session.setNotice(null)}>
-              <Icon name="close" size={14} />
-            </button>
+      {/* 아래 버튼 줄 자리를 늘 비워 둔다 (버튼이 바뀌어도 화면이 밀리지 않게) */}
+      <div className="sheet bar-space">
+        {/* 이 홀 상태: PAR 위 늘 같은 자리. 알림(다른 사람이 저장함 등)은 잠시 그 위에 겹쳐 뜬다 */}
+        <div className="status-slot">
+          <div className={`hole-status ${barStatus[0]}`} role="status">
+            {barStatus[1]}
           </div>
-        )}
-        {status === "done" && !editing && (
-          // 안내는 두 줄로 (문장마다 한 줄)
-          <div className="ro-banner">
-            {session.isHost ? (
-              <>
-                <span>정산이 확정된 라운드예요.</span>
-                <span>고칠 홀에서 '수정'을 누르면 돼요.</span>
-              </>
-            ) : (
-              <>
-                <span>정산이 확정된 라운드입니다.</span>
-                <span>방장만 수정할 수 있어요.</span>
-              </>
-            )}
-          </div>
-        )}
-        {editing && (
-          <div className="ro-banner edit">
-            <span>{idx + 1}번 홀 수정 중이에요.</span>
-            <span>저장하면 수정 내역에 남고, 취소하면 원래대로 돌아가요.</span>
-          </div>
-        )}
+          {session.notice && (
+            <div className="notice-bar" role="alert">
+              <span>{session.notice}</span>
+              <button aria-label="알림 닫기" onClick={() => session.setNotice(null)}>
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+          )}
+        </div>
         <div className="par-seg">
           {([3, 4, 5] as ParValue[]).map((p) => (
             <button
@@ -554,48 +536,56 @@ export default function GameScreen({
         </div>
       </div>
 
-      {/* ---- 아래 버튼: 저장 / 수정 / 최종 확정 ---- */}
-      {editing ? (
-        <div className="edit-bar">
-          <button className="btn-ghost" onClick={() => setDraft(null)}>
-            취소
-          </button>
-          <button
-            className="btn-primary"
-            disabled={!allIn || editItems.length === 0}
-            onClick={saveEdit}
-          >
-            {!allIn ? "모두 입력해 주세요" : editItems.length === 0 ? "바뀐 게 없어요" : "저장"}
-          </button>
-        </div>
-      ) : holeSave && !recDirty && (live || canEdit) ? (
-        <div className="hole-bar">
-          {live ? (
+      {/* ---- 아래 바: 버튼 (저장 / 수정 → 취소·저장 / 최종 확정). 늘 같은 자리 ---- */}
+      <div className="play-bar" data-unsaved={editing || recDirty || undefined}>
+        <div className="pb-actions">
+          {editing ? (
+            <>
+              <button className="btn-ghost" onClick={() => setDraft(null)}>
+                취소
+              </button>
+              <button
+                className="btn-primary"
+                disabled={!allIn || editItems.length === 0}
+                onClick={saveEdit}
+              >
+                {!allIn ? "모두 입력해 주세요" : editItems.length === 0 ? "바뀐 게 없어요" : "저장"}
+              </button>
+            </>
+          ) : recDirty ? (
+            <button className="btn-primary" disabled>
+              내 기록을 저장하거나 취소해 주세요
+            </button>
+          ) : live ? (
             <button className="btn-primary" disabled={!allIn} onClick={saveHole}>
-              {allIn ? `${idx + 1}번 홀 저장` : `모두 입력하면 저장할 수 있어요 (${filled}/${config.players.length})`}
+              {idx + 1}번 홀 저장
             </button>
           ) : (
             <>
-              <button className="btn-ghost" onClick={startEdit}>
-                수정
-              </button>
+              {canEdit && (
+                <button className="btn-ghost" onClick={startEdit}>
+                  수정
+                </button>
+              )}
               {playing && !allSaved && idx < frontier && (
                 <button className="btn-ghost go" onClick={() => go(frontier)}>
                   {frontier + 1}번 홀로 <Icon name="chevronRight" size={16} className="inline-ic" />
                 </button>
               )}
-              {playing && allSaved && idx === lastIdx && session.isHost && (
+              {lastAllSaved && session.isHost && (
                 <button className="btn-primary" onClick={onFinish}>
                   <Icon name="finish" size={18} className="inline-ic" /> 최종 확정
                 </button>
               )}
+              {status === "done" && (
+                <button className="btn-ghost go" onClick={onShowResult}>
+                  정산 결과 <Icon name="chevronRight" size={16} className="inline-ic" />
+                </button>
+              )}
             </>
           )}
-          {playing && allSaved && idx === lastIdx && !session.isHost && (
-            <div className="hole-bar-note">방장이 최종 확정하면 정산이 끝나요</div>
-          )}
         </div>
-      ) : null}
+      </div>
     </>
   );
 }

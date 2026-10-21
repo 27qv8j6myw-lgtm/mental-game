@@ -1999,8 +1999,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   position: fixed;
   left: 0;
   right: 0;
-  /* 탭바는 하단 안전 영역(홈 인디케이터)만큼 높아지므로 같은 만큼 올려 겹치지 않게 */
-  bottom: calc(76px + var(--safe-bottom));
+  /* 정산 결과 화면 맨 아래 (하단 안전 영역 위) */
+  bottom: calc(16px + var(--safe-bottom));
   padding: 0 16px;
   max-width: 520px;
   margin: 0 auto;
@@ -4366,41 +4366,22 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
 }
 /* ============ 홀마다 저장 ============ */
-/* 홀 번호 아래 상태: 저장 전(주황) · 저장됨(초록) · 수정 중(파랑) · 저장 대기 */
-.hole-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-top: 6px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.hole-state.draft,
-.hole-state.wait {
-  background: var(--mustard-soft);
-  color: #b45309;
-}
-.hole-state.saved {
-  background: var(--gain-soft);
-  color: var(--gain);
-}
-.hole-state.editing {
-  background: var(--olive-soft);
-  color: var(--olive-deep);
-}
 /* 잠긴(저장된) 홀: 고른 스코어는 또렷하게, 나머지만 흐리게 */
 .score-grid.locked .sbtn.active:disabled {
   opacity: 1;
 }
 /* 알림 한 줄 (다른 사람이 저장함 등) */
+/* 알림: 화면을 밀지 않게 상태 자리 위에 잠시 겹쳐 띄운다 */
 .notice-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--olive-soft);
@@ -4417,49 +4398,93 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   padding: 2px;
   color: inherit;
 }
-.ro-banner.edit {
-  background: var(--olive-soft);
-  color: var(--olive-deep);
-}
-/* 아래 버튼 줄: 저장 / 수정 / N번 홀로 / 최종 확정 (탭바 바로 위) */
-.hole-bar {
+/* 홀 진행 아래 바: 이 홀 상태 한 줄 + 버튼 (탭바 대신 화면 맨 아래) */
+.play-bar {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(76px + var(--safe-bottom));
+  bottom: 0;
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  padding: 12px 16px calc(12px + var(--safe-bottom));
+  background: rgba(255, 255, 255, 0.96);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
   z-index: 30;
 }
-.hole-bar > button {
-  flex: 1;
-  min-width: 0;
-  padding: 14px 10px;
-  font-size: 15px;
+/* 이 홀 상태: PAR 위 늘 같은 자리 (저장 전 주황 · 저장됨 초록 · 수정 중 파랑 · 확정/저장 안 됨 회색) */
+/* 위(홀 번호 줄)·아래(PAR) 간격을 PAR 와 '이번 홀 스코어' 사이와 같은 14px 로 */
+.status-slot {
+  position: relative;
+  margin: -4px 0 14px;
 }
-.hole-bar > .btn-ghost {
-  background: var(--paper);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+.hole-status {
+  height: 34px;
+  line-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--paper-3);
+  color: var(--ink-faint);
 }
-.hole-bar > .btn-ghost.go {
+.hole-status.draft,
+.hole-status.wait {
+  background: var(--mustard-soft);
+  color: #b45309;
+}
+.hole-status.saved {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.hole-status.editing {
+  background: var(--olive-soft);
   color: var(--olive-deep);
 }
-.hole-bar-note {
-  flex: 1 0 100%;
-  text-align: center;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--ink-soft);
-  background: var(--paper);
-  border-radius: 10px;
-  padding: 6px;
+.pb-actions {
+  display: flex;
+  gap: 8px;
 }
-.app:has(.hole-bar) .sheet {
-  padding-bottom: calc(190px + var(--safe-bottom));
+.pb-actions > button {
+  flex: 1;
+  min-width: 0;
+  padding: 13px 10px;
+  font-size: 15px;
+}
+/* 테두리 있는 버튼(수정·취소)과 높이를 맞춘다 */
+.pb-actions > .btn-primary {
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+.pb-actions > .btn-ghost.go {
+  color: var(--olive-deep);
+}
+/* 홀 진행 화면: 아래 바 자리 (늘 같은 여백) */
+.sheet.bar-space {
+  padding-bottom: calc(96px + var(--safe-bottom));
+}
+/* 홀 수정·내 기록 초안 중: 상단 버튼은 그 자리에 두고 잠근다 */
+.topbar .actions.locked {
+  opacity: 0.35;
+  pointer-events: none;
+}
+/* 상단: 홀 진행 ↔ 정산 결과 아이콘 (지금 화면은 파랗게) */
+.topbar .icon-btn.on {
+  background: var(--olive-soft);
+  color: var(--olive);
+}
+.topbar .brand {
+  min-width: 0;
+}
+.topbar .brand-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* 내 기록: 저장된 기록이 있으면 ✓ */
 .my-rec-chip.done {
