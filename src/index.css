@@ -4251,22 +4251,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: #6b7280;
   border-color: #6b7280;
 }
-/* 반원 아래 방향 비율: 왼쪽 끝 훅 · 가운데 기타 · 오른쪽 끝 슬라이스 (비율 크게, 홀 수 작게) */
+/* 반원 아래 양 끝 방향 비율: 왼쪽 훅 · 오른쪽 슬라이스 (비율 크게, 홀 수 작게) */
 .ts-dirs {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
-  gap: 4px;
-  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 4px;
 }
 .ts-dir {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  min-width: 0;
-}
-.ts-dir.etc {
-  align-items: center;
 }
 .ts-dir.slice {
   align-items: flex-end;
@@ -4276,7 +4271,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   align-items: center;
   gap: 2px;
   font-family: var(--font-num);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
   color: var(--ink);
   white-space: nowrap;
@@ -4287,16 +4282,38 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .ts-dir.slice svg {
   color: #60a5fa;
 }
-.ts-dir.etc b {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--ink-faint);
-}
 .ts-dir small {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+/* 기타(짧음): 반원에 넣지 않고 아래 가운데 한 줄 */
+.ts-etc {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--paper-2);
+}
+.ts-etc span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.ts-etc b {
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--ink);
+}
+.ts-etc small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
 }
 .ts-dir-note {
   display: block;
