@@ -4,15 +4,11 @@ import { useRound } from "../round";
 import { useBack } from "../back";
 import { loadStats, type PersonStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
+import RecDate from "./RecDate";
 import { GAME_MODE_LABEL, wonSigned } from "../util";
 
 const tone = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
 const money = (n: number) => (n === 0 ? "±0원" : wonSigned(n));
-/** 2026-10-20 → 10/20 */
-const md = (d: string) => {
-  const [, m, day] = d.split("-");
-  return m && day ? `${Number(m)}/${Number(day)}` : d;
-};
 
 /** 승·패·무 표기: 돈을 딴 라운드는 승, 잃은 라운드는 패, 본전은 무 */
 const record = (p: PersonStats) =>
@@ -290,7 +286,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
               {person.history.map((r) => (
                 // 누르면 그 라운드의 정산 결과 화면으로 (닫으면 다시 이 화면)
                 <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
-                  <span className="st-rec-date">{md(r.date)}</span>
+                  <RecDate date={r.date} />
                   <span className="st-row-main">
                     <span className="st-row-name">
                       <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>

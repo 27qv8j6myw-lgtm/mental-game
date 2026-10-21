@@ -5,15 +5,11 @@ import { useBack } from "../back";
 import { loadRecordRounds, summarize, type RecordRound } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
+import RecDate from "./RecDate";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import TrendChart from "./TrendChart";
 import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
 
-/** 2026-10-20 → 10/20 */
-const md = (d: string) => {
-  const [, m, day] = d.split("-");
-  return m && day ? `${Number(m)}/${Number(day)}` : d;
-};
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 const mean = (xs: number[]) => (xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length);
 
@@ -278,7 +274,7 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                     key={r.roundId}
                     onClick={() => openDetail(r)}
                   >
-                    <span className="st-rec-date">{md(r.date)}</span>
+                    <RecDate date={r.date} />
                     <span className="st-row-main">
                       <span className="st-row-name">
                         <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
@@ -293,9 +289,10 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
                         {r.differential != null && ` · 보정 ${r.differential.toFixed(1)}`}
                       </span>
                     </span>
-                    <span className="st-row-amt">
-                      {r.summary.strokes}타
-                      <small className="rr-rel"> {relLabel(r.summary.toPar)}</small>
+                    {/* 타수는 오른쪽, 파 대비는 고정 폭: 줄마다 '타' 자리가 같다 */}
+                    <span className="st-row-amt st-rec-score">
+                      <span className="s">{r.summary.strokes}타</span>
+                      <small className="rr-rel">{relLabel(r.summary.toPar)}</small>
                     </span>
                     <Icon name="chevronRight" size={16} className="st-row-go" />
                   </button>
