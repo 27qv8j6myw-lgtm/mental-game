@@ -12,7 +12,6 @@ export interface ScorecardRead {
   date: string | null;
   courseName: string | null;
   teeName: string | null;
-  playerName: string | null;
   holes: {
     hole: number;
     par: number | null;

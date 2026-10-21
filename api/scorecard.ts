@@ -26,17 +26,19 @@ const json = (status: number, body: unknown) =>
 const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: "null" }] });
 const nInt = nullable({ type: "integer" });
 
-/** 돌려받을 모양. 읽을 수 없는 칸은 null */
+/**
+ * 돌려받을 모양. 읽을 수 없는 칸은 null.
+ * API 는 null 을 허용하는(anyOf) 칸을 16개까지만 받아서, 패널티·샌드샷은 빈칸이면 0 으로 받는다 (지금 14개)
+ */
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["isScorecard", "date", "courseName", "teeName", "playerName", "holes", "totals"],
+  required: ["isScorecard", "date", "courseName", "teeName", "holes", "totals"],
   properties: {
     isScorecard: { type: "boolean" },
     date: nullable({ type: "string", format: "date" }),
     courseName: nullable({ type: "string" }),
     teeName: nullable({ type: "string" }),
-    playerName: nullable({ type: "string" }),
     holes: {
       type: "array",
       items: {
@@ -50,8 +52,8 @@ const SCHEMA = {
           putts: nInt,
           fairway: nullable({ type: "string", enum: ["hit", "left", "right", "short"] }),
           gir: nullable({ type: "boolean" }),
-          penalty: nInt,
-          sand: nInt,
+          penalty: { type: "integer" },
+          sand: { type: "integer" },
         },
       },
     },
@@ -77,14 +79,14 @@ const PROMPT = `This image should be a golf scorecard, often a screenshot export
 - date: the round date as YYYY-MM-DD.
 - courseName: the course name exactly as printed, without a trailing hole count such as "(18)". Example: "클럽72 (오션)".
 - teeName: the label of the yardage row (the tee), e.g. "Regular", "White", "Blue".
-- playerName: the name of the player whose scores you read. If there are several players, read only the first player.
+- If there are several players on the card, read only the first player's rows.
 - holes: one entry per hole that appears on the card, in order (9 or 18 entries). hole is the hole number.
   - par: from the par row (파 / Par).
   - score: the player's strokes on that hole. The number is often drawn inside a square or circle whose shape or color shows birdie/par/bogey; read only the number. Ignore small dots under the number (they mark handicap stroke holes).
   - putts: from the putts row (퍼트 / Putts).
   - fairway: from the fairway row (페어웨이 / Fairway / FIR). A target or circle symbol means the fairway was hit: "hit". An arrow pointing left or up-left means a miss to the left: "left". An arrow pointing right or up-right means a miss to the right: "right". An arrow pointing down means the drive came up short: "short". Blank cells (par 3 holes, or nothing recorded): null.
   - gir: from the green-in-regulation row (그린적중률 / GIR). A check mark: true. A blank cell when the row exists: false. No such row: null.
-  - penalty: the number in the penalty row (패널티 / Penalty). sand: the number in the sand shot row (샌드샷 / Sand).
+  - penalty: the number in the penalty row (패널티 / Penalty). sand: the number in the sand shot row (샌드샷 / Sand). Use 0 when the cell is blank, unreadable or the row does not exist.
 - totals: the subtotals printed on the card for the player's strokes and putts: OUT (아웃, holes 1-9), IN (인, holes 10-18) and TOTAL (합계). Use null when a subtotal is not printed.
 
 Copy what is printed. Never compute or guess a value; if a cell is unreadable or missing, use null.`;
