@@ -17,6 +17,7 @@ import {
   relLabel,
   scoreLabel,
   settleNote,
+  teeLabel,
   won,
   wonSigned,
 } from "../util";
@@ -27,6 +28,8 @@ import AccountField from "./AccountField";
 import { useRound } from "../round";
 import { useAuth } from "../auth";
 import { settledHoles } from "../model";
+import ShareImageSheet from "./ShareImageSheet";
+import { courseTitle, renderSettlement } from "../shareImage";
 
 /** 클립보드 복사 (구형 브라우저는 textarea 로 대체) */
 async function copyToClipboard(text: string) {
@@ -87,6 +90,8 @@ export default function ResultsScreen({
   const [copied, setCopied] = useState<string | null>(null);
   /** 버디 추가 정산: 내역을 펼친 사람 */
   const [bdOpen, setBdOpen] = useState<Record<string, boolean>>({});
+  /** 정산 결과 이미지 공유·저장 창 */
+  const [sharing, setSharing] = useState(false);
   const isTransfer = config.payment === "transfer";
   const me = config.players.find((p) => p.id === myUid);
 
@@ -120,6 +125,46 @@ export default function ResultsScreen({
   const standings = [...config.players]
     .map((p) => ({ p, net: final.net[p.id] ?? 0 }))
     .sort((a, b) => b.net - a.net);
+
+  /** 정산 결과 이미지: 순위·금액(내역), 송금, 홀별 스코어. 내역은 최종 금액을 이루는 것만 (사전 정산 핸디는 빠진다) */
+  const makeSettlement = () =>
+    renderSettlement({
+      title: savingNow ? "중간 정산" : "최종 정산",
+      course: courseTitle(config.courseName, config.rating),
+      date: config.date,
+      teeTime: config.teeTime || undefined,
+      tee: teeLabel(config.courseTee) || undefined,
+      chips: [
+        savingNow ? `저장된 ${savedCount}/${holes.length}홀` : `${holes.length}홀`,
+        isSkins ? `스킨 1개 ${won(config.unit)}` : `타당 ${won(config.unit)}`,
+        PAYMENT_LABEL[config.payment],
+        isAdjust ? "타수 보정" : isPost ? "핸디 사후 정산" : "핸디 사전 정산",
+      ],
+      players: standings.map(({ p, net }) => {
+        const played = holes.some((h) => h.scores[p.id] != null);
+        const parts: [string, number][] = isSkins
+          ? [["스킨", skins?.net[p.id] ?? 0]]
+          : [
+              ["타당", game.net[p.id] ?? 0],
+              ["버디", bird.net[p.id] ?? 0],
+            ];
+        if (isPost) parts.push(["핸디", hc.net[p.id] ?? 0]);
+        return {
+          id: p.id,
+          name: p.name || "?",
+          gross: played ? grossOf(p.id) : null,
+          rel: played ? grossOf(p.id) - parOf(p.id) : null,
+          net,
+          parts,
+        };
+      }),
+      transfers: final.transfers.map((t) => ({
+        from: nameOf(t.fromId).name || "?",
+        to: nameOf(t.toId).name || "?",
+        amount: t.amount,
+      })),
+      holes: holes.map((h) => ({ par: h.par, scores: h.scores })),
+    });
 
   const NetList = ({ net }: { net: Record<string, number> }) => (
     <div className="card">
@@ -284,6 +329,11 @@ export default function ResultsScreen({
             )}
           </div>
         )}
+
+        <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
+          <Icon name="share" size={17} />
+          {savingNow ? "중간 정산 이미지로 공유·저장" : "정산 결과 이미지로 공유·저장"}
+        </button>
 
         {/* 내 정산: 누구에게 얼마 보내고(계좌 복사) 누구에게서 받는지 맨 위에 */}
         {me && (() => {
@@ -778,6 +828,14 @@ export default function ResultsScreen({
       </div>
 
       {editing && <RoundSettingsSheet session={session} onClose={() => setEditing(false)} />}
+      {sharing && (
+        <ShareImageSheet
+          make={makeSettlement}
+          fileName={`settlement-${config.date || "round"}.png`}
+          title={savingNow ? "중간 정산" : "정산 결과"}
+          onClose={() => setSharing(false)}
+        />
+      )}
     </>
   );
 }

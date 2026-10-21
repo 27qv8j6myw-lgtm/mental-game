@@ -1,0 +1,586 @@
+import type { CourseRating, Fairway, TeeLie } from "./types";
+import { girOf } from "./recordStats";
+import { relLabel, won, wonSigned } from "./util";
+
+/*
+ * 공유·저장용 이미지. 캔버스에 직접 그린다 (앱 글꼴을 그대로 쓰고 외부 라이브러리 없이).
+ * - 기록 라운드: 스코어카드 (전반·후반 표: 파·타수 모양·퍼트·티샷·그린적중·OB·해저드·샌드샷)
+ * - 내기 라운드: 정산 결과 (순위·금액과 내역, 송금, 홀별 스코어)
+ * 화면 크기와 상관없이 같은 모양이 나오게 고정 폭으로 그리고 2배로 저장한다
+ */
+
+const FONT = '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif';
+const NUM = 'Inter, "Pretendard Variable", Pretendard, -apple-system, sans-serif';
+const SCALE = 2;
+const C = {
+  ink: "#1f1f1f",
+  soft: "#6b6b6b",
+  faint: "#9ca3af",
+  line: "#e5e7eb",
+  fill: "#f7f7f6",
+  fill2: "#f0f1f3",
+  par: "#e9ebef",
+  blue: "#2563eb",
+  blueSoft: "#e6f0ff",
+  red: "#e11d48",
+  slate: "#4b5563",
+  gain: "#059669",
+  gainSoft: "#d1fae5",
+  loss: "#dc2626",
+  gold: "#d97706",
+  goldSoft: "#fef3c7",
+  /** 티샷 벙커 (앱 스코어카드와 같은 갈색) */
+  bunker: "#92400e",
+};
+
+type Ctx = CanvasRenderingContext2D;
+
+interface TextOpt {
+  size: number;
+  weight?: number;
+  color?: string;
+  align?: CanvasTextAlign;
+  num?: boolean;
+}
+
+function setFont(ctx: Ctx, o: TextOpt) {
+  ctx.font = `${o.weight ?? 500} ${o.size}px ${o.num ? NUM : FONT}`;
+}
+/** 글자 (y 는 글자 가운데). 그린 폭을 돌려준다 */
+function text(ctx: Ctx, s: string, x: number, y: number, o: TextOpt) {
+  setFont(ctx, o);
+  ctx.fillStyle = o.color ?? C.ink;
+  ctx.textAlign = o.align ?? "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(s, x, y);
+  return ctx.measureText(s).width;
+}
+function width(ctx: Ctx, s: string, o: TextOpt) {
+  setFont(ctx, o);
+  return ctx.measureText(s).width;
+}
+function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+function hline(ctx: Ctx, x1: number, x2: number, y: number, color = C.line) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x1, Math.round(y) - 0.5, x2 - x1, 1);
+}
+/** 알약 모양 칩 (x 는 왼쪽 끝). 칩 폭을 돌려준다 */
+function chip(ctx: Ctx, s: string, x: number, cy: number, bg: string, fg: string, size = 14) {
+  const w = width(ctx, s, { size, weight: 700 }) + 24;
+  ctx.fillStyle = bg;
+  roundRect(ctx, x, cy - 14, w, 28, 14);
+  ctx.fill();
+  text(ctx, s, x + w / 2, cy + 0.5, { size, weight: 700, color: fg, align: "center" });
+  return w;
+}
+
+/** 타수 모양: 버디 이하 빨간 원(이글은 테두리 하나 더), 파 회색 원, 보기 파란 네모, 더블 보기 이상 진회색 겹네모 */
+function scoreMark(ctx: Ctx, cx: number, cy: number, size: number, strokes: number, par: number) {
+  const rel = strokes - par;
+  const r = size / 2;
+  let fg = "#fff";
+  if (rel < 0) {
+    ctx.fillStyle = C.red;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (rel <= -2) {
+      ctx.strokeStyle = C.red;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (rel === 0) {
+    ctx.fillStyle = C.par;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    fg = C.ink;
+  } else {
+    const color = rel === 1 ? C.blue : C.slate;
+    ctx.fillStyle = color;
+    roundRect(ctx, cx - r, cy - r, size, size, size * 0.24);
+    ctx.fill();
+    if (rel >= 2) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.6;
+      roundRect(ctx, cx - r - 4, cy - r - 4, size + 8, size + 8, size * 0.3);
+      ctx.stroke();
+    }
+  }
+  text(ctx, String(strokes), cx, cy + 1, { size: Math.round(size * 0.46), weight: 800, color: fg, align: "center", num: true });
+}
+
+/** 앱 아이콘과 같은 선 (24칸 기준 경로) */
+const FAIRWAY_PATH: Record<Exclude<Fairway, "hit">, string> = {
+  left: "M15 21C15 13 13 8 6 6M6 6l2.5 3.7M6 6l4.1-1.8",
+  right: "M9 21C9 13 11 8 18 6M18 6l-2.5 3.7M18 6l-4.1-1.8",
+  short: "M12 5v13M7 13l5 5 5-5",
+};
+function strokePath(ctx: Ctx, d: string, cx: number, cy: number, box: number, color: string, lw = 2.4) {
+  const k = box / 24;
+  ctx.save();
+  ctx.translate(cx - 12 * k, cy - 12 * k);
+  ctx.scale(k, k);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke(new Path2D(d));
+  ctx.restore();
+}
+/** 티샷 방향: 원 안에 적중(◎)·훅·슬라이스·짧음. 색은 보통 파랑, 티샷이 OB·해저드면 빨강, 벙커면 갈색 */
+function fairwayMark(ctx: Ctx, cx: number, cy: number, f: Fairway, r = 15, color: string = C.blue) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  if (f === "hit") {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.33, 0, Math.PI * 2);
+    ctx.stroke();
+  } else strokePath(ctx, FAIRWAY_PATH[f], cx, cy, r * 1.25, color, 2.6);
+}
+const lieColor = (lie: TeeLie | null) => (lie === "bunker" ? C.bunker : lie ? C.loss : C.blue);
+function checkMark(ctx: Ctx, cx: number, cy: number, box = 26) {
+  strokePath(ctx, "M5 12.5l4.5 4.5L19 7", cx, cy, box, C.blue, 2.6);
+}
+
+const WEEK = "일월화수목금토";
+/** 2026-10-14 → 2026년 10월 14일 (화) */
+function longDate(date: string) {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  return `${y}년 ${m}월 ${d}일 (${WEEK[new Date(y, m - 1, d).getDay()]})`;
+}
+
+/** 그릴 글자들이 쓰는 글꼴 조각을 미리 받아 둔다 (한글 글꼴은 글자 범위별로 나뉘어 있다) */
+async function ensureFonts(strings: string[]) {
+  if (!document.fonts?.load) return;
+  const all = [...new Set([...strings.join(""), ..."0123456789+-−±,.%/()원타홀"])].join("");
+  await Promise.all(
+    [500, 600, 700, 800, 900].flatMap((w) => [
+      document.fonts.load(`${w} 20px ${FONT}`, all),
+      document.fonts.load(`${w} 20px ${NUM}`, "0123456789+-,.%"),
+    ])
+  ).catch(() => undefined);
+}
+
+/* ------------------------------ 기록 스코어카드 ------------------------------ */
+
+export interface ScorecardHole {
+  par: number;
+  /** 타수 (안 친 홀은 null) */
+  strokes: number | null;
+  putts: number | null;
+  fairway: Fairway | null;
+  /** 티샷이 떨어진 곳 (벙커·OB·해저드) */
+  lie: TeeLie | null;
+  ob: number;
+  hazard: number;
+  sand: number;
+}
+
+export interface ScorecardData {
+  date: string;
+  course: string;
+  /** "화이트 티" */
+  tee?: string;
+  player: string;
+  holes: ScorecardHole[];
+  /** 보정타수 (KGA 레이팅이 있는 18홀 라운드) */
+  differential?: number | null;
+  /** "KGA 71/130" */
+  rating?: string | null;
+}
+
+const pct = (n: number, d: number) => (d === 0 ? "—" : `${Math.round((n / d) * 100)}%`);
+
+export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasElement> {
+  await ensureFonts([d.course, d.player, d.tee ?? "", "기록보정타수파퍼트페어웨이그린적중해저드샌드샷아웃인합계버디보기더블이상훅슬라이스짧음벙커티샷멘탈게임년월일화수목금토OB·"]);
+  const W = 1000;
+  const PAD = 44;
+  const half = d.holes.length > 9;
+  const halves = half ? [d.holes.slice(0, 9), d.holes.slice(9, 18)] : [d.holes.slice(0, 9)];
+  // 머리줄 · 파 · 타수 · 퍼트 · 페어웨이 · 그린적중 · OB · 해저드 · 샌드샷
+  const ROWS = [36, 44, 82, 46, 46, 46, 46, 46, 46];
+  const TABLE_H = ROWS.reduce((a, b) => a + b, 0);
+  const TOP = 214;
+  const GAP = 34;
+  const H = TOP + halves.length * TABLE_H + (halves.length - 1) * GAP + 104;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(SCALE, SCALE);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, W, H);
+
+  // ---- 머리글: 날짜 · 골프장 · 홀/파/티 · 칩, 오른쪽에 큰 타수
+  const played = d.holes.filter((h) => h.strokes != null);
+  const strokes = played.reduce((a, h) => a + (h.strokes ?? 0), 0);
+  const parPlayed = played.reduce((a, h) => a + h.par, 0);
+  const parAll = d.holes.reduce((a, h) => a + h.par, 0);
+  text(ctx, longDate(d.date), PAD, 54, { size: 16, weight: 600, color: C.soft });
+  text(ctx, d.course || "이름 없는 라운드", PAD, 94, { size: 32, weight: 800 });
+  text(ctx, [`${d.holes.length}홀`, `파 ${parAll}`, d.tee].filter(Boolean).join(" · "), PAD, 132, {
+    size: 16,
+    weight: 500,
+    color: C.faint,
+  });
+  let cx = PAD;
+  cx += chip(ctx, "기록", cx, 172, C.gainSoft, C.gain) + 8;
+  if (d.differential != null) cx += chip(ctx, `보정타수 ${d.differential.toFixed(1)}`, cx, 172, C.blueSoft, C.blue) + 8;
+  if (d.rating) chip(ctx, d.rating, cx, 172, C.fill2, C.soft);
+  if (played.length > 0) {
+    const rel = relLabel(strokes - parPlayed);
+    const relW = width(ctx, rel, { size: 22, weight: 700, num: true });
+    text(ctx, rel, W - PAD, 76, { size: 22, weight: 700, color: C.soft, align: "right", num: true });
+    text(ctx, String(strokes), W - PAD - relW - 6, 104, { size: 66, weight: 800, align: "right", num: true });
+  }
+
+  // ---- 표: 이름칸 · 9홀 · 합계칸 2개 (전반은 아웃, 후반은 인·합계)
+  const labelW = 150;
+  const sumW = 104;
+  const holeW = (W - 2 * PAD - labelW - 2 * sumW) / 9;
+  const holeX = (i: number) => PAD + labelW + holeW * i + holeW / 2;
+  const sumX = (k: number) => PAD + labelW + holeW * 9 + sumW * k + sumW / 2;
+
+  halves.forEach((hs, hi) => {
+    const y0 = TOP + hi * (TABLE_H + GAP);
+    const sums = !half ? ["합계"] : hi === 0 ? ["아웃"] : ["인", "합계"];
+    // 합계칸 바탕
+    ctx.fillStyle = C.fill2;
+    ctx.fillRect(PAD + labelW + holeW * 9, y0, sumW * sums.length, TABLE_H);
+    hline(ctx, PAD + labelW, W - PAD, y0);
+    let y = y0;
+    const rowMid = (k: number) => y0 + ROWS.slice(0, k).reduce((a, b) => a + b, 0) + ROWS[k] / 2;
+    for (const h of ROWS) {
+      y += h;
+      hline(ctx, PAD + labelW, W - PAD, y);
+    }
+    const base = hi === 0 ? 0 : 9;
+    // 머리줄: 홀 번호
+    hs.forEach((_, i) => text(ctx, String(base + i + 1), holeX(i), rowMid(0), { size: 14, weight: 600, color: C.faint, align: "center", num: true }));
+    sums.forEach((s, k) => text(ctx, s, sumX(k), rowMid(0), { size: 14, weight: 600, color: C.faint, align: "center" }));
+
+    const labels = ["파", "", "퍼트", "페어웨이", "그린적중", "OB", "해저드", "샌드샷"];
+    labels.forEach((l, k) => l && text(ctx, l, PAD, rowMid(k + 1), { size: 17, weight: 600, color: C.ink }));
+    text(ctx, d.player || "나", PAD, rowMid(2) - 10, { size: 22, weight: 800 });
+    text(ctx, "타수", PAD, rowMid(2) + 16, { size: 14, weight: 500, color: C.faint });
+
+    // 칸마다
+    hs.forEach((h, i) => {
+      const x = holeX(i);
+      text(ctx, String(h.par), x, rowMid(1), { size: 19, weight: 600, align: "center", num: true });
+      if (h.strokes != null) scoreMark(ctx, x, rowMid(2), 46, h.strokes, h.par);
+      if (h.putts != null) text(ctx, String(h.putts), x, rowMid(3), { size: 19, weight: 600, align: "center", num: true });
+      // 티샷: 방향 표시 (OB·해저드면 빨강, 벙커면 갈색). 방향 없이 떨어진 곳만 적었으면 그 색 점
+      if (h.par >= 4 && h.fairway) fairwayMark(ctx, x, rowMid(4), h.fairway, 15, lieColor(h.lie));
+      else if (h.par >= 4 && h.lie) {
+        ctx.fillStyle = lieColor(h.lie);
+        ctx.beginPath();
+        ctx.arc(x, rowMid(4), 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (girOf(h.par, h.strokes == null ? null : h.strokes - h.par, h.putts)) checkMark(ctx, x, rowMid(5));
+      if (h.strokes != null) {
+        ([h.ob, h.hazard, h.sand] as const).forEach((v, k) =>
+          text(ctx, String(v), x, rowMid(6 + k), { size: 19, weight: 600, align: "center", num: true, color: v ? C.ink : C.faint })
+        );
+      }
+    });
+
+    // 합계칸 값: 그 구간(아웃·인) / 전체(합계)
+    const groups = sums.map((s) => (s === "합계" ? d.holes : hs));
+    groups.forEach((g, k) => {
+      const x = sumX(k);
+      const pl = g.filter((h) => h.strokes != null);
+      const st = pl.reduce((a, h) => a + (h.strokes ?? 0), 0);
+      const pp = pl.reduce((a, h) => a + h.par, 0);
+      text(ctx, String(g.reduce((a, h) => a + h.par, 0)), x, rowMid(1), { size: 19, weight: 700, align: "center", num: true });
+      if (pl.length > 0) {
+        const rel = relLabel(st - pp);
+        const sw = width(ctx, String(st), { size: 30, weight: 800, num: true });
+        const rw = width(ctx, rel, { size: 14, weight: 700, num: true });
+        const left = x - (sw + 2 + rw) / 2;
+        text(ctx, String(st), left, rowMid(2) + 2, { size: 30, weight: 800, num: true });
+        text(ctx, rel, left + sw + 2, rowMid(2) - 10, { size: 14, weight: 700, color: C.soft, num: true });
+      }
+      const putts = pl.filter((h) => h.putts != null);
+      if (putts.length > 0) text(ctx, String(putts.reduce((a, h) => a + (h.putts ?? 0), 0)), x, rowMid(3), { size: 19, weight: 700, align: "center", num: true });
+      const tee = pl.filter((h) => h.par >= 4 && h.fairway);
+      text(ctx, pct(tee.filter((h) => h.fairway === "hit").length, tee.length), x, rowMid(4), { size: 18, weight: 700, align: "center", num: true, color: tee.length ? C.ink : C.faint });
+      const gir = pl.filter((h) => h.putts != null);
+      text(ctx, pct(gir.filter((h) => girOf(h.par, (h.strokes ?? 0) - h.par, h.putts)).length, gir.length), x, rowMid(5), { size: 18, weight: 700, align: "center", num: true, color: gir.length ? C.ink : C.faint });
+      text(ctx, String(pl.reduce((a, h) => a + h.ob, 0)), x, rowMid(6), { size: 19, weight: 700, align: "center", num: true });
+      text(ctx, String(pl.reduce((a, h) => a + h.hazard, 0)), x, rowMid(7), { size: 19, weight: 700, align: "center", num: true });
+      text(ctx, String(pl.reduce((a, h) => a + h.sand, 0)), x, rowMid(8), { size: 19, weight: 700, align: "center", num: true });
+    });
+  });
+
+  // ---- 범례 · 앱 이름
+  const ly = H - 46;
+  let lx = PAD;
+  /** pad: 테두리가 바깥으로 나오는 모양(더블 보기 이상)의 여백 */
+  const legend = (draw: (x: number) => void, label: string, pad = 0) => {
+    draw(lx + 9 + pad);
+    lx += 24 + pad * 2 + text(ctx, label, lx + 24 + pad * 2, ly, { size: 13, weight: 600, color: C.soft }) + 16;
+  };
+  legend((x) => scoreMark(ctx, x, ly, 18, 3, 4), "버디");
+  legend((x) => scoreMark(ctx, x, ly, 18, 4, 4), "파");
+  legend((x) => scoreMark(ctx, x, ly, 18, 5, 4), "보기");
+  legend((x) => scoreMark(ctx, x, ly, 18, 6, 4), "더블 보기 이상", 4);
+  lx += 6;
+  legend((x) => fairwayMark(ctx, x, ly, "hit", 9), "적중");
+  legend((x) => fairwayMark(ctx, x, ly, "left", 9), "훅");
+  legend((x) => fairwayMark(ctx, x, ly, "right", 9), "슬라이스");
+  legend((x) => fairwayMark(ctx, x, ly, "short", 9), "짧음");
+  lx += 6;
+  legend((x) => fairwayMark(ctx, x, ly, "hit", 9, C.loss), "티샷 OB·해저드");
+  legend((x) => fairwayMark(ctx, x, ly, "hit", 9, C.bunker), "티샷 벙커");
+  text(ctx, "멘탈게임", W - PAD, ly, { size: 14, weight: 800, color: C.faint, align: "right" });
+  return canvas;
+}
+
+/* ------------------------------ 정산 결과 ------------------------------ */
+
+export interface SettlementPlayer {
+  id: string;
+  name: string;
+  /** 타수와 파 대비 (안 친 사람은 null) */
+  gross: number | null;
+  rel: number | null;
+  net: number;
+  /** 금액 내역: [["타당", 17000], ["버디", 4000], ["핸디", 2000]] */
+  parts: [string, number][];
+}
+
+export interface SettlementData {
+  /** "최종 정산" / "중간 정산" */
+  title: string;
+  course: string;
+  date: string;
+  teeTime?: string;
+  tee?: string;
+  /** 칩: "18홀", "타당 1,000원", "계좌이체" … */
+  chips: string[];
+  /** 정산 금액 큰 순 */
+  players: SettlementPlayer[];
+  transfers: { from: string; to: string; amount: number }[];
+  /** 홀별 파와 사람별 파 대비 타수 */
+  holes: { par: number; scores: Record<string, number | null> }[];
+}
+
+const tone = (n: number) => (n > 0 ? C.gain : n < 0 ? C.loss : C.soft);
+const shortWon = (n: number) => `${n > 0 ? "+" : n < 0 ? "-" : "±"}${Math.abs(n).toLocaleString("ko-KR")}`;
+
+export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasElement> {
+  await ensureFonts([
+    d.course,
+    d.tee ?? "",
+    ...d.chips,
+    ...d.players.map((p) => p.name + p.parts.map(([l]) => l).join("")),
+    "멘탈게임최종중간정산순위와금액송금홀별스코어주고받을이없어요에서한결과예요파아웃인합계년월일화수목금토",
+  ]);
+  const W = 720;
+  const PAD = 28;
+  const CW = W - 2 * PAD;
+  const n = d.players.length;
+  const halves = d.holes.length > 9 ? [0, 9] : [0];
+  const PROW = 74;
+  const TROW = 54;
+  const HEAD = 30;
+  const SROW = 40;
+  const halfH = HEAD + 32 + n * SROW;
+  const sec = (rows: number) => 40 + rows;
+  const H =
+    196 +
+    sec(n * PROW) +
+    26 +
+    sec(Math.max(1, d.transfers.length) * TROW) +
+    26 +
+    sec(halves.length * halfH + (halves.length - 1) * 18 + 24) +
+    72;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(SCALE, SCALE);
+  ctx.fillStyle = C.fill;
+  ctx.fillRect(0, 0, W, H);
+
+  // ---- 머리글
+  text(ctx, `멘탈게임 · ${d.title}`, PAD, 44, { size: 14, weight: 800, color: C.blue });
+  text(ctx, d.course || "이름 없는 라운드", PAD, 82, { size: 30, weight: 800 });
+  text(ctx, [longDate(d.date) + (d.teeTime ? ` ${d.teeTime}` : ""), d.tee].filter(Boolean).join(" · "), PAD, 118, {
+    size: 15,
+    weight: 500,
+    color: C.soft,
+  });
+  let cx = PAD;
+  for (const c of d.chips) cx += chip(ctx, c, cx, 156, "#fff", C.soft, 13) + 6;
+
+  const card = (y: number, h: number) => {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.06)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = "#fff";
+    roundRect(ctx, PAD, y, CW, h, 18);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 1;
+    roundRect(ctx, PAD + 0.5, y + 0.5, CW - 1, h - 1, 18);
+    ctx.stroke();
+  };
+  const title = (s: string, y: number) => text(ctx, s, PAD + 4, y + 16, { size: 16, weight: 800 });
+
+  // ---- 순위와 금액
+  let y = 196;
+  title("순위와 정산 금액", y);
+  y += 40;
+  card(y, n * PROW);
+  d.players.forEach((p, i) => {
+    const mid = y + i * PROW + PROW / 2;
+    if (i > 0) hline(ctx, PAD + 18, PAD + CW - 18, y + i * PROW);
+    const top = i === 0 && p.net > 0;
+    ctx.fillStyle = top ? C.goldSoft : C.fill2;
+    ctx.beginPath();
+    ctx.arc(PAD + 34, mid, 15, 0, Math.PI * 2);
+    ctx.fill();
+    text(ctx, String(i + 1), PAD + 34, mid + 1, { size: 15, weight: 800, color: top ? C.gold : C.soft, align: "center", num: true });
+    text(ctx, p.name || "?", PAD + 62, mid - 11, { size: 19, weight: 800 });
+    // 오른쪽: 금액, 그 왼쪽에 타수 + 파 대비 타원 (금액이 길면 그만큼 왼쪽으로)
+    const netX = PAD + CW - 20;
+    const netW = text(ctx, p.net === 0 ? "±0원" : wonSigned(p.net), netX, mid + 1, {
+      size: 21,
+      weight: 900,
+      color: tone(p.net),
+      align: "right",
+      num: true,
+    });
+    let leftEdge = netX - netW;
+    if (p.gross != null && p.rel != null) {
+      const pillCx = netX - netW - 14 - 21;
+      ctx.fillStyle = C.fill2;
+      roundRect(ctx, pillCx - 21, mid - 11, 42, 22, 11);
+      ctx.fill();
+      text(ctx, relLabel(p.rel), pillCx, mid + 1, { size: 12, weight: 800, color: C.soft, align: "center", num: true });
+      const gw = text(ctx, `${p.gross}타`, pillCx - 27, mid + 1, { size: 17, weight: 800, align: "right", num: true });
+      leftEdge = pillCx - 27 - gw;
+    }
+    // 이름 아래 금액 내역: 타수 칸과 겹치면 글자를 줄인다
+    const parts = p.parts.filter(([, v]) => v !== 0);
+    const line = parts.length ? parts.map(([l, v]) => `${l} ${shortWon(v)}`).join(" · ") : "주고받을 돈 없음";
+    const room = leftEdge - 14 - (PAD + 62);
+    const lw = width(ctx, line, { size: 13, weight: 500, num: true });
+    text(ctx, line, PAD + 62, mid + 14, {
+      size: lw > room ? Math.max(10, Math.floor((13 * room) / lw * 2) / 2) : 13,
+      weight: 500,
+      color: C.faint,
+      num: true,
+    });
+  });
+  y += n * PROW + 26;
+
+  // ---- 송금
+  title("송금", y);
+  y += 40;
+  const tn = Math.max(1, d.transfers.length);
+  card(y, tn * TROW);
+  if (d.transfers.length === 0) {
+    text(ctx, "주고받을 금액이 없어요", PAD + CW / 2, y + TROW / 2, { size: 15, weight: 600, color: C.faint, align: "center" });
+  }
+  d.transfers.forEach((t, i) => {
+    const mid = y + i * TROW + TROW / 2;
+    if (i > 0) hline(ctx, PAD + 18, PAD + CW - 18, y + i * TROW);
+    const fw = text(ctx, t.from || "?", PAD + 22, mid, { size: 17, weight: 700 });
+    strokePath(ctx, "M5 12h13M13 7l5 5-5 5", PAD + 22 + fw + 18, mid, 20, C.faint, 2.2);
+    text(ctx, t.to || "?", PAD + 22 + fw + 36, mid, { size: 17, weight: 700 });
+    text(ctx, won(t.amount), PAD + CW - 20, mid + 1, { size: 18, weight: 800, align: "right", num: true });
+  });
+  y += tn * TROW + 26;
+
+  // ---- 홀별 스코어 (사람별 타수 모양)
+  title("홀별 스코어", y);
+  y += 40;
+  card(y, halves.length * halfH + (halves.length - 1) * 18 + 24);
+  const nameW = 82;
+  const sumW = 52;
+  const inner = CW - 32;
+  const holeW = (inner - nameW - sumW) / 9;
+  const x0 = PAD + 16;
+  halves.forEach((start, hi) => {
+    const hs = d.holes.slice(start, start + 9);
+    const ty = y + 12 + hi * (halfH + 18);
+    const hx = (i: number) => x0 + nameW + holeW * i + holeW / 2;
+    const sx = x0 + nameW + holeW * 9 + sumW / 2;
+    ctx.fillStyle = C.fill;
+    ctx.fillRect(x0 + nameW + holeW * 9, ty, sumW, halfH);
+    hs.forEach((_, i) => text(ctx, String(start + i + 1), hx(i), ty + HEAD / 2, { size: 12, weight: 600, color: C.faint, align: "center", num: true }));
+    text(ctx, halves.length === 1 ? "합계" : hi === 0 ? "아웃" : "인", sx, ty + HEAD / 2, { size: 12, weight: 600, color: C.faint, align: "center" });
+    hline(ctx, x0, x0 + inner, ty + HEAD);
+    text(ctx, "파", x0 + 4, ty + HEAD + 16, { size: 13, weight: 600, color: C.soft });
+    hs.forEach((h, i) => text(ctx, String(h.par), hx(i), ty + HEAD + 16, { size: 14, weight: 600, color: C.soft, align: "center", num: true }));
+    text(ctx, String(hs.reduce((a, h) => a + h.par, 0)), sx, ty + HEAD + 16, { size: 14, weight: 700, color: C.soft, align: "center", num: true });
+    d.players.forEach((p, k) => {
+      const ry = ty + HEAD + 32 + k * SROW;
+      hline(ctx, x0, x0 + inner, ry);
+      const mid = ry + SROW / 2;
+      text(ctx, p.name || "?", x0 + 4, mid, { size: 14, weight: 700 });
+      let sum = 0;
+      let any = false;
+      hs.forEach((h, i) => {
+        const rel = h.scores[p.id];
+        if (rel == null) return;
+        any = true;
+        sum += h.par + rel;
+        scoreMark(ctx, hx(i), mid, 28, h.par + rel, h.par);
+      });
+      text(ctx, any ? String(sum) : "–", sx, mid + 1, { size: 16, weight: 800, align: "center", num: true });
+    });
+  });
+  y += halves.length * halfH + (halves.length - 1) * 18 + 24;
+
+  text(ctx, "멘탈게임에서 정산한 결과예요", W / 2, y + 36, { size: 13, weight: 600, color: C.faint, align: "center" });
+  return canvas;
+}
+
+/* ------------------------------ 공유·저장 ------------------------------ */
+
+/**
+ * 이미지 제목의 골프장: "클럽72" + 레이팅 코스 "오션 (Out)+오션 (In)" → "클럽72 (오션)".
+ * 코스 이름이 "아웃+인"처럼 전반·후반뿐이면 골프장 이름만
+ */
+export function courseTitle(name: string, rating: CourseRating | null): string {
+  if (!rating?.course) return name;
+  const parts = [
+    ...new Set(
+      rating.course
+        .split("+")
+        .map((c) => c.replace(/\s*\([^)]*\)/g, "").trim())
+        .filter((c) => c && !/^(아웃|인|out|in|전반|후반)$/i.test(c))
+    ),
+  ];
+  return parts.length > 0 ? `${name} (${parts.join("·")})` : name;
+}
+
+export const toPng = (canvas: HTMLCanvasElement) =>
+  new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("NO_IMAGE"))), "image/png")
+  );

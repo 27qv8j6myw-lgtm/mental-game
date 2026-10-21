@@ -7,6 +7,8 @@ import { differential, ratingFor } from "../kga";
 import type { CourseRating, Session } from "../types";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
+import ShareImageSheet from "./ShareImageSheet";
+import { courseTitle, renderScorecard } from "../shareImage";
 
 /**
  * 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프레이팅.
@@ -80,6 +82,30 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
     );
   const tee = teeLabel(config.courseTee);
   const played = Math.max(0, ...[...byPlayer.values()].map((v) => v.s.holesPlayed));
+  const [sharing, setSharing] = useState(false);
+  /** 고른 사람의 스코어카드 이미지 */
+  const makeScorecard = () => {
+    const r = ratingFor(config.rating, selected?.gender === "female" ? "F" : "M");
+    const full = holes.length === 18 && mine?.s.holesPlayed === 18;
+    return renderScorecard({
+      date: config.date,
+      course: courseTitle(config.courseName, config.rating),
+      tee: tee || undefined,
+      player: selected?.name || "나",
+      holes: (mine?.recs ?? []).map((h) => ({
+        par: h.par,
+        strokes: h.rel == null ? null : h.par + h.rel,
+        putts: h.putts,
+        fairway: h.fairway,
+        lie: h.lie,
+        ob: h.ob,
+        hazard: h.hazard,
+        sand: h.sand,
+      })),
+      differential: r && full && mine ? differential(mine.s.strokes, r.cr, r.slope) : null,
+      rating: r ? `KGA ${r.cr}/${r.slope}` : null,
+    });
+  };
 
   return (
     <>
@@ -166,6 +192,12 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
                 gross={holes.length === 18 && mine.s.holesPlayed === 18 ? mine.s.strokes : null}
               />
             </div>
+            {mine.s.holesPlayed > 0 && (
+              <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
+                <Icon name="share" size={17} />
+                스코어카드 이미지로 공유·저장
+              </button>
+            )}
 
             <div className="section-title">분석</div>
             <RecordAnalysis s={mine.s} />
@@ -175,6 +207,14 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
           </>
         )}
       </div>
+      {sharing && (
+        <ShareImageSheet
+          make={makeScorecard}
+          fileName={`scorecard-${config.date || "round"}.png`}
+          title={`${selected?.name || "나"} 스코어카드`}
+          onClose={() => setSharing(false)}
+        />
+      )}
     </>
   );
 }
