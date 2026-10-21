@@ -106,8 +106,12 @@ function RoundPlay({ session }: { session: Session }) {
 
   /** 방장: 최종 확정 (확정하면 방장만 고칠 수 있다) */
   const finalize = () => {
+    if (isRecord) {
+      if (window.confirm("라운드를 종료할까요?\n종료해도 내 기록은 계속 고칠 수 있어요.")) void round.finish();
+      return;
+    }
     if (!session.holeSave) {
-      void round.finish();
+      if (window.confirm("라운드를 종료하고 정산을 확정할까요?")) void round.finish();
       return;
     }
     const msg =
@@ -153,11 +157,6 @@ function RoundPlay({ session }: { session: Session }) {
           >
             <Icon name={isRecord ? "chart" : "trophy"} size={20} />
           </button>
-          {round.isHost && session.status === "playing" && (
-            <button className="icon-btn" aria-label="라운드 종료" disabled={busy} onClick={finalize}>
-              <Icon name="finish" size={20} />
-            </button>
-          )}
           <button className="icon-btn" aria-label="라운드 목록으로" disabled={busy} onClick={round.closeRound}>
             <Icon name="close" size={20} />
           </button>
@@ -178,7 +177,12 @@ function RoundPlay({ session }: { session: Session }) {
       ) : isRecord ? (
         <RecordResultsScreen session={session} />
       ) : (
-        <ResultsScreen session={session} onEditScores={() => showTab("game")} />
+        <ResultsScreen
+          session={session}
+          onEditScores={() => showTab("game")}
+          // 홀을 다 저장하기 전에 끝내기 (방장, 비·시간 문제로 일찍 마칠 때). 다 저장했으면 아래 '최종 확정'
+          onFinishEarly={round.isHost && session.status === "playing" && unsaved > 0 ? finalize : undefined}
+        />
       )}
 
       {/* 정산 결과·기록 분석 화면의 라운드 종료 (홀 진행에서는 아래 버튼 줄에 있다).

@@ -246,7 +246,7 @@ export default function RoundsHomeScreen({
               className="input code-input"
               placeholder="초대 코드 4자리"
               inputMode="numeric"
-              maxLength={4}
+              // (maxLength 를 두면 "…코드: 1234" 를 붙여 넣을 때 앞 4글자만 남아 빈칸이 된다)
               value={code}
               onChange={(e) =>
                 setCode(e.target.value.replace(/\D/g, "").slice(0, 4))

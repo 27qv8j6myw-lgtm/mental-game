@@ -175,7 +175,8 @@ export default function RoundSettingsSheet({
         ),
       };
       const items = changes();
-      if (session.status === "done" && items.length > 0) {
+      // 돈이 바뀌는 변경이라 라운드 중이든 종료 후든 모두에게 보이는 수정 내역에 남긴다
+      if (items.length > 0) {
         const by = cfg.players.find((p) => p.id === myUid)?.name || "방장";
         next = appendEditLog(next, by, items);
       }

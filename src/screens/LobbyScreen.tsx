@@ -445,7 +445,15 @@ export default function LobbyScreen() {
             방장이 시작하기를 기다리는 중…
           </button>
         )}
-        <button className={`btn-ghost ${isHost ? "del" : ""}`} onClick={() => void leave()}>
+        <button
+          className={`btn-ghost ${isHost ? "del" : ""}`}
+          onClick={() => {
+            const msg = isHost
+              ? "라운드를 삭제할까요?\n참여한 사람 모두 이 라운드에서 나가게 돼요."
+              : "이 라운드에서 나갈까요?\n다시 들어오려면 코드를 입력해야 해요.";
+            if (window.confirm(msg)) void leave();
+          }}
+        >
           {isHost ? "라운드 삭제" : "나가기"}
         </button>
       </div>

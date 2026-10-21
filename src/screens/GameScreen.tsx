@@ -76,6 +76,12 @@ export default function GameScreen({
   const inputOn = live || editing;
   const filled = config.players.filter((p) => view.scores[p.id] != null).length;
   const allIn = filled === config.players.length;
+  const missing = config.players.filter((p) => view.scores[p.id] == null);
+  /** 저장 버튼: 누가 남았는지 (두 명까지는 이름, 그 이상은 인원) */
+  const missingLabel =
+    missing.length <= 2
+      ? `${missing.map((p) => p.name || "?").join("·")} 입력하면 저장`
+      : `${missing.length}명 더 입력하면 저장`;
   const pending = session.pendingHoles.has(idx);
 
   // ---- 내 기록 (퍼트·티샷·벌타): 내 이름을 눌러 열고, 저장/취소로 끝낸다 ----
@@ -105,6 +111,20 @@ export default function GameScreen({
     if (!busy && i >= 0 && i <= maxIdx) goHole(i);
   };
 
+  /** 홀이 저장돼 넘어왔을 때 상태 줄에 잠깐 띄우는 한 줄 (팝업 아님) */
+  const [moved, setMoved] = useState<{ hole: number; text: string } | null>(null);
+  useEffect(() => {
+    if (!moved) return;
+    const t = setTimeout(() => setMoved(null), 3000);
+    return () => clearTimeout(t);
+  }, [moved]);
+  /** 다른 사람 저장으로 홀이 바뀐 직후엔 잠깐 점수 터치를 받지 않는다 (누르던 손가락이 다음 홀을 찍지 않게) */
+  const lockUntil = useRef(0);
+  // 홀이 바뀌면 맨 위로 (홀 번호와 상태 줄이 보이게)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [idx]);
+
   // 보고 있던 홀이 (다른 사람에 의해) 저장되면 저장 안 된 첫 홀로 따라간다. 앞 홀을 다시 보는 중이면 그대로
   const seen = useRef<{ idx: number; saved: boolean } | null>(null);
   const busyRef = useRef(busy);
@@ -112,11 +132,16 @@ export default function GameScreen({
   useEffect(() => {
     const prev = seen.current;
     seen.current = { idx, saved };
-    // (따로 알리지 않는다: 다음 홀로 넘어가고, 돌아가 보면 '저장됨 · 누가'가 나온다)
     if (!holeSave || !playing || !prev || prev.idx !== idx || prev.saved || !saved) return;
     if (busyRef.current) return;
     const f = firstUnsaved(holes);
-    goHole(f < 0 ? lastIdx : f);
+    const to = f < 0 ? lastIdx : f;
+    if (hole.savedBy && hole.savedBy !== myUid) {
+      lockUntil.current = Date.now() + 600;
+      const by = nameOf(hole.savedBy)?.name || "?";
+      setMoved({ hole: to, text: `${by}님이 ${idx + 1}번 홀 저장${to !== idx ? ` → ${to + 1}번 홀` : ""}` });
+    }
+    goHole(to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, saved]);
 
@@ -192,6 +217,7 @@ export default function GameScreen({
     }
   };
   const onPar = (p: ParValue) => {
+    if (Date.now() < lockUntil.current) return;
     if (editing) {
       // PAR 를 낮추면 더블파를 넘는 스코어는 더블파로 맞춘다
       setDraft({
@@ -204,6 +230,10 @@ export default function GameScreen({
     } else if (live) setPar(idx, p);
   };
   const onScore = (pid: string, s: number) => {
+    if (Date.now() < lockUntil.current) return;
+    // 저장 전 홀은 모두가 함께 입력하므로, 같은 값을 다시 눌러도(확인하려고·두 번 눌림) 지우지 않는다.
+    // 지우기는 수정 초안에서만 같은 값을 다시 눌러서
+    if (live && view.scores[pid] === s) return;
     const next = view.scores[pid] === s ? null : s;
     if (editing) setDraft({ ...draft, scores: { ...draft.scores, [pid]: next } });
     else if (live) setScore(idx, pid, next);
@@ -219,7 +249,10 @@ export default function GameScreen({
     // (내 기록 초안이 있으면 이 버튼이 숨겨져 있다: 내 기록을 먼저 저장/취소)
     if (!live || !allIn) return;
     session.saveHole(idx, view.par, fullScores(), []);
-    if (idx < lastIdx) goHole(idx + 1);
+    if (idx < lastIdx) {
+      setMoved({ hole: idx + 1, text: `✓ ${idx + 1}번 홀 저장 → ${idx + 2}번 홀` });
+      goHole(idx + 1);
+    }
   };
   const startEdit = () => {
     setRec(null);
@@ -264,7 +297,9 @@ export default function GameScreen({
   };
   // 이 홀 상태 한 줄 (PAR 위 고정 자리)
   const lastAllSaved = playing && allSaved && idx === lastIdx;
-  const barStatus: [kind: string, text: string] = editing
+  const barStatus: [kind: string, text: string] = moved && moved.hole === idx && !editing && !recDirty
+    ? ["saved", moved.text]
+    : editing
     ? ["editing", "수정 중 · 저장하면 수정 내역에 남아요"]
     : recDirty
     ? ["draft", "내 기록 입력 중"]
@@ -403,6 +438,7 @@ export default function GameScreen({
                       {view.par === 3 ? "파3 보정 없음" : `${adj}타 보정`}
                     </span>
                   )}
+                  {(live || editing) && rel == null && <span className="miss-chip">미입력</span>}
                   {skinWin && skin && (
                     <span className="win-badge">
                       <Icon name="trophy" size={12} />
@@ -410,11 +446,11 @@ export default function GameScreen({
                     </span>
                   )}
                   <span className={`pnet ${net > 0 ? "pos" : net < 0 ? "neg" : ""}`}>
-                    {net === 0 ? "±0" : wonSigned(net)}
+                    <small>누적</small> {net === 0 ? "±0" : wonSigned(net)}
                   </span>
                 </div>
                 <div
-                  className={`score-grid ${inputOn ? "" : "locked"}`}
+                  className={`score-grid main-score ${inputOn ? "" : "locked"}`}
                   style={{ gridTemplateColumns: `repeat(${scoreOpts.length}, 1fr)` }}
                 >
                   {scoreOpts.map((s) => (
@@ -558,7 +594,7 @@ export default function GameScreen({
             </button>
           ) : live ? (
             <button className="btn-primary" disabled={!allIn} onClick={saveHole}>
-              {idx + 1}번 홀 저장
+              {allIn ? `${idx + 1}번 홀 저장` : missingLabel}
             </button>
           ) : (
             <>

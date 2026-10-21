@@ -67,9 +67,12 @@ const AMT_MIN = 9;
 export default function ResultsScreen({
   session,
   onEditScores,
+  onFinishEarly,
 }: {
   session: Session;
   onEditScores: () => void;
+  /** 방장: 홀을 다 저장하기 전에 라운드 끝내기 (없으면 버튼을 숨긴다) */
+  onFinishEarly?: () => void;
 }) {
   const { config } = session;
   // 정산은 저장된 홀만 (홀 저장 방식에서 입력 중인 홀은 빠진다)
@@ -239,7 +242,7 @@ export default function ResultsScreen({
     <>
       <div className="result-hero">
         <div className="big">
-          <Icon name="trophy" size={22} className="inline-ic" /> 최종 정산
+          <Icon name="trophy" size={22} className="inline-ic" /> {savingNow ? "중간 정산" : "최종 정산"}
         </div>
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
           {savingNow ? `저장된 ${savedCount}/${holes.length}홀 기준` : `${playedHoles}개 홀 진행`} ·{" "}
@@ -265,8 +268,69 @@ export default function ResultsScreen({
             <button className="btn-line" onClick={() => setEditing(true)}>
               정산 설정 수정
             </button>
+            {onFinishEarly && (
+              <button className="btn-line warn" onClick={onFinishEarly}>
+                라운드 일찍 끝내기
+              </button>
+            )}
           </div>
         )}
+
+        {/* 내 정산: 누구에게 얼마 보내고(계좌 복사) 누구에게서 받는지 맨 위에 */}
+        {me && (() => {
+          const mine = final.transfers.filter((t) => t.fromId === me.id || t.toId === me.id);
+          const net = final.net[me.id] ?? 0;
+          return (
+            <>
+              <div className="section-title">{savingNow ? "내 정산 (지금까지)" : "내 정산"}</div>
+              <div className="card my-settle">
+                <div className="ms-total">
+                  <span>{net > 0 ? "받을 돈" : net < 0 ? "보낼 돈" : "주고받을 돈 없음"}</span>
+                  <b className={tone(net)}>{net === 0 ? "±0원" : wonSigned(net)}</b>
+                </div>
+                {mine.map((t, i) => {
+                  const pay = t.fromId === me.id;
+                  const other = nameOf(pay ? t.toId : t.fromId);
+                  return (
+                    <div className="ms-row" key={i}>
+                      <div className="ms-line">
+                        <Avatar photoUrl={other.photoUrl} gender={other.gender} size={22} />
+                        <span className="ms-who">
+                          {other.name || "?"}
+                          {pay ? "에게 보내기" : "에게서 받기"}
+                        </span>
+                        <b className={pay ? "neg" : "pos"}>{won(t.amount)}</b>
+                      </div>
+                      {/* 계좌이체 + 확정된 라운드에서만: 은행 앱에 붙여 넣기 쉽게 계좌번호만 복사 */}
+                      {pay && isTransfer && !savingNow && (
+                        <div className="ms-acct">
+                          {other.bankAccount ? (
+                            <>
+                              <span>
+                                {other.bankName} {other.bankAccount}
+                              </span>
+                              <button
+                                className="acct-copy"
+                                onClick={() => void copy(`m${i}`, other.bankAccount ?? "")}
+                              >
+                                {copied === `m${i}` ? "복사됨 ✓" : "계좌번호 복사"}
+                              </button>
+                            </>
+                          ) : (
+                            <span className="acct-missing">{other.name || "?"} 님이 아직 계좌를 입력하지 않았어요</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {savingNow && mine.length > 0 && (
+                  <div className="ms-note">최종 확정 뒤에 송금해 주세요.</div>
+                )}
+              </div>
+            </>
+          );
+        })()}
 
         <div className="section-title">순위</div>
         <div className="standings">
@@ -276,7 +340,10 @@ export default function ResultsScreen({
             <div className="standing" key={s.p.id}>
               <div className={`rank ${i === 0 && s.net > 0 ? "top" : ""}`}>{i + 1}</div>
               <Avatar photoUrl={s.p.photoUrl} gender={s.p.gender} size={26} />
-              <span className="nm">{s.p.name || "?"}</span>
+              <span className="nm">
+                {s.p.name || "?"}
+                {s.p.id === myUid && <span className="me-tag">나</span>}
+              </span>
               <span className="st-pill">
                 <b>{played ? `${grossOf(s.p.id)}타` : "-"}</b>
                 <small>{played ? relLabel(grossOf(s.p.id) - parOf(s.p.id)) : "-"}</small>
@@ -498,7 +565,9 @@ export default function ResultsScreen({
         )}
 
         {/* 4) 최종 송금 */}
-        <div className="section-title">{N(4)} 최종 송금 (최소 횟수)</div>
+        <div className="section-title">
+          {N(4)} {savingNow ? "지금까지 송금 (최소 횟수)" : "최종 송금 (최소 횟수)"}
+        </div>
         {isTransfer && me && (
           <div className="card my-acct">
             <AccountField
@@ -512,7 +581,8 @@ export default function ResultsScreen({
             />
           </div>
         )}
-        <Transfers list={final.transfers} withAccount={isTransfer} />
+        {/* 라운드 중엔 계좌·복사를 숨긴다 (확정 전에 송금하지 않게) */}
+        <Transfers list={final.transfers} withAccount={isTransfer && !savingNow} />
 
         {/* 5) 홀별 검증 */}
         <div className="section-title" style={{ marginTop: 20 }}>

@@ -51,6 +51,13 @@ export default function RecordGameScreen({
   const savedRel = me ? hole.scores[me.id] ?? null : null;
   const savedStat = (me && holeStats[idx]?.[me.id]) || EMPTY_STAT;
   const [draft, setDraft] = useState<Draft | null>(null);
+  // 저장 직후 1초는 같은 자리의 '라운드 종료'를 보이지 않는다 (저장을 두 번 눌러 종료되지 않게)
+  const [justSaved, setJustSaved] = useState(false);
+  useEffect(() => {
+    if (!justSaved) return;
+    const t = setTimeout(() => setJustSaved(false), 1000);
+    return () => clearTimeout(t);
+  }, [justSaved]);
   const d: Draft =
     draft && draft.hole === idx ? draft : { hole: idx, par: hole.par, rel: savedRel, stat: savedStat };
   const dirty = d.par !== hole.par || d.rel !== savedRel || !sameStat(d.stat, savedStat);
@@ -80,6 +87,7 @@ export default function RecordGameScreen({
     if (d.rel !== savedRel) setScore(idx, me.id, d.rel);
     if (!sameStat(d.stat, savedStat)) setStat(idx, me.id, d.stat);
     setDraft(null);
+    setJustSaved(true);
     // 이 홀 스코어를 처음 저장하면 다음 홀로
     if (savedRel == null && d.rel != null && idx < holes.length - 1) goHole(idx + 1);
   };
@@ -152,7 +160,7 @@ export default function RecordGameScreen({
 
               <div className="rec-label">스코어</div>
               <div
-                className="score-grid"
+                className="score-grid main-score"
                 style={{ gridTemplateColumns: `repeat(${scoreOpts.length}, 1fr)` }}
               >
                 {scoreOpts.map((s) => (
@@ -222,7 +230,7 @@ export default function RecordGameScreen({
                   저장
                 </button>
               </>
-            ) : session.isHost && session.status === "playing" && idx === holes.length - 1 ? (
+            ) : session.isHost && session.status === "playing" && idx === holes.length - 1 && !justSaved ? (
               <button className="btn-primary" onClick={onFinish}>
                 <Icon name="finish" size={18} className="inline-ic" /> 라운드 종료
               </button>

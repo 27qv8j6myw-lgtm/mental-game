@@ -637,10 +637,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   flex: none;
   width: 100%;
 }
-/* 대기실 방장의 라운드 삭제: 위 버튼과 같은 글씨 크기, 빨간 글씨 */
+/* 대기실 방장의 라운드 삭제: 위 버튼과 같은 글씨 크기, 빨간 글씨.
+   시작 버튼을 누르다 잘못 누르지 않게 가운데 글자 버튼으로 조금 떨어뜨린다 */
 .actionbar .btn-ghost.del {
   font-size: 15.5px;
   color: var(--loss);
+  width: auto;
+  align-self: center;
+  margin-top: 6px;
+  padding: 10px 24px;
+  background: transparent;
+  border-color: transparent;
 }
 .btn-primary {
   width: 100%;
@@ -2515,7 +2522,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .host-edit {
   display: flex;
   gap: 8px;
-  margin-bottom: 4px;
+  /* 아래 제목(내 정산·순위)과 위(정산 제목 영역)와 같은 18px 간격 */
+  margin-bottom: 18px;
 }
 .host-edit button {
   flex: 1;
@@ -4510,4 +4518,98 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .btn-save:disabled {
   background: var(--paper-3);
   color: var(--ink-faint);
+}
+/* 저장 전 홀: 아직 점수를 안 넣은 사람 */
+.miss-chip {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--mustard-soft);
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+/* 이름 옆 금액이 이번 홀이 아니라 누적임을 */
+.player-head .pnet small {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  margin-right: 2px;
+}
+/* 홀 진행 점수 버튼: 한 손·장갑으로도 누르기 쉽게 */
+.score-grid.main-score .sbtn {
+  height: 44px;
+  font-size: 14.5px;
+}
+/* 정산 결과: 방장의 '라운드 일찍 끝내기' (되돌릴 수 없어 빨간 글씨) */
+.host-edit button.warn {
+  color: var(--loss);
+}
+/* 정산 결과 맨 위: 내 정산 (누구에게 얼마 보내고 받는지) */
+.standing .nm .me-tag {
+  margin-left: 6px;
+  padding: 2px 7px;
+  vertical-align: 2px;
+}
+.my-settle {
+  padding: 14px 16px;
+}
+.ms-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.ms-total b {
+  font-size: 22px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.ms-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.ms-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ms-who {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 14.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-line b {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.ms-acct {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--paper-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.ms-acct .acct-copy {
+  padding: 9px 12px;
+}
+.ms-note {
+  margin-top: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #b45309;
 }
