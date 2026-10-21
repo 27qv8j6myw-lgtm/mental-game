@@ -120,7 +120,7 @@ export function InsightAction({
       <button className="btn-line wide insight-btn" disabled={state.busy} onClick={() => void state.generate()}>
         {state.busy ? (
           <>
-            <span className="sc-spin" aria-hidden="true" /> AI가 분석하는 중… (20초쯤)
+            <span className="sc-spin" aria-hidden="true" /> AI가 분석하는 중… (20초 소요 예정)
           </>
         ) : (
           <>
