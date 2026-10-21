@@ -6,6 +6,7 @@ import Anthropic from "@anthropic-ai/sdk";
  * 앱은 이 값을 확인 화면에 채워 보여주고, 사용자가 고친 뒤 기록 라운드로 저장한다 (src/scorecard.ts).
  * - 관리자만: 앱의 Supabase 로그인 토큰으로 Supabase 의 is_admin() (supabase/admin.sql) 을 불러 확인한다
  * - 필요한 환경변수: ANTHROPIC_API_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+ *   (워크스페이스에 속하지 않은 조직 API 키면 ANTHROPIC_WORKSPACE_ID 도 — 요청마다 어느 워크스페이스로 쓸지 알려야 한다)
  */
 
 const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
@@ -125,7 +126,12 @@ export async function POST(request: Request): Promise<Response> {
   if (image.length > MAX_IMAGE_CHARS) return json(413, { error: "TOO_LARGE" });
 
   // 함수 시간 제한(60초) 안에 끝나도록 다시 시도하지 않는다 (앱에서 다시 누르면 된다)
-  const client = new Anthropic({ timeout: 55_000, maxRetries: 0 });
+  const workspace = env.ANTHROPIC_WORKSPACE_ID?.trim();
+  const client = new Anthropic({
+    timeout: 55_000,
+    maxRetries: 0,
+    ...(workspace && { defaultHeaders: { "anthropic-workspace-id": workspace } }),
+  });
   try {
     const response = await client.beta.messages.create({
       model: MODEL,
@@ -153,10 +159,18 @@ export async function POST(request: Request): Promise<Response> {
     if (!card.isScorecard) return json(422, { error: "NOT_SCORECARD" });
     return json(200, card);
   } catch (e) {
+    console.error("scorecard", e);
     if (e instanceof Anthropic.RateLimitError) return json(429, { error: "BUSY" });
     if (e instanceof Anthropic.APIConnectionTimeoutError) return json(504, { error: "TIMEOUT" });
     if (e instanceof SyntaxError) return json(422, { error: "UNREADABLE" });
-    console.error("scorecard", e);
+    // 키·워크스페이스·크레딧 설정 문제는 관리자가 고칠 수 있게 따로 알린다
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+      return json(502, { error: "KEY_SETUP" });
+    }
+    if (e instanceof Anthropic.BadRequestError) {
+      if (/credit balance/i.test(e.message)) return json(502, { error: "NO_CREDIT" });
+      if (/workspace/i.test(e.message)) return json(502, { error: "KEY_SETUP" });
+    }
     return json(502, { error: "UPSTREAM" });
   }
 }

@@ -106,6 +106,12 @@ export async function readScorecard(img: { data: string; mediaType: string }): P
               ? "사진이 너무 커요. 다른 사진으로 시도해 주세요."
               : code === "BUSY"
                 ? "지금 요청이 많아요. 잠시 후 다시 시도해 주세요."
+                : code === "TIMEOUT"
+                  ? "사진을 읽는 데 너무 오래 걸렸어요. 다시 시도해 주세요."
+                  : code === "KEY_SETUP"
+                    ? "서버의 Anthropic API 키 설정에 문제가 있어요. 키가 워크스페이스에 속해 있는지(또는 ANTHROPIC_WORKSPACE_ID) 확인해 주세요."
+                    : code === "NO_CREDIT"
+                      ? "Anthropic 계정의 크레딧이 부족해요. 콘솔에서 결제 정보를 확인해 주세요."
                 : "사진을 읽지 못했어요. 잠시 후 다시 시도해 주세요."
   );
 }
