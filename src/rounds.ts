@@ -263,6 +263,45 @@ export async function setHoleStat(
   if (error) throw error;
 }
 
+/** 방장: 대기실에서 참여자 내보내기 (supabase/lobby.sql) */
+export async function kickPlayer(roundId: string, userUid: string): Promise<void> {
+  const db = requireDb();
+  const { error } = await db.rpc("kick_player", { p_round_id: roundId, p_user_uid: userUid });
+  if (error) throw error;
+}
+
+/** 방장: 폰 없는 동반자 넣기 (이름만, 스코어는 다른 사람이 대신 입력) */
+export async function addOfflinePlayer(roundId: string, name: string): Promise<void> {
+  const db = requireDb();
+  const { error } = await db.rpc("add_offline_player", {
+    p_round_id: roundId,
+    p_name: name,
+    p_gender: "male",
+    p_avg_score: null,
+    p_handicap: 0,
+  });
+  if (error) throw error;
+}
+
+/** 방장: 폰 없는 동반자 정보 고치기. avg_score 가 null 이면 평균 타수를 지운다 */
+export async function updateOfflinePlayer(
+  roundId: string,
+  userUid: string,
+  patch: Partial<{ name: string; gender: Gender; avg_score: number | null; handicap: number }>
+): Promise<void> {
+  const db = requireDb();
+  const { error } = await db.rpc("update_offline_player", {
+    p_round_id: roundId,
+    p_user_uid: userUid,
+    p_name: patch.name ?? null,
+    p_gender: patch.gender ?? null,
+    p_avg_score: patch.avg_score ?? null,
+    p_handicap: patch.handicap ?? null,
+    p_clear_avg: "avg_score" in patch && patch.avg_score === null,
+  });
+  if (error) throw error;
+}
+
 /**
  * 홀 저장 (supabase/holesave.sql save_hole): 파와 모든 참여자 스코어를 한 번에 확정한다.
  * 보던 사이 다른 사람이 먼저 저장했으면 HOLE_CONFLICT 로 거절된다

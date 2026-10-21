@@ -6,12 +6,17 @@ export function DifficultyChip({ slope }: { slope: number }) {
   return <span className={`diff-chip lv${d.level}`}>{d.label}</span>;
 }
 
-/** "보기 플레이어 기준 +22타 예상 (94타)" */
+/** 보기 플레이어가 표준 코스(파72·슬로프 113)에서 치는 타수 */
+const BOGEY_BASE = 90;
+
+/** "보기 플레이어(90타) 기준 +5타 · 예상 스코어 95타" */
 export function BogeyExpect({ cr, slope, par = 72 }: { cr: number; slope: number; par?: number }) {
-  const over = bogeyOverPar(cr, slope, par);
+  const expected = par + bogeyOverPar(cr, slope, par);
+  const diff = expected - BOGEY_BASE;
   return (
     <span className="bogey-expect">
-      보기 플레이어 기준 {over >= 0 ? `+${over}` : over}타 예상 ({par + over}타)
+      보기 플레이어({BOGEY_BASE}타) 기준 {diff > 0 ? `+${diff}` : diff < 0 ? diff : "±0"}타 · 예상 스코어{" "}
+      {expected}타
     </span>
   );
 }

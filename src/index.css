@@ -4756,3 +4756,83 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   padding: 7px 12px;
   font-size: 13px;
 }
+/* 대기실: 방장의 내보내기 */
+.lp-kick {
+  margin-left: auto;
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 12px;
+  font-weight: 800;
+}
+/* 대기실: 폰 없는 동반자 추가 */
+.btn-line.wide.add-offline-btn {
+  padding: 12px;
+  margin-bottom: 12px;
+  border-style: dashed;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--olive-deep);
+  font-size: 14px;
+}
+.offline-add label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.offline-cancel {
+  margin-top: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+/* 가운데 안내 팝업 (내보내짐 등): 문구는 가운데 정렬, 확인 한 번으로 닫기 */
+.alert-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(31, 31, 31, 0.45);
+}
+.alert-box {
+  width: 100%;
+  max-width: 320px;
+  padding: 26px 20px 18px;
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  animation: alert-pop 0.18s ease;
+}
+.alert-box p {
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-line;
+  word-break: keep-all;
+}
+.alert-box .btn-primary {
+  padding: 13px;
+  font-size: 15px;
+  box-shadow: none;
+}
+@keyframes alert-pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

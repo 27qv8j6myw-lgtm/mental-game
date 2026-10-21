@@ -151,7 +151,7 @@ export default function RoundsHomeScreen({
 }) {
   const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
     useAuth();
-  const { openRound } = useRound();
+  const { openRound, exitNotice, clearExitNotice } = useRound();
   // 마지막으로 받은 목록을 먼저 보여준다 (통신이 없어도 라운드를 다시 열 수 있게)
   const [rounds, setRounds] = useState<RoundListItem[]>(() => readListCache(user?.uid));
   const [loading, setLoading] = useState(true);
@@ -166,6 +166,8 @@ export default function RoundsHomeScreen({
   useBack(showAll, () => setShowAll(false));
   // 기기 뒤로가기: 프로필 메뉴 닫기
   useBack(menuOpen, () => setMenuOpen(false));
+  // 기기 뒤로가기: 내보내짐 안내 닫기
+  useBack(!!exitNotice, clearExitNotice);
   const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
   // 관리자 계정이면 프로필 메뉴에 대시보드 버튼을 보여준다
   const [admin, setAdmin] = useState(false);
@@ -390,6 +392,7 @@ export default function RoundsHomeScreen({
       </div>
 
       <div className="sheet">
+
         {error && (
           <div className="notice-err" role="alert">
             <span>{error}</span>
@@ -486,6 +489,18 @@ export default function RoundsHomeScreen({
           </>
         )}
       </div>
+
+      {/* 방장이 나를 내보냈거나 라운드를 지워서 라운드 화면이 닫혔을 때: 가운데 팝업 */}
+      {exitNotice && (
+        <div className="alert-backdrop" onClick={clearExitNotice}>
+          <div className="alert-box" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <p>{exitNotice}</p>
+            <button className="btn-primary" onClick={clearExitNotice}>
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

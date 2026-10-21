@@ -219,6 +219,8 @@ export interface RoundPlayerRow {
   seat_order: number;
   photo_url: string | null;
   is_guest: boolean;
+  /** 폰 없는 동반자 (방장이 이름만으로 넣음, supabase/lobby.sql). 스코어는 다른 사람이 대신 입력 */
+  offline_player?: boolean;
   bank_name: string | null;
   bank_account: string | null;
 }

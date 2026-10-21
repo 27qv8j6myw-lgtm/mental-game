@@ -75,7 +75,10 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
     const { net } = totalNet(config, holes, true);
     netByRound.set(bundle.round.id, new Map(Object.entries(net)));
 
+    // 폰 없는 동반자는 라운드마다 새 id 라 이름으로 한 사람으로 묶는다
+    const offline = new Set(bundle.players.filter((r) => r.offline_player).map((r) => r.user_uid));
     for (const p of config.players) {
+      const key = offline.has(p.id) ? `offline:${p.name || "?"}` : p.id;
       const mine = Math.round(net[p.id] ?? 0);
       const rank = 1 + config.players.filter((q) => Math.round(net[q.id] ?? 0) > mine).length;
       let gross = 0;
@@ -108,9 +111,9 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
       };
 
       const cur =
-        people.get(p.id) ??
+        people.get(key) ??
         ({
-          uid: p.id,
+          uid: key,
           name: p.name,
           photoUrl: null,
           gender: p.gender,
@@ -139,7 +142,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
       cur.birdies += birdies;
       cur.eagles += eagles;
       cur.history.push(rec);
-      people.set(p.id, cur);
+      people.set(key, cur);
     }
   }
 

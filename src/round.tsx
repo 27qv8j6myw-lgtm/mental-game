@@ -24,7 +24,10 @@ import {
   type SaveOp,
 } from "./pending";
 import {
+  addOfflinePlayer as apiAddOfflinePlayer,
   getRoundBundle,
+  kickPlayer as apiKickPlayer,
+  updateOfflinePlayer as apiUpdateOfflinePlayer,
   leaveOrDeleteRound,
   setRoundStatus,
   subscribeRound,
@@ -56,6 +59,7 @@ type PlayerPatch = Partial<
     | "bank_account"
   >
 >;
+type OfflinePatch = Partial<Pick<RoundPlayerRow, "name" | "gender" | "avg_score" | "handicap">>;
 type RoundPatch = Partial<Pick<RoundRow, "rules" | "handicap_settle" | "unit" | "hole_count">>;
 
 interface RoundCtx {
@@ -75,6 +79,15 @@ interface RoundCtx {
   updateRound: (patch: RoundPatch) => Promise<void>;
   start: () => Promise<void>;
   finish: () => Promise<void>;
+  /** 방장(대기실): 참여자 내보내기 */
+  kickPlayer: (userUid: string) => Promise<void>;
+  /** 방장(대기실): 폰 없는 동반자 넣기 */
+  addOfflinePlayer: (name: string) => Promise<void>;
+  /** 방장(대기실): 폰 없는 동반자 이름·성별·평균·핸디 고치기 */
+  updateOffline: (userUid: string, patch: OfflinePatch) => Promise<void>;
+  /** 라운드에서 빠지게 된 이유 (방장이 내보냄·삭제). 홈에 한 번 보여준다 */
+  exitNotice: string | null;
+  clearExitNotice: () => void;
   leave: () => Promise<void>;
 }
 
@@ -98,6 +111,9 @@ const writeActive = (id: string | null) => {
     /* 저장소를 쓸 수 없는 환경: 새로고침 시 홈으로 돌아갈 뿐 */
   }
 };
+
+/** 볼 수 없게 된 라운드를 닫을 때 홈에 보여줄 안내 */
+const KICKED_NOTICE = "이 라운드에서 빠졌어요.\n방장이 내보냈거나 라운드를 삭제했어요.";
 
 /** 보던 라운드의 마지막 화면 데이터. 통신이 없는 골프장에서 앱을 다시 열어도 바로 보여준다 */
 const CACHE_KEY = "mentalgame-round-cache";
@@ -144,6 +160,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const [bundle, setBundle] = useState<RoundBundle | null>(null);
   const [loading, setLoading] = useState(() => readActive() !== null);
   const [currentHole, setCurrentHole] = useState(0);
+  const [exitNotice, setExitNotice] = useState<string | null>(null);
   const activeRef = useRef(activeRoundId);
   const resumedFor = useRef<string | null>(null);
 
@@ -195,12 +212,17 @@ export function RoundProvider({ children }: { children: ReactNode }) {
           if (activeRef.current === id) setBundle(withPending(b));
         } catch (e) {
           console.error("라운드 조회 실패", e);
+          // 더 이상 볼 수 없는 라운드: 방장이 내보냈거나 라운드를 삭제했다
+          if ((e as { code?: string } | null)?.code === "PGRST116" && activeRef.current === id) {
+            setExitNotice(KICKED_NOTICE);
+            closeRound(true);
+          }
         }
       } while (fetchAgain.current);
     } finally {
       fetching.current = false;
     }
-  }, []);
+  }, [closeRound]);
 
   useEffect(() => {
     if (!activeRoundId) return;
@@ -218,7 +240,10 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       .catch((e) => {
         console.error("라운드 조회 실패", e);
         // 삭제됐거나 더 이상 참여자가 아닌 라운드: 홈으로
-        if (alive && e?.code === "PGRST116") closeRound(true);
+        if (alive && e?.code === "PGRST116") {
+          setExitNotice(KICKED_NOTICE);
+          closeRound(true);
+        }
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -507,6 +532,54 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [activeRoundId, refresh]);
 
+  // 대기실: 실시간 연결이 끊겨도 참여자·시작을 놓치지 않게 몇 초마다 다시 불러온다
+  // (내보내진 사람은 실시간 알림을 못 받으므로 이것으로 알아챈다)
+  useEffect(() => {
+    if (status !== "lobby") return;
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 8000);
+    return () => clearInterval(t);
+  }, [status, refresh]);
+
+  const kickPlayer = useCallback(
+    async (userUid: string) => {
+      if (!activeRoundId) return;
+      await apiKickPlayer(activeRoundId, userUid);
+      await refresh();
+    },
+    [activeRoundId, refresh]
+  );
+  const addOfflinePlayer = useCallback(
+    async (name: string) => {
+      if (!activeRoundId) return;
+      await apiAddOfflinePlayer(activeRoundId, name);
+      await refresh();
+    },
+    [activeRoundId, refresh]
+  );
+  // 폰 없는 동반자 고치기: 화면에 먼저 반영하고 순서대로 보낸다 (평균 타수는 글자마다 바뀌므로)
+  const offlineQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const updateOffline = useCallback(
+    (userUid: string, patch: OfflinePatch) => {
+      const roundId = activeRef.current;
+      if (!roundId) return Promise.resolve();
+      setBundle((prev) =>
+        prev
+          ? { ...prev, players: prev.players.map((p) => (p.user_uid === userUid ? { ...p, ...patch } : p)) }
+          : prev
+      );
+      const run = offlineQueue.current.then(() => apiUpdateOfflinePlayer(roundId, userUid, patch));
+      offlineQueue.current = run.catch(() => {});
+      run.catch((e) => {
+        console.error(e);
+        void refresh();
+      });
+      return run;
+    },
+    [refresh]
+  );
+
   const leave = useCallback(async () => {
     if (!activeRoundId || !myUid) return;
     await leaveOrDeleteRound(activeRoundId, myUid, isHost);
@@ -530,6 +603,11 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     start,
     finish,
     leave,
+    kickPlayer,
+    addOfflinePlayer,
+    updateOffline,
+    exitNotice,
+    clearExitNotice: () => setExitNotice(null),
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

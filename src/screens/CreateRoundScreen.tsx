@@ -333,31 +333,35 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                 </button>
               ))}
             </div>
-            {/* 고른 코스·티의 KGA 레이팅 */}
-            {course && (
-              <div className="kga-rating">
-                {rating ? (
-                  <>
+          </div>
+          {/* 난이도: 고른 코스·티의 KGA 레이팅과 보기 플레이어 예상 스코어 */}
+          {course && (
+            <div className="field">
+              <label>난이도</label>
+              {rating ? (
+                <>
+                  <div className="kga-rating">
                     <span>
                       KGA 레이팅{" "}
-                      {rating.ratings
+                      {[...rating.ratings]
+                        .sort((a, b) => (a.sex === b.sex ? 0 : a.sex === "M" ? -1 : 1))
                         .map((r) => `${r.sex === "M" ? "남" : "여"} ${r.cr}/${r.slope}`)
                         .join(" · ")}
                     </span>
                     {/* 난이도·보기 플레이어 예상은 남자 레이팅 기준 (없으면 있는 것) */}
                     <DifficultyChip slope={ratingFor(rating, "M")!.slope} />
-                  </>
-                ) : (
+                  </div>
+                  <div className="kga-expect">
+                    <BogeyExpect {...ratingFor(rating, "M")!} />
+                  </div>
+                </>
+              ) : (
+                <div className="kga-rating">
                   <span className="kga-miss">이 코스에는 고른 티의 KGA 레이팅이 없어요.</span>
-                )}
-              </div>
-            )}
-            {rating && (
-              <div className="kga-expect">
-                <BogeyExpect {...ratingFor(rating, "M")!} />
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="section-title">게임 방식</div>

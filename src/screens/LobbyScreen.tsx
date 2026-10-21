@@ -81,10 +81,15 @@ export default function LobbyScreen() {
     start,
     leave,
     closeRound,
+    kickPlayer,
+    addOfflinePlayer,
+    updateOffline,
   } = useRound();
   const { user, saveBankAccount, saveGender } = useAuth();
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
+  /** 시작·삭제·나가기·내보내기가 통신 문제로 안 됐을 때 안내 */
+  const [actionErr, setActionErr] = useState<string | null>(null);
   /** 방장: 라운드 설정 수정 시트 (금액·홀 수·게임 방식·지불·배판) */
   const [editing, setEditing] = useState(false);
 
@@ -136,26 +141,62 @@ export default function LobbyScreen() {
     }
   };
 
-  // 성별은 계정에도 저장해 다음 라운드에서도 쓴다 (기록 분석의 남/여 레이팅)
-  const setGender = (g: Gender) => {
-    void updateMe({ gender: g });
-    if (iAmLoggedIn) void saveGender(g);
+  /**
+   * 참여자 정보 고치기: 나는 내 참가자 행을, 방장은 폰 없는 동반자 행을 고친다
+   * (폰 없는 동반자는 스스로 입력할 수 없어서 방장이 대신 정한다)
+   */
+  const patchPlayer = (uid: string, patch: Parameters<typeof updateMe>[0]) =>
+    uid === myUid ? void updateMe(patch) : void updateOffline(uid, patch);
+  // 성별은 내 것이면 계정에도 저장해 다음 라운드에서도 쓴다 (기록 분석의 남/여 레이팅)
+  const setGender = (uid: string, g: Gender) => {
+    patchPlayer(uid, { gender: g });
+    if (uid === myUid && iAmLoggedIn) void saveGender(g);
   };
-  const onAvgChange = (val: string) => {
+  const onAvgChange = (uid: string, val: string) => {
     if (val.trim() === "") {
-      void updateMe({ avg_score: null });
+      patchPlayer(uid, { avg_score: null });
       return;
     }
     const n = Number(val);
     if (Number.isNaN(n)) return;
     const v = Math.max(0, Math.min(200, Math.round(n)));
-    void updateMe({ avg_score: v, handicap: Math.max(0, v - 72) });
+    patchPlayer(uid, { avg_score: v, handicap: Math.max(0, v - 72) });
   };
-  const setHandicap = (h: number) =>
-    void updateMe({ handicap: Math.max(0, Math.min(54, h)) });
+  const setHandicap = (uid: string, h: number) =>
+    patchPlayer(uid, { handicap: Math.max(0, Math.min(54, h)) });
 
-  /** 시작·삭제·나가기가 통신 문제로 안 됐을 때 안내 */
-  const [actionErr, setActionErr] = useState<string | null>(null);
+  /** 방장: 참여자 내보내기 */
+  const doKick = async (uid: string, name: string) => {
+    if (!window.confirm(`${name || "이 참여자"} 님을 내보낼까요?\n다시 들어오려면 코드를 입력해야 해요.`)) return;
+    setActionErr(null);
+    try {
+      await kickPlayer(uid);
+    } catch (e) {
+      console.error(e);
+      setActionErr("내보내지 못했어요. 연결을 확인하고 다시 눌러 주세요.");
+    }
+  };
+  /** 방장: 폰 없는 동반자 넣기 */
+  const [offlineName, setOfflineName] = useState("");
+  const [addingOffline, setAddingOffline] = useState(false);
+  const [offlineOpen, setOfflineOpen] = useState(false);
+  const doAddOffline = async () => {
+    const name = offlineName.trim();
+    if (!name || addingOffline) return;
+    setAddingOffline(true);
+    setActionErr(null);
+    try {
+      await addOfflinePlayer(name);
+      setOfflineName("");
+      setOfflineOpen(false);
+    } catch (e) {
+      console.error(e);
+      setActionErr("동반자를 넣지 못했어요. 연결을 확인하고 다시 눌러 주세요.");
+    } finally {
+      setAddingOffline(false);
+    }
+  };
+
   const doStart = async () => {
     setStarting(true);
     setActionErr(null);
@@ -271,49 +312,58 @@ export default function LobbyScreen() {
         )}
         {bundle.players.map((p) => {
           const mine = p.user_uid === myUid;
-          const canEditGender = mine;
+          const offline = !!p.offline_player;
+          // 내 카드, 또는 방장이 대신 정하는 폰 없는 동반자 카드
+          const editable = mine || (isHost && offline);
           return (
             <div className={`card lobby-player ${mine ? "mine" : ""}`} key={p.id}>
               <div className="lp-head">
                 <Avatar photoUrl={p.photo_url} gender={p.gender} size={34} />
-                {mine ? (
-                  <NameField
-                    value={p.name}
-                    onCommit={(v) => updateMe({ name: v })}
-                  />
+                {editable ? (
+                  <NameField value={p.name} onCommit={(v) => patchPlayer(p.user_uid, { name: v })} />
                 ) : (
                   <span className="lp-name-static">{p.name || "이름 미정"}</span>
                 )}
                 {round.host_uid === p.user_uid && <span className="host-tag">방장</span>}
                 {baseUid === p.user_uid && <span className="base-tag">최저핸디</span>}
                 {mine && <span className="me-tag">나</span>}
-                {!p.photo_url && p.is_guest && !mine && (
+                {offline && <span className="guest-tag">폰 없음</span>}
+                {!offline && !p.photo_url && p.is_guest && !mine && (
                   <span className="guest-tag">게스트</span>
+                )}
+                {/* 방장: 잘못 들어온 사람·폰 없는 동반자 내보내기 */}
+                {isHost && !mine && (
+                  <button
+                    className="lp-kick"
+                    aria-label={`${p.name || "참여자"} 내보내기`}
+                    onClick={() => void doKick(p.user_uid, p.name)}
+                  >
+                    내보내기
+                  </button>
                 )}
               </div>
 
-              {mine ? (
+              {editable ? (
                 <>
-                  {canEditGender ? (
-                    <div className="segmented sm" style={{ marginTop: 10 }}>
-                      <button
-                        className={p.gender === "male" ? "active" : ""}
-                        onClick={() => setGender("male")}
-                      >
-                        <Icon name="male" size={15} className="inline-ic" /> 남성
-                      </button>
-                      <button
-                        className={p.gender === "female" ? "active" : ""}
-                        onClick={() => setGender("female")}
-                      >
-                        <Icon name="female" size={15} className="inline-ic" /> 여성
-                      </button>
-                    </div>
-                  ) : (
+                  {offline && (
                     <p className="hint" style={{ marginTop: 8 }}>
-                      프로필 사진은 로그인 계정을 사용하고, 이름은 수정할 수 있어요.
+                      폰이 없는 동반자예요. 정보는 방장이 정하고, 스코어는 다른 사람이 대신 입력해요.
                     </p>
                   )}
+                  <div className="segmented sm" style={{ marginTop: 10 }}>
+                    <button
+                      className={p.gender === "male" ? "active" : ""}
+                      onClick={() => setGender(p.user_uid, "male")}
+                    >
+                      <Icon name="male" size={15} className="inline-ic" /> 남성
+                    </button>
+                    <button
+                      className={p.gender === "female" ? "active" : ""}
+                      onClick={() => setGender(p.user_uid, "female")}
+                    >
+                      <Icon name="female" size={15} className="inline-ic" /> 여성
+                    </button>
+                  </div>
                   {isAdjust || isRecord ? null : handicapMode === "avg" ? (
                     <div className="row2" style={{ marginTop: 10 }}>
                       <div className="stepper-field">
@@ -324,21 +374,23 @@ export default function LobbyScreen() {
                           inputMode="numeric"
                           placeholder="예: 90"
                           value={p.avg_score ?? ""}
-                          onChange={(e) => onAvgChange(e.target.value)}
+                          onChange={(e) => onAvgChange(p.user_uid, e.target.value)}
                         />
                       </div>
                       <div className="stepper-field">
                         <label>핸디캡</label>
                         <div className="stepper">
-                          <button onClick={() => setHandicap(p.handicap - 1)}>−</button>
+                          <button onClick={() => setHandicap(p.user_uid, p.handicap - 1)}>−</button>
                           <span>{p.handicap}</span>
-                          <button onClick={() => setHandicap(p.handicap + 1)}>＋</button>
+                          <button onClick={() => setHandicap(p.user_uid, p.handicap + 1)}>＋</button>
                         </div>
                       </div>
                     </div>
                   ) : baseUid === p.user_uid ? (
                     <p className="hint" style={{ marginTop: 8 }}>
-                      최저핸디 인원이에요. 다른 사람들이 나보다 몇 타를 더 받을지 정해요.
+                      {mine
+                        ? "최저핸디 인원이에요. 다른 사람들이 나보다 몇 타를 더 받을지 정해요."
+                        : "최저핸디 인원이에요."}
                     </p>
                   ) : (
                     <div className="stroke-hc">
@@ -348,20 +400,20 @@ export default function LobbyScreen() {
                           <button
                             key={v}
                             className={`chip ${p.handicap === v ? "active" : ""}`}
-                            onClick={() => setHandicap(v)}
+                            onClick={() => setHandicap(p.user_uid, v)}
                           >
                             +{v}타
                           </button>
                         ))}
                         <div className="stepper">
-                          <button onClick={() => setHandicap(p.handicap - 1)}>−</button>
+                          <button onClick={() => setHandicap(p.user_uid, p.handicap - 1)}>−</button>
                           <span>{hcLabel(p.handicap)}</span>
-                          <button onClick={() => setHandicap(p.handicap + 1)}>＋</button>
+                          <button onClick={() => setHandicap(p.user_uid, p.handicap + 1)}>＋</button>
                         </div>
                       </div>
                     </div>
                   )}
-                  {payment === "transfer" && (
+                  {mine && payment === "transfer" && (
                     <div className="lp-account">
                       <AccountField
                         label="받을 계좌"
@@ -388,7 +440,7 @@ export default function LobbyScreen() {
                     : baseUid === p.user_uid
                     ? "최저핸디 인원"
                     : `최저핸디 대비 ${hcLabel(p.handicap)}타`}
-                  {payment === "transfer" && (
+                  {payment === "transfer" && !offline && (
                     <span className={`acct-state ${p.bank_account ? "ok" : ""}`}>
                       {p.bank_account ? "계좌 입력됨" : "계좌 미입력"}
                     </span>
@@ -413,6 +465,44 @@ export default function LobbyScreen() {
             </div>
           );
         })}
+
+        {/* 방장: 폰이 없는(앱을 못 쓰는) 동반자를 이름만으로 넣기 */}
+        {isHost && !isRecord && (
+          offlineOpen ? (
+            <div className="card offline-add">
+              <label>폰 없는 동반자 이름</label>
+              <div className="join-row">
+                <input
+                  className="input"
+                  placeholder="예) 김철수"
+                  value={offlineName}
+                  enterKeyHint="done"
+                  onChange={(e) => setOfflineName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void doAddOffline();
+                  }}
+                />
+                <button
+                  className="btn-primary sm"
+                  disabled={!offlineName.trim() || addingOffline}
+                  onClick={() => void doAddOffline()}
+                >
+                  {addingOffline ? "…" : "추가"}
+                </button>
+              </div>
+              <p className="hint" style={{ marginTop: 8 }}>
+                앱 없이도 함께 내기를 할 수 있어요. 스코어는 다른 사람이 대신 입력해요.
+              </p>
+              <button className="offline-cancel" onClick={() => setOfflineOpen(false)}>
+                취소
+              </button>
+            </div>
+          ) : (
+            <button className="btn-line wide add-offline-btn" onClick={() => setOfflineOpen(true)}>
+              ＋ 폰 없는 동반자 추가
+            </button>
+          )
+        )}
 
         {!me && (
           <div className="card">
