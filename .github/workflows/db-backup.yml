@@ -1,0 +1,70 @@
+# Supabase DB 매일 백업 (Free 플랜은 자동 백업이 없어서)
+# - Supabase 공식 방법(CLI)으로 역할 · 구조 · 데이터를 받아, 비밀번호로 암호화해 90일 보관한다
+# - 이 저장소는 공개라서 보관 파일을 반드시 암호화한다 (BACKUP_PASSWORD 없이는 열 수 없다)
+# - 필요한 저장소 Secrets: SUPABASE_DB_URL (Supabase Connect → Session pooler 주소), BACKUP_PASSWORD
+# - 복원 방법: docs/db-backup.md
+name: DB 백업
+
+on:
+  schedule:
+    # 매일 한국 시간 새벽 3시 30분 (GitHub 은 UTC 기준)
+    - cron: "30 18 * * *"
+  # Actions 화면의 Run workflow 로 바로 백업
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+    steps:
+      - name: 비밀값 확인
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSWORD" ]; then
+            echo "::error::저장소 Settings → Secrets and variables → Actions 에 SUPABASE_DB_URL 과 BACKUP_PASSWORD 를 넣어 주세요"
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: DB 덤프 (역할 · 구조 · 데이터)
+        run: |
+          set -euo pipefail
+          mkdir backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only \
+            -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          # 연결 문제 등으로 비어 있으면 실패로 남긴다 (GitHub 이 메일로 알려 준다)
+          test -s backup/schema.sql
+          test -s backup/data.sql
+          ls -la backup
+
+      - name: 암호화
+        run: |
+          set -euo pipefail
+          STAMP=$(TZ=Asia/Seoul date +%Y%m%d-%H%M)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          tar -czf - -C backup . \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -salt \
+                -pass env:BACKUP_PASSWORD -out "mentalgame-db-$STAMP.tar.gz.enc"
+          rm -rf backup
+          ls -la mentalgame-db-*.tar.gz.enc
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mentalgame-db-${{ env.STAMP }}
+          path: mentalgame-db-*.tar.gz.enc
+          retention-days: 90
+          if-no-files-found: error
