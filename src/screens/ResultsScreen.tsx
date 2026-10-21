@@ -163,7 +163,12 @@ export default function ResultsScreen({
         to: nameOf(t.toId).name || "?",
         amount: t.amount,
       })),
-      holes: holes.map((h) => ({ par: h.par, scores: h.scores })),
+      // 배판(배수 2 이상) 홀은 이미지에서 홀 번호를 노랗게: 타당은 그 홀 배수, 스킨스는 걸린 스킨 수
+      holes: holes.map((h, i) => ({
+        par: h.par,
+        scores: h.scores,
+        multiplier: isSkins ? skins?.holes[i]?.skins ?? 1 : breakdowns[i]?.multiplier ?? 1,
+      })),
     });
 
   const NetList = ({ net }: { net: Record<string, number> }) => (

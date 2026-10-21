@@ -2,7 +2,7 @@ import { differential, ratingFor } from "./kga";
 import { teeLie } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
-import type { Fairway, GameMode, HoleStat, RoundListItem, TeeLie } from "./types";
+import type { CourseRating, Fairway, GameMode, HoleStat, RoundListItem, TeeLie } from "./types";
 
 /*
  * 기록 모드 라운드 분석.
@@ -221,6 +221,10 @@ export interface RecordRound {
   summary: RecordSummary;
   /** 보정타수: KGA 레이팅이 있고 18홀을 다 친 라운드만 */
   differential: number | null;
+  /** KGA 레이팅 (골프장을 목록에서 고른 라운드만) */
+  rating: CourseRating | null;
+  /** 내 성별 레이팅 "KGA 71/130" (스코어카드 이미지용) */
+  ratingLabel: string | null;
 }
 
 type StatRow = HoleStat & { round_id: string; hole_index: number; player_uid: string };
@@ -300,6 +304,8 @@ export async function loadRecordRounds(
           rating && r.hole_count === 18 && summary.holesPlayed === 18
             ? differential(summary.strokes, rating.cr, rating.slope)
             : null,
+        rating: r.rules.rating ?? null,
+        ratingLabel: rating ? `KGA ${rating.cr}/${rating.slope}` : null,
       };
     })
     .filter((r) => r.summary.holesPlayed > 0)

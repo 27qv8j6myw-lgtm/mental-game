@@ -1,6 +1,6 @@
-import type { CourseRating, Fairway, TeeLie } from "./types";
+import type { CourseRating, Fairway, GameMode, TeeLie } from "./types";
 import { girOf } from "./recordStats";
-import { relLabel, won, wonSigned } from "./util";
+import { GAME_MODE_LABEL, relLabel, won, wonSigned } from "./util";
 
 /*
  * 공유·저장용 이미지. 캔버스에 직접 그린다 (앱 글꼴을 그대로 쓰고 외부 라이브러리 없이).
@@ -31,6 +31,8 @@ const C = {
   goldSoft: "#fef3c7",
   /** 티샷 벙커 (앱 스코어카드와 같은 갈색) */
   bunker: "#92400e",
+  /** 더블파(양파) 바탕 */
+  black: "#111827",
 };
 
 type Ctx = CanvasRenderingContext2D;
@@ -83,7 +85,10 @@ function chip(ctx: Ctx, s: string, x: number, cy: number, bg: string, fg: string
   return w;
 }
 
-/** 타수 모양: 버디 이하 빨간 원(이글은 테두리 하나 더), 파 회색 원, 보기 파란 네모, 더블 보기 이상 진회색 겹네모 */
+/**
+ * 타수 모양: 버디 이하 빨간 원(이글은 테두리 하나 더), 파 회색 원, 보기 파란 네모, 더블 보기 이상 진회색 겹네모,
+ * 더블파(양파) 이상은 검정 네모에 빨간 테두리
+ */
 function scoreMark(ctx: Ctx, cx: number, cy: number, size: number, strokes: number, par: number) {
   const rel = strokes - par;
   const r = size / 2;
@@ -107,12 +112,13 @@ function scoreMark(ctx: Ctx, cx: number, cy: number, size: number, strokes: numb
     ctx.fill();
     fg = C.ink;
   } else {
-    const color = rel === 1 ? C.blue : C.slate;
+    const doublePar = strokes >= par * 2;
+    const color = rel === 1 ? C.blue : doublePar ? C.black : C.slate;
     ctx.fillStyle = color;
     roundRect(ctx, cx - r, cy - r, size, size, size * 0.24);
     ctx.fill();
     if (rel >= 2) {
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = doublePar ? C.loss : color;
       ctx.lineWidth = 1.6;
       roundRect(ctx, cx - r - 4, cy - r - 4, size + 8, size + 8, size * 0.3);
       ctx.stroke();
@@ -203,12 +209,21 @@ export interface ScorecardData {
   differential?: number | null;
   /** "KGA 71/130" */
   rating?: string | null;
+  /** 라운드 방식 칩 (기본 기록). 타당·스킨스에서 남긴 내 기록도 스코어카드로 */
+  mode?: GameMode;
 }
+
+/** 방식 칩 색: 앱의 방식 표시와 같게 (기록 초록, 타당 파랑, 스킨스 노랑) */
+const MODE_CHIP: Record<GameMode, [string, string]> = {
+  record: [C.gainSoft, "#047857"],
+  stroke: [C.blueSoft, "#1d4ed8"],
+  skins: [C.goldSoft, "#b45309"],
+};
 
 const pct = (n: number, d: number) => (d === 0 ? "—" : `${Math.round((n / d) * 100)}%`);
 
 export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasElement> {
-  await ensureFonts([d.course, d.player, d.tee ?? "", "기록보정타수파퍼트페어웨이그린적중해저드샌드샷아웃인합계버디보기더블이상훅슬라이스짧음벙커티샷멘탈게임년월일화수목금토OB·"]);
+  await ensureFonts([d.course, d.player, d.tee ?? "", "기록타당스킨스보정타수파퍼트페어웨이그린적중해저드샌드샷전반후반합계버디보기더블이상훅슬라이스짧음벙커티샷멘탈게임년월일화수목금토OB·더블파"]);
   const W = 1000;
   const PAD = 44;
   const half = d.holes.length > 9;
@@ -218,7 +233,8 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
   const TABLE_H = ROWS.reduce((a, b) => a + b, 0);
   const TOP = 214;
   const GAP = 34;
-  const H = TOP + halves.length * TABLE_H + (halves.length - 1) * GAP + 104;
+  // 표 아래 범례 두 줄 (타수 모양 / 티샷)
+  const H = TOP + halves.length * TABLE_H + (halves.length - 1) * GAP + 128;
 
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
@@ -241,7 +257,8 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
     color: C.faint,
   });
   let cx = PAD;
-  cx += chip(ctx, "기록", cx, 172, C.gainSoft, C.gain) + 8;
+  const mode = d.mode ?? "record";
+  cx += chip(ctx, GAME_MODE_LABEL[mode], cx, 172, MODE_CHIP[mode][0], MODE_CHIP[mode][1]) + 8;
   if (d.differential != null) cx += chip(ctx, `보정타수 ${d.differential.toFixed(1)}`, cx, 172, C.blueSoft, C.blue) + 8;
   if (d.rating) chip(ctx, d.rating, cx, 172, C.fill2, C.soft);
   if (played.length > 0) {
@@ -251,7 +268,7 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
     text(ctx, String(strokes), W - PAD - relW - 6, 104, { size: 66, weight: 800, align: "right", num: true });
   }
 
-  // ---- 표: 이름칸 · 9홀 · 합계칸 2개 (전반은 아웃, 후반은 인·합계)
+  // ---- 표: 이름칸 · 9홀 · 합계칸 2개 (전반 표는 전반, 후반 표는 후반·합계)
   const labelW = 150;
   const sumW = 104;
   const holeW = (W - 2 * PAD - labelW - 2 * sumW) / 9;
@@ -260,7 +277,7 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
 
   halves.forEach((hs, hi) => {
     const y0 = TOP + hi * (TABLE_H + GAP);
-    const sums = !half ? ["합계"] : hi === 0 ? ["아웃"] : ["인", "합계"];
+    const sums = !half ? ["합계"] : hi === 0 ? ["전반"] : ["후반", "합계"];
     // 합계칸 바탕
     ctx.fillStyle = C.fill2;
     ctx.fillRect(PAD + labelW + holeW * 9, y0, sumW * sums.length, TABLE_H);
@@ -303,7 +320,7 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
       }
     });
 
-    // 합계칸 값: 그 구간(아웃·인) / 전체(합계)
+    // 합계칸 값: 그 구간(전반·후반) / 전체(합계)
     const groups = sums.map((s) => (s === "합계" ? d.holes : hs));
     groups.forEach((g, k) => {
       const x = sumX(k);
@@ -331,10 +348,10 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
     });
   });
 
-  // ---- 범례 · 앱 이름
-  const ly = H - 46;
+  // ---- 범례 (첫 줄 타수 모양, 둘째 줄 티샷) · 앱 이름
+  let ly = H - 80;
   let lx = PAD;
-  /** pad: 테두리가 바깥으로 나오는 모양(더블 보기 이상)의 여백 */
+  /** pad: 테두리가 바깥으로 나오는 모양(더블 보기 이상·더블파)의 여백 */
   const legend = (draw: (x: number) => void, label: string, pad = 0) => {
     draw(lx + 9 + pad);
     lx += 24 + pad * 2 + text(ctx, label, lx + 24 + pad * 2, ly, { size: 13, weight: 600, color: C.soft }) + 16;
@@ -343,7 +360,9 @@ export async function renderScorecard(d: ScorecardData): Promise<HTMLCanvasEleme
   legend((x) => scoreMark(ctx, x, ly, 18, 4, 4), "파");
   legend((x) => scoreMark(ctx, x, ly, 18, 5, 4), "보기");
   legend((x) => scoreMark(ctx, x, ly, 18, 6, 4), "더블 보기 이상", 4);
-  lx += 6;
+  legend((x) => scoreMark(ctx, x, ly, 18, 8, 4), "더블파", 4);
+  ly = H - 48;
+  lx = PAD;
   legend((x) => fairwayMark(ctx, x, ly, "hit", 9), "적중");
   legend((x) => fairwayMark(ctx, x, ly, "left", 9), "훅");
   legend((x) => fairwayMark(ctx, x, ly, "right", 9), "슬라이스");
@@ -380,8 +399,8 @@ export interface SettlementData {
   /** 정산 금액 큰 순 */
   players: SettlementPlayer[];
   transfers: { from: string; to: string; amount: number }[];
-  /** 홀별 파와 사람별 파 대비 타수 */
-  holes: { par: number; scores: Record<string, number | null> }[];
+  /** 홀별 파와 사람별 파 대비 타수, 그 홀 배수 (1 보다 크면 배판: 홀 번호를 노랗게) */
+  holes: { par: number; scores: Record<string, number | null>; multiplier: number }[];
 }
 
 const tone = (n: number) => (n > 0 ? C.gain : n < 0 ? C.loss : C.soft);
@@ -393,7 +412,7 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     d.tee ?? "",
     ...d.chips,
     ...d.players.map((p) => p.name + p.parts.map(([l]) => l).join("")),
-    "멘탈게임최종중간정산순위와금액송금홀별스코어주고받을이없어요에서한결과예요파아웃인합계년월일화수목금토",
+    "멘탈게임최종중간정산순위와금액송금홀별스코어주고받을이없어요에서한결과예요파전반후반합계배판홀더블년월일화수목금토",
   ]);
   const W = 720;
   const PAD = 28;
@@ -405,6 +424,16 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
   const HEAD = 30;
   const SROW = 40;
   const halfH = HEAD + 32 + n * SROW;
+  /** 배판 홀이나 더블파가 있으면 표 아래에 범례 한 줄 */
+  const hasBae = d.holes.some((h) => h.multiplier > 1);
+  const hasDoublePar = d.holes.some((h) =>
+    d.players.some((p) => {
+      const rel = h.scores[p.id];
+      return rel != null && h.par + rel >= h.par * 2;
+    })
+  );
+  // 범례 줄: 표 아래로 띄운 간격 + 범례 높이
+  const LEG = hasBae || hasDoublePar ? 44 : 0;
   const sec = (rows: number) => 40 + rows;
   const H =
     196 +
@@ -412,7 +441,7 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     26 +
     sec(Math.max(1, d.transfers.length) * TROW) +
     26 +
-    sec(halves.length * halfH + (halves.length - 1) * 18 + 24) +
+    sec(halves.length * halfH + (halves.length - 1) * 18 + 24 + LEG) +
     72;
 
   const canvas = document.createElement("canvas");
@@ -455,6 +484,17 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
   title("순위와 정산 금액", y);
   y += 40;
   card(y, n * PROW);
+  // 칸 폭 고정: 가장 긴 금액에 맞춰 금액 칸을 잡고, 그 왼쪽에 파 대비 타원·타수를 줄마다 같은 자리에
+  const netLabel = (v: number) => (v === 0 ? "±0원" : wonSigned(v));
+  const netX = PAD + CW - 20;
+  const netColW = Math.max(...d.players.map((p) => width(ctx, netLabel(p.net), { size: 21, weight: 900, num: true })));
+  const pillCx = netX - netColW - 14 - 21;
+  const grossRight = pillCx - 27;
+  const grossColW = Math.max(
+    0,
+    ...d.players.map((p) => (p.gross == null ? 0 : width(ctx, `${p.gross}타`, { size: 17, weight: 800, num: true })))
+  );
+  const partsRoom = grossRight - grossColW - 14 - (PAD + 62);
   d.players.forEach((p, i) => {
     const mid = y + i * PROW + PROW / 2;
     if (i > 0) hline(ctx, PAD + 18, PAD + CW - 18, y + i * PROW);
@@ -465,32 +505,20 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     ctx.fill();
     text(ctx, String(i + 1), PAD + 34, mid + 1, { size: 15, weight: 800, color: top ? C.gold : C.soft, align: "center", num: true });
     text(ctx, p.name || "?", PAD + 62, mid - 11, { size: 19, weight: 800 });
-    // 오른쪽: 금액, 그 왼쪽에 타수 + 파 대비 타원 (금액이 길면 그만큼 왼쪽으로)
-    const netX = PAD + CW - 20;
-    const netW = text(ctx, p.net === 0 ? "±0원" : wonSigned(p.net), netX, mid + 1, {
-      size: 21,
-      weight: 900,
-      color: tone(p.net),
-      align: "right",
-      num: true,
-    });
-    let leftEdge = netX - netW;
+    text(ctx, netLabel(p.net), netX, mid + 1, { size: 21, weight: 900, color: tone(p.net), align: "right", num: true });
     if (p.gross != null && p.rel != null) {
-      const pillCx = netX - netW - 14 - 21;
       ctx.fillStyle = C.fill2;
       roundRect(ctx, pillCx - 21, mid - 11, 42, 22, 11);
       ctx.fill();
       text(ctx, relLabel(p.rel), pillCx, mid + 1, { size: 12, weight: 800, color: C.soft, align: "center", num: true });
-      const gw = text(ctx, `${p.gross}타`, pillCx - 27, mid + 1, { size: 17, weight: 800, align: "right", num: true });
-      leftEdge = pillCx - 27 - gw;
+      text(ctx, `${p.gross}타`, grossRight, mid + 1, { size: 17, weight: 800, align: "right", num: true });
     }
     // 이름 아래 금액 내역: 타수 칸과 겹치면 글자를 줄인다
     const parts = p.parts.filter(([, v]) => v !== 0);
     const line = parts.length ? parts.map(([l, v]) => `${l} ${shortWon(v)}`).join(" · ") : "주고받을 돈 없음";
-    const room = leftEdge - 14 - (PAD + 62);
     const lw = width(ctx, line, { size: 13, weight: 500, num: true });
     text(ctx, line, PAD + 62, mid + 14, {
-      size: lw > room ? Math.max(10, Math.floor((13 * room) / lw * 2) / 2) : 13,
+      size: lw > partsRoom ? Math.max(10, Math.floor(((13 * partsRoom) / lw) * 2) / 2) : 13,
       weight: 500,
       color: C.faint,
       num: true,
@@ -519,7 +547,7 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
   // ---- 홀별 스코어 (사람별 타수 모양)
   title("홀별 스코어", y);
   y += 40;
-  card(y, halves.length * halfH + (halves.length - 1) * 18 + 24);
+  card(y, halves.length * halfH + (halves.length - 1) * 18 + 24 + LEG);
   const nameW = 82;
   const sumW = 52;
   const inner = CW - 32;
@@ -532,8 +560,23 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     const sx = x0 + nameW + holeW * 9 + sumW / 2;
     ctx.fillStyle = C.fill;
     ctx.fillRect(x0 + nameW + holeW * 9, ty, sumW, halfH);
-    hs.forEach((_, i) => text(ctx, String(start + i + 1), hx(i), ty + HEAD / 2, { size: 12, weight: 600, color: C.faint, align: "center", num: true }));
-    text(ctx, halves.length === 1 ? "합계" : hi === 0 ? "아웃" : "인", sx, ty + HEAD / 2, { size: 12, weight: 600, color: C.faint, align: "center" });
+    // 홀 번호: 배판 홀은 노란 바탕
+    hs.forEach((h, i) => {
+      const bae = h.multiplier > 1;
+      if (bae) {
+        ctx.fillStyle = C.goldSoft;
+        roundRect(ctx, hx(i) - 14, ty + HEAD / 2 - 10, 28, 20, 10);
+        ctx.fill();
+      }
+      text(ctx, String(start + i + 1), hx(i), ty + HEAD / 2 + 0.5, {
+        size: 12,
+        weight: bae ? 800 : 600,
+        color: bae ? C.gold : C.faint,
+        align: "center",
+        num: true,
+      });
+    });
+    text(ctx, halves.length === 1 ? "합계" : hi === 0 ? "전반" : "후반", sx, ty + HEAD / 2, { size: 12, weight: 600, color: C.faint, align: "center" });
     hline(ctx, x0, x0 + inner, ty + HEAD);
     text(ctx, "파", x0 + 4, ty + HEAD + 16, { size: 13, weight: 600, color: C.soft });
     hs.forEach((h, i) => text(ctx, String(h.par), hx(i), ty + HEAD + 16, { size: 14, weight: 600, color: C.soft, align: "center", num: true }));
@@ -555,7 +598,24 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
       text(ctx, any ? String(sum) : "–", sx, mid + 1, { size: 16, weight: 800, align: "center", num: true });
     });
   });
-  y += halves.length * halfH + (halves.length - 1) * 18 + 24;
+  if (LEG > 0) {
+    const ly = y + 12 + halves.length * halfH + (halves.length - 1) * 18 + 30;
+    let lx = x0 + 4;
+    if (hasBae) {
+      ctx.fillStyle = C.goldSoft;
+      roundRect(ctx, lx, ly - 10, 28, 20, 10);
+      ctx.fill();
+      // 범례 칸 안 숫자는 실제 첫 배판 홀 번호
+      const first = d.holes.findIndex((h) => h.multiplier > 1) + 1;
+      text(ctx, String(first), lx + 14, ly + 0.5, { size: 12, weight: 800, color: C.gold, align: "center", num: true });
+      lx += 36 + text(ctx, "배판 홀", lx + 36, ly, { size: 12, weight: 600, color: C.soft }) + 18;
+    }
+    if (hasDoublePar) {
+      scoreMark(ctx, lx + 12, ly, 18, 8, 4);
+      text(ctx, "더블파", lx + 30, ly, { size: 12, weight: 600, color: C.soft });
+    }
+  }
+  y += halves.length * halfH + (halves.length - 1) * 18 + 24 + LEG;
 
   text(ctx, "멘탈게임에서 정산한 결과예요", W / 2, y + 36, { size: 13, weight: 600, color: C.faint, align: "center" });
   return canvas;

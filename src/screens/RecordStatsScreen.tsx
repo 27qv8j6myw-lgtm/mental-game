@@ -9,6 +9,8 @@ import RecDate from "./RecDate";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import TrendChart from "./TrendChart";
 import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
+import ShareImageSheet from "./ShareImageSheet";
+import { courseTitle, renderScorecard } from "../shareImage";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 const mean = (xs: number[]) => (xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length);
@@ -329,6 +331,29 @@ function RoundDetail({
   onClose: () => void;
 }) {
   const tee = teeLabel(r.courseTee);
+  const { user } = useAuth();
+  const [sharing, setSharing] = useState(false);
+  /** 내 스코어카드 이미지 (내기 라운드에서 남긴 내 기록도) */
+  const makeScorecard = () =>
+    renderScorecard({
+      date: r.date,
+      course: courseTitle(r.courseName, r.rating),
+      tee: tee || undefined,
+      player: user?.displayName?.trim() || "나",
+      holes: r.holes.map((h) => ({
+        par: h.par,
+        strokes: h.rel == null ? null : h.par + h.rel,
+        putts: h.putts,
+        fairway: h.fairway,
+        lie: h.lie,
+        ob: h.ob,
+        hazard: h.hazard,
+        sand: h.sand,
+      })),
+      differential: r.differential,
+      rating: r.ratingLabel,
+      mode: r.gameMode,
+    });
   return (
     <div className="app">
       <div className="topbar">
@@ -381,11 +406,23 @@ function RoundDetail({
             </div>
           )}
         </div>
+        <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
+          <Icon name="share" size={17} />
+          스코어카드 이미지로 공유·저장
+        </button>
         <div className="section-title">분석</div>
         <RecordAnalysis s={r.summary} />
         <div className="section-title">스코어카드</div>
         <RecordScorecard holes={r.holes} />
       </div>
+      {sharing && (
+        <ShareImageSheet
+          make={makeScorecard}
+          fileName={`scorecard-${r.date || "round"}.png`}
+          title="내 스코어카드"
+          onClose={() => setSharing(false)}
+        />
+      )}
     </div>
   );
 }

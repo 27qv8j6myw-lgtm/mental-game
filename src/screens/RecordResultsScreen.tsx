@@ -104,6 +104,7 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
       })),
       differential: r && full && mine ? differential(mine.s.strokes, r.cr, r.slope) : null,
       rating: r ? `KGA ${r.cr}/${r.slope}` : null,
+      mode: config.gameMode,
     });
   };
 
