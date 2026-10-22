@@ -24,13 +24,8 @@ import {
   type RankRow,
   type Visibility,
 } from "../ranking";
-import { digestRecords, type Frac, type RecordRound } from "../recordStats";
+import type { RecordRound } from "../recordStats";
 
-const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
-const pct = (f: Frac) => (f.rate == null ? "–" : `${Math.round(f.rate * 100)}%`);
-const fracNote = (f: Frac) => (f.d === 0 ? "기록 없음" : `${f.n}/${f.d}홀`);
-/** 2026-10-04 → 2026.10.04 */
-const dotted = (d: string) => d.replace(/-/g, ".");
 /** 오늘 (한국 시간) YYYY-MM-DD */
 const todaySeoul = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
@@ -209,7 +204,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
   const split = useUnfolded();
   const focus = split ? selected ?? rows[0]?.uid ?? null : selected;
 
-  // 고른 사람의 기록 라운드 (기록 지표)
+  // 고른 사람의 기록 라운드 (하이라이트)
   const [profile, setProfile] = useState<{ uid: string; rounds: RecordRound[] } | null>(null);
   const [profileErr, setProfileErr] = useState<string | null>(null);
   useEffect(() => {
@@ -237,14 +232,11 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
 
   const person = focus && (split || !managing) ? who(focus) : null;
   const personRow = focus ? rows.find((r) => r.uid === focus) : undefined;
-  const all = data && focus ? overall(data, focus) : null;
-  const rec = profile && profile.uid === focus ? digestRecords(profile.rounds) : null;
+  // 18홀 베스트 스코어 (기록 없이 친 라운드 포함)
+  const best = (data && focus && overall(data, focus)?.best) || null;
   const highlights = useMemo(
-    () =>
-      profile && profile.uid === focus
-        ? computeHighlights(profile.rounds, all ? { gross: all.best.gross, date: all.best.date } : null)
-        : [],
-    [profile, focus, all]
+    () => (profile && profile.uid === focus ? computeHighlights(profile.rounds, best) : null),
+    [profile, focus, best]
   );
 
   // 시상대: 2위 · 1위 · 3위 순으로 놓는다
@@ -520,103 +512,20 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* 하이라이트: 가장 좋았던 기록들 (명예의 전당) */}
-          {(highlights.length > 0 || !rec) && (
-            <>
-              <div className="section-title">하이라이트</div>
-              {highlights.length > 0 ? (
-                <Highlights items={highlights} />
-              ) : (
-                <div className="card">
-                  <div className="empty-note">불러오는 중…</div>
-                </div>
-              )}
-            </>
-          )}
-
-          {all && (
-            <>
-              <div className="section-title">베스트 스코어</div>
-              <div className="card rk-best">
-                <div className="rk-best-top">
-                  <b>
-                    {all.best.gross}
-                    <small>타</small>
-                  </b>
-                  <span>
-                    {dotted(all.best.date)}
-                    <br />
-                    {all.best.course || "이름 없는 골프장"}
-                  </span>
-                </div>
-                <div className="st-golf">
-                  <span>
-                    전체 평균 <b>{all.avg.toFixed(1)}</b>타
-                  </span>
-                  <span>
-                    18홀 <b>{all.rounds}</b>라운드
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="section-title">
-            기록 지표{rec && rec.count > 0 && ` (기록 ${rec.count}라운드)`}
-          </div>
+          <div className="section-title">하이라이트</div>
           {profileErr ? (
             <div className="card">
               <div className="empty-note" style={{ color: "var(--loss)" }}>
                 {profileErr}
               </div>
             </div>
-          ) : !rec ? (
+          ) : highlights ? (
+            <Highlights items={highlights} />
+          ) : (
             <div className="card">
               <div className="empty-note">불러오는 중…</div>
             </div>
-          ) : rec.count === 0 ? (
-            <div className="card">
-              <div className="empty-note">기록으로 입력한 라운드가 없어요.</div>
-            </div>
-          ) : (
-            <>
-              <div className="card rm-grid">
-                <div className="rm-tile">
-                  <span className="rm-label">페어웨이 적중률</span>
-                  <b className="rm-value">{pct(rec.all.fairway)}</b>
-                  <span className="rm-note">{fracNote(rec.all.fairway)}</span>
-                </div>
-                <div className="rm-tile">
-                  <span className="rm-label">GIR</span>
-                  <b className="rm-value">{pct(rec.all.gir)}</b>
-                  <span className="rm-note">{fracNote(rec.all.gir)}</span>
-                </div>
-                <div className="rm-tile">
-                  <span className="rm-label">평균 퍼트 (라운드당)</span>
-                  <b className="rm-value">{one(rec.putts)}</b>
-                  <span className="rm-note">홀당 {one(rec.all.avgPutts)}</span>
-                </div>
-                <div className="rm-tile">
-                  <span className="rm-label">스크램블 (파 세이브)</span>
-                  <b className="rm-value">{pct(rec.all.scrambling)}</b>
-                  <span className="rm-note">{fracNote(rec.all.scrambling)}</span>
-                </div>
-                <div className="rm-tile">
-                  <span className="rm-label">평균 보정타수</span>
-                  <b className="rm-value">{rec.avgDiff == null ? "–" : `${one(72 + rec.avgDiff)}타`}</b>
-                  <span className="rm-note">파 72 기준</span>
-                </div>
-                <div className="rm-tile">
-                  <span className="rm-label">GIR 후 3퍼트</span>
-                  <b className="rm-value">{pct(rec.all.girThreePutt)}</b>
-                  <span className="rm-note">{fracNote(rec.all.girThreePutt)}</span>
-                </div>
-              </div>
-              <p className="hint" style={{ margin: "-4px 2px 0" }}>
-                기록 모드나 내기 중 남긴 상세 기록을 모두 합친 값이에요.
-              </p>
-            </>
           )}
-
         </>
       )}
     </>

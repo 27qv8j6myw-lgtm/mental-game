@@ -1931,8 +1931,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
 }
+.hl-course {
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .hl-title {
-  margin-top: 1px;
+  margin-top: 3px;
   font-size: 13px;
   font-weight: 800;
   color: var(--ink);
@@ -5321,32 +5330,24 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: var(--olive-soft);
   color: var(--olive-deep);
 }
-/* AI 홀 코칭 (CoachCard): 홀 상태 칸 자리에 겹쳐 뜬다 */
+/* AI 홀 코칭 (CoachCard): 홀 상태 칸 자리에 겹쳐 뜬다. 누르면 닫힌다 */
 .coach-card {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 4;
   min-height: 52px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 6px 7px 12px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 7px 12px;
   border-radius: 10px;
   background: #f1edff;
   color: #4c3fb0;
   box-shadow: 0 6px 18px rgba(76, 63, 176, 0.12);
-}
-.coach-ic {
-  flex: none;
-  color: #7c6cf0;
-}
-.coach-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
   font-size: 13px;
   line-height: 1.45;
+  letter-spacing: -0.01em;
+  text-align: left;
 }
 .coach-line:first-child {
   font-weight: 800;
@@ -5358,20 +5359,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .coach-wait {
   font-weight: 700;
 }
-.coach-card.loading .coach-ic {
+.coach-card.loading .coach-wait {
   animation: coach-pulse 1s ease-in-out infinite alternate;
 }
 @keyframes coach-pulse {
   from {
-    opacity: 0.3;
+    opacity: 0.4;
   }
-}
-.coach-x {
-  flex: none;
-  align-self: flex-start;
-  padding: 4px;
-  color: inherit;
-  opacity: 0.6;
 }
 /* 홀 진행 화면: 아래 바 자리 (늘 같은 여백) */
 .sheet.bar-space {
@@ -6507,31 +6501,6 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   border-radius: 0;
   background: none;
 }
-/* 이용자: 베스트 스코어 */
-.rk-best-top {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.rk-best-top b {
-  font-family: var(--font-num);
-  font-size: 34px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-.rk-best-top b small {
-  margin-left: 2px;
-  font-size: 15px;
-  font-weight: 800;
-}
-.rk-best-top span {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  line-height: 1.45;
-}
-
-
 /* 랭킹 위 안내 블록 (공개 안내 / 숨긴 상태) */
 .rk-notice {
   display: flex;
