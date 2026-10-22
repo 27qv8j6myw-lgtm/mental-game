@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useBack } from "../back";
-import { Icon } from "../icons";
+import TopBar, { BackButton } from "../screens/TopBar";
 import type { TopicId } from "./content";
 
 type Props = { onClose: () => void; topic?: TopicId };
@@ -11,18 +11,9 @@ function GuideFailed({ onClose }: Props) {
   return (
     <div className="guide-layer" role="dialog" aria-modal="true" aria-label="사용 방법">
       <div className="guide-inner">
-        <div className="topbar">
-          <div className="brand">
-            <span className="dot">
-              <Icon name="book" size={18} />
-            </span>
-            사용 방법
-          </div>
-          <button className="icon-btn" aria-label="닫기" onClick={onClose}>
-            <Icon name="close" size={20} />
-          </button>
-        </div>
+        <TopBar left={<BackButton onClick={onClose} />} />
         <div className="sheet gd-sheet">
+          <h2 className="page-title">사용 방법</h2>
           <div className="card">
             <div className="empty-note">사용 방법을 불러오지 못했어요. 연결을 확인하고 앱을 다시 열어 주세요.</div>
           </div>

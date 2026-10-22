@@ -3,6 +3,7 @@ import type { Fairway, TeeBox } from "../types";
 import { localDate, TEE_BOXES } from "../util";
 import { useAuth } from "../auth";
 import { Icon } from "../icons";
+import TopBar, { BackButton } from "./TopBar";
 import { importRecordRound } from "../rounds";
 import {
   clubPart,
@@ -212,19 +213,10 @@ export default function ScorecardImportScreen({
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="camera" size={18} />
-          </span>
-          사진으로 기록 추가
-        </div>
-        <button className="icon-btn" aria-label="닫기" onClick={onBack}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      <TopBar left={<BackButton onClick={onBack} />} />
 
       <div className="sheet">
+        <h2 className="page-title">사진으로 기록 추가</h2>
         {fileInput}
         {step !== "edit" && (
           <div className="card sc-pick">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../auth";
-import { GoogleLogo, Icon, KakaoLogo } from "../icons";
+import { GoogleLogo, Icon, KakaoLogo, Wordmark } from "../icons";
 import { detectInApp, openExternal } from "../inapp";
 
 export default function LoginScreen() {
@@ -23,9 +23,11 @@ export default function LoginScreen() {
     <div className="auth-screen">
       <div className="rings" />
       <div className="auth-logo">
-        <Icon name="flag" size={40} strokeWidth={1.8} />
+        <Icon name="flag" size={54} strokeWidth={1.8} />
       </div>
-      <div className="auth-title">멘탈게임</div>
+      <h1 className="auth-title">
+        <Wordmark height={40} />
+      </h1>
       <div className="auth-sub">
         골프 내기, 계산은 앱이 할게요
         <br />

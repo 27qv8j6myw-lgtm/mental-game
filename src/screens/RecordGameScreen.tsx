@@ -3,6 +3,7 @@ import { useRound } from "../round";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import { relLabel, scoreLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
+import PlayBar, { DockButton } from "./PlayBar";
 import type { HoleStat, ParValue, Session } from "../types";
 import { SCORE_OPTS } from "./GameScreen";
 import HoleStatFields from "./HoleStatFields";
@@ -255,30 +256,21 @@ export default function RecordGameScreen({
       </div>
 
       {/* 아래 바: 저장/취소 (마지막 홀은 방장의 라운드 종료) */}
-      {me && (
-        <div className="play-bar" data-unsaved={dirty || undefined}>
-          <div className="pb-actions">
-            {dirty ? (
-              <>
-                <button className="btn-ghost" onClick={() => setDraft(null)}>
-                  취소
-                </button>
-                <button className="btn-primary" onClick={save}>
-                  저장
-                </button>
-              </>
-            ) : session.isHost && session.status === "playing" && idx === holes.length - 1 && !justSaved ? (
-              <button className="btn-primary" onClick={onFinish}>
-                <Icon name="finish" size={18} className="inline-ic" /> 라운드 종료
-              </button>
-            ) : (
-              <button className="btn-primary" disabled>
-                저장
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {me &&
+        (dirty ? (
+          <PlayBar unsaved action={<DockButton label="저장" onClick={save} />}>
+            <button className="pb-link" onClick={() => setDraft(null)}>
+              취소
+            </button>
+            <span className="pb-hint">{idx + 1}번 홀 저장</span>
+          </PlayBar>
+        ) : session.isHost && session.status === "playing" && idx === holes.length - 1 && !justSaved ? (
+          <PlayBar action={<DockButton label="종료" onClick={onFinish} />}>
+            <span className="pb-hint">마지막 홀 · 라운드 종료</span>
+          </PlayBar>
+        ) : (
+          <PlayBar action={<DockButton label="저장" disabled />} />
+        ))}
     </>
   );
 }

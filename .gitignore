@@ -6,3 +6,10 @@ dist-ssr
 .DS_Store
 *.tsbuildinfo
 .vercel
+
+# iOS 앱
+ios/Config/Secrets.xcconfig
+ios/build
+ios/DerivedData
+xcuserdata/
+*.xcuserstate

@@ -28,15 +28,6 @@ const tone = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
 export function ShotHome() {
   return (
     <>
-      <div className="big-cta">
-        <span className="ic">
-          <Icon name="plus" size={24} />
-        </span>
-        <span className="tx">
-          <b>새 라운드 만들기</b>
-          <small>방장이 되어 코드를 발급해요</small>
-        </span>
-      </div>
       <div className="section-title">코드로 참여하기</div>
       <div className="card">
         <div className="join-row">
@@ -282,17 +273,24 @@ export function ShotMyRec() {
 export function ShotSkins() {
   return (
     <div className="gd-stack">
-      <div className="skin-pot heat-2 gd-mb0">
-        <div className="sp-label">이번 홀 판돈</div>
-        <div className="sp-main">
+      <div className="skin-banner heat-2 gd-mb0">
+        <div className="sb-count">
           <b>2</b>
-          <span>스킨</span>
+          <small>스킨</small>
         </div>
-        <div className="sp-money">1명당 2,000원 · 총 6,000원</div>
-        <div className="sp-chips">
-          <span className="sp-chip">이월 ×2</span>
+        <div className="sb-body">
+          <div className="sb-cells">
+            <div className="sb-cell">
+              <small>1명당</small>
+              <b>2,000원</b>
+            </div>
+            <div className="sb-cell">
+              <small>총</small>
+              <b>6,000원</b>
+            </div>
+          </div>
+          <div className="sb-sub">이월 ×2</div>
         </div>
-        <div className="sp-tip">버디로 이기면 ×2 · 이글 이상 ×3</div>
       </div>
       <div className="skin-pot won gd-mb0">
         <div className="sp-label">스킨 획득!</div>
@@ -351,19 +349,14 @@ export function ShotRankBoard() {
     [3, "민수", "−14점"],
   ];
   return (
-    <div className="rank-board gd-mb0">
-      <div className="rb-head">
-        <Icon name="podium" size={15} /> 현재 순위 · 타당 포인트
-      </div>
-      <div className="rb-rows">
-        {rows.map(([rank, name, score, me]) => (
-          <span className={`rb-chip ${rank === 1 ? "top" : ""} ${me ? "me" : ""}`} key={name}>
-            <b>{rank}위</b>
-            {name}
-            <em>{score}</em>
-          </span>
-        ))}
-      </div>
+    <div className="rank-board gd-mb0" style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }}>
+      {rows.map(([rank, name, score, me]) => (
+        <div className={`rb-cell m${rank} ${me ? "me" : ""}`} key={name}>
+          <span className="rb-medal">{rank}</span>
+          <b className="rb-name">{name}</b>
+          <em className="rb-score">{score}</em>
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- 골프 내기 앱 아이콘: 로그인 화면의 멘탈게임 로고(흰 바탕에 파란 깃발)와 같은 모양 -->
+  <!-- 골프 내기 앱 아이콘: 흰 바탕에 파란 깃발 (로그인 화면 로고와 같은 모양) -->
   <rect width="1024" height="1024" fill="#ffffff"/>
-  <!-- 로그인 로고와 같은 비율: 72px 칸에 40px 아이콘, 선 굵기 1.8 -->
-  <g transform="translate(227.56 227.56) scale(23.7037)" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 깃발(선 굵기 포함 12.8×18.8)을 높이의 약 60% 로 키워 가운데에 둔다 -->
+  <g transform="translate(132.5 99.5) scale(33)" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M6 21V4"/>
     <path d="M6 4h11l-2 3.5L17 11H6"/>
   </g>

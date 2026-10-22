@@ -5,6 +5,7 @@ import { useBack } from "../back";
 import { digestRecords, loadRecordRounds, type RecordRound } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
+import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import RecDate from "./RecDate";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import TrendChart from "./TrendChart";
@@ -126,23 +127,14 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   };
 
   if (detail)
-    return <RoundDetail r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} onClose={close} />;
+    return <RoundDetail r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} />;
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="chart" size={18} />
-          </span>
-          라운드 기록
-        </div>
-        <button className="icon-btn" aria-label="닫기" onClick={close}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      <TopBar left={<BackButton onClick={close} />} right={<NoticeButton />} />
 
       <div className="sheet results">
+        <h2 className="page-title">라운드 기록</h2>
         {err && (
           <div className="card">
             <div className="empty-note" style={{ color: "var(--loss)" }}>
@@ -314,13 +306,11 @@ function RoundDetail({
   r,
   all,
   onBack,
-  onClose,
 }: {
   r: RecordRound;
   /** 내 기록 라운드 전체 (AI 분석의 평소 기록) */
   all: RecordRound[];
   onBack: () => void;
-  onClose: () => void;
 }) {
   const tee = teeLabel(r.courseTee);
   const { user } = useAuth();
@@ -373,21 +363,9 @@ function RoundDetail({
     });
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="chart" size={18} />
-          </span>
-          {r.courseName || "라운드 기록"}
-        </div>
-        <button className="icon-btn" aria-label="닫기" onClick={onClose}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      <TopBar left={<BackButton label="라운드 기록으로" onClick={onBack} />} right={<NoticeButton />} />
       <div className="sheet results">
-        <button className="st-back" onClick={onBack}>
-          <Icon name="chevronLeft" size={16} /> 라운드 기록
-        </button>
+        <h2 className="page-title">{r.courseName || "라운드 기록"}</h2>
         <div className="section-title">
           {r.date}
           {tee && ` · ${tee}`} · <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>

@@ -14,6 +14,7 @@ import {
   type GuestPlayer,
 } from "../admin";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
+import TopBar, { BackButton } from "./TopBar";
 import { GAME_MODE_LABEL } from "../util";
 import type { GameMode, Gender } from "../types";
 import RatioBar from "./RatioBar";
@@ -216,29 +217,17 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="chart" size={18} />
-          </span>
-          관리자 대시보드
-        </div>
-        <div className="actions">
-          <button
-            className="icon-btn"
-            aria-label="새로고침"
-            disabled={loading}
-            onClick={() => void load()}
-          >
-            <Icon name="refresh" size={19} />
+      <TopBar
+        left={<BackButton onClick={onClose} />}
+        right={
+          <button className="icon-btn" aria-label="새로고침" disabled={loading} onClick={() => void load()}>
+            <Icon name="refresh" size={22} />
           </button>
-          <button className="icon-btn" aria-label="닫기" onClick={onClose}>
-            <Icon name="close" size={20} />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="sheet">
+        <h2 className="page-title">관리자 대시보드</h2>
         {notice && <div className="sc-notice">{notice}</div>}
         <button
           className="btn-line wide sc-add"

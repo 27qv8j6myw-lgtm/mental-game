@@ -4,6 +4,7 @@ import { useRound } from "../round";
 import { useBack } from "../back";
 import { loadStats, type PersonStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
+import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import RecDate from "./RecDate";
 import { GAME_MODE_LABEL, wonSigned } from "../util";
 import { cachedRanking, loadRanking, overall, type RankingData } from "../ranking";
@@ -288,19 +289,14 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="trophy" size={18} />
-          </span>
-          {person ? person.name || "전적" : "전적"}
-        </div>
-        <button className="icon-btn" aria-label="닫기" onClick={close}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      {/* 뒤로가기: 사람 상세 → 전체, 전체 → 홈 */}
+      <TopBar
+        left={<BackButton onClick={() => (selected ? setSelected(null) : close())} />}
+        right={<NoticeButton />}
+      />
 
       <div className="sheet">
+        <h2 className="page-title">{person ? person.name || "전적" : "전적"}</h2>
         {err && (
           <div className="card">
             <div className="empty-note" style={{ color: "var(--loss)" }}>

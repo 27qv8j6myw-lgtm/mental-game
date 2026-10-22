@@ -36,6 +36,7 @@ import {
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
+import TopBar, { BackButton } from "./TopBar";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import {
   CaddieFeeField,
@@ -263,19 +264,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="flag" size={18} />
-          </span>
-          라운드 만들기
-        </div>
-        <button className="icon-btn" onClick={onCancel}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      <TopBar left={<BackButton onClick={onCancel} />} />
 
       <div className="sheet">
+        <h2 className="page-title">라운드 만들기</h2>
         <div className="section-title">라운드 정보</div>
         <div className="card">
           <div className="field">

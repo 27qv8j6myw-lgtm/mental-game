@@ -9,6 +9,7 @@ import {
 } from "../betting";
 import { holeEditItems, localTime, relLabel, scoreLabel, won, wonSigned } from "../util";
 import { Avatar, Icon } from "../icons";
+import PlayBar, { DockButton } from "./PlayBar";
 import type { HoleScore, HoleStat, ParValue, Session, Transfer } from "../types";
 import { SkinPot, SkinStrip } from "./SkinsPanel";
 import { CaddieCard, CaddiePayRow, RankBoard } from "./SideGamePanels";
@@ -368,6 +369,16 @@ export default function GameScreen({
   };
   // 이 홀 상태 한 줄 (PAR 위 고정 자리)
   const lastAllSaved = playing && allSaved && idx === lastIdx;
+  /** 저장된 홀을 볼 때 아래 가운데 안내 */
+  const savedHint = lastAllSaved
+    ? session.isHost
+      ? "최종 확정"
+      : "방장이 확정하면 끝나요"
+    : status === "done"
+    ? "정산 결과 보기"
+    : playing && !allSaved && idx < frontier
+    ? `${frontier + 1}번 홀로`
+    : "";
   const barStatus: [kind: string, text: string] = moved && moved.hole === idx && !editing && !recDirty
     ? ["saved", moved.text]
     : editing
@@ -455,7 +466,6 @@ export default function GameScreen({
               unit={config.unit}
               players={config.players}
               isLast={idx === lastIdx}
-              birdieOn={!!config.rules.skins?.birdie}
               countOnly={isRank}
             />
             <SkinStrip holes={skins.holes} current={idx} players={config.players} onPick={go} />
@@ -714,56 +724,48 @@ export default function GameScreen({
         </div>
       </div>
 
-      {/* ---- 아래 바: 버튼 (저장 / 수정 → 취소·저장 / 최종 확정). 늘 같은 자리 ---- */}
-      <div className="play-bar" data-unsaved={editing || recDirty || undefined}>
-        <div className="pb-actions">
-          {editing ? (
-            <>
-              <button className="btn-ghost" onClick={() => setDraft(null)}>
-                취소
-              </button>
-              <button
-                className="btn-primary"
-                disabled={!allIn || editItems.length === 0}
-                onClick={saveEdit}
-              >
-                {!allIn ? "모두 입력해 주세요" : editItems.length === 0 ? "바뀐 게 없어요" : "저장"}
-              </button>
-            </>
-          ) : recDirty ? (
-            <button className="btn-primary" disabled>
-              내 기록을 저장하거나 취소해 주세요
+      {/* ---- 아래 줄: 가운데 안내 글자·글자 버튼, 오른쪽 동그라미 주 버튼. 늘 같은 자리 ---- */}
+      {editing ? (
+        <PlayBar
+          unsaved
+          action={<DockButton label="저장" disabled={!allIn || editItems.length === 0} onClick={saveEdit} />}
+        >
+          <button className="pb-link" onClick={() => setDraft(null)}>
+            취소
+          </button>
+          <span className="pb-hint">
+            {!allIn ? "모두 입력해 주세요" : editItems.length === 0 ? "바뀐 게 없어요" : `${idx + 1}번 홀 수정 저장`}
+          </span>
+        </PlayBar>
+      ) : recDirty ? (
+        <PlayBar unsaved action={<DockButton label="저장" disabled />}>
+          <span className="pb-hint">내 기록을 저장하거나 취소해 주세요</span>
+        </PlayBar>
+      ) : live ? (
+        <PlayBar action={<DockButton label="저장" disabled={!allIn} onClick={saveHole} />}>
+          <span className="pb-hint">{allIn ? `${idx + 1}번 홀 저장` : missingLabel}</span>
+        </PlayBar>
+      ) : (
+        // 저장된 홀: 오른쪽은 최종 확정(방장) · 정산 결과(끝난 라운드) · 다음 입력할 홀로
+        <PlayBar
+          action={
+            lastAllSaved && session.isHost ? (
+              <DockButton label="확정" onClick={onFinish} />
+            ) : status === "done" ? (
+              <DockButton label="정산" onClick={onShowResult} />
+            ) : playing && !allSaved && idx < frontier ? (
+              <DockButton label="다음" onClick={() => go(frontier)} />
+            ) : undefined
+          }
+        >
+          {canEdit && (
+            <button className="pb-link" onClick={startEdit}>
+              수정
             </button>
-          ) : live ? (
-            <button className="btn-primary" disabled={!allIn} onClick={saveHole}>
-              {allIn ? `${idx + 1}번 홀 저장` : missingLabel}
-            </button>
-          ) : (
-            <>
-              {canEdit && (
-                <button className="btn-ghost" onClick={startEdit}>
-                  수정
-                </button>
-              )}
-              {playing && !allSaved && idx < frontier && (
-                <button className="btn-ghost go" onClick={() => go(frontier)}>
-                  {frontier + 1}번 홀로 <Icon name="chevronRight" size={16} className="inline-ic" />
-                </button>
-              )}
-              {lastAllSaved && session.isHost && (
-                <button className="btn-primary" onClick={onFinish}>
-                  <Icon name="finish" size={18} className="inline-ic" /> 최종 확정
-                </button>
-              )}
-              {status === "done" && (
-                <button className="btn-ghost go" onClick={onShowResult}>
-                  정산 결과 <Icon name="chevronRight" size={16} className="inline-ic" />
-                </button>
-              )}
-            </>
           )}
-        </div>
-      </div>
+          {savedHint ? <span className="pb-hint">{savedHint}</span> : null}
+        </PlayBar>
+      )}
     </>
   );
 }

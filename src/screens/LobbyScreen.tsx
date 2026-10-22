@@ -4,6 +4,7 @@ import { inviteLink } from "../invite";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
+import TopBar, { BackButton } from "./TopBar";
 import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, TEE_BOXES, teeLabel, won } from "../util";
 import AccountField from "./AccountField";
 import { StrokeAdjField } from "./RoundFields";
@@ -243,19 +244,10 @@ export default function LobbyScreen() {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="flag" size={18} />
-          </span>
-          대기실
-        </div>
-        <button className="icon-btn" aria-label="홈으로" onClick={() => closeRound()}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      <TopBar left={<BackButton label="홈으로" onClick={() => closeRound()} />} />
 
       <div className="sheet with-actionbar">
+        <h2 className="page-title">대기실</h2>
         <div className="code-card">
           <div className="cc-label">초대 코드</div>
           <div className="cc-code">{round.join_code}</div>

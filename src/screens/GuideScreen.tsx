@@ -1,6 +1,7 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { useBack } from "../back";
 import { Icon } from "../icons";
+import TopBar, { BackButton } from "./TopBar";
 import { CHAPTERS, TOPICS, type TopicId } from "../guide/content";
 import { GuideNav, RoleTag, type Role } from "../guide/blocks";
 
@@ -91,17 +92,8 @@ export default function GuideScreen({ onClose, topic: start }: { onClose: () => 
   return (
     <div className="guide-layer" ref={layer} role="dialog" aria-modal="true" aria-label="사용 방법">
       <div className="guide-inner">
-        <div className="topbar">
-          <div className="brand">
-            <span className="dot">
-              <Icon name="book" size={18} />
-            </span>
-            사용 방법
-          </div>
-          <button className="icon-btn" aria-label="닫기" onClick={onClose}>
-            <Icon name="close" size={20} />
-          </button>
-        </div>
+        {/* 뒤로가기: 항목 → (링크로 왔으면 보던 항목, 아니면 목차), 목차 → 닫기 */}
+        <TopBar left={<BackButton onClick={cur ? (from ? back : toList) : onClose} />} />
 
         {trail.map((_, k) => (direct && k === 0 ? null : <BackEntry key={k} onBack={back} />))}
         <div className="sheet gd-sheet">

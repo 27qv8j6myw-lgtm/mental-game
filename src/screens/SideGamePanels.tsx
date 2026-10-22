@@ -2,7 +2,7 @@ import type { CaddieHole, CaddieResult } from "../caddie";
 import type { RankResult } from "../rankGame";
 import { rankScoreText } from "../rankGame";
 import type { Player } from "../types";
-import { RANK_METHOD_LABEL, won } from "../util";
+import { won } from "../util";
 import { Avatar, Icon } from "../icons";
 
 /**
@@ -90,25 +90,24 @@ export function CaddieCard({
   );
 }
 
-/** 진행 화면(등수 내기): 지금까지 저장된 홀로 매긴 순위 */
+/** 진행 화면(등수 내기): 지금까지 저장된 홀로 매긴 순위. 시상대처럼 1위부터 가로로 한 칸씩 (사람 수만큼 같은 간격) */
 export function RankBoard({ result, players, myUid }: { result: RankResult; players: Player[]; myUid: string }) {
   return (
-    <div className="rank-board">
-      <div className="rb-head">
-        <Icon name="podium" size={15} /> 현재 순위 · {RANK_METHOD_LABEL[result.rules.method]}
-      </div>
-      <div className="rb-rows">
-        {result.order.map((row) => {
-          const p = players.find((x) => x.id === row.id);
-          return (
-            <span className={`rb-chip ${row.rank === 1 ? "top" : ""} ${row.id === myUid ? "me" : ""}`} key={row.id}>
-              <b>{row.rank}위</b>
-              {p?.name || "?"}
-              <em>{rankScoreText(result.rules.method, row.score)}</em>
-            </span>
-          );
-        })}
-      </div>
+    <div
+      className="rank-board"
+      style={{ gridTemplateColumns: `repeat(${result.order.length}, minmax(0, 1fr))` }}
+      aria-label="현재 순위"
+    >
+      {result.order.map((row) => {
+        const p = players.find((x) => x.id === row.id);
+        return (
+          <div className={`rb-cell m${row.rank} ${row.id === myUid ? "me" : ""}`} key={row.id}>
+            <span className="rb-medal">{row.rank}</span>
+            <b className="rb-name">{p?.name || "?"}</b>
+            <em className="rb-score">{rankScoreText(result.rules.method, row.score)}</em>
+          </div>
+        );
+      })}
     </div>
   );
 }

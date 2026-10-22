@@ -1,15 +1,15 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { useAuth, type OAuthProvider } from "../auth";
+import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
 import { takeInvite } from "../invite";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds, subscribeRoundScores } from "../rounds";
-import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
+import { Icon } from "../icons";
+import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import type { RoundListItem, RoundRow } from "../types";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { fetchUserRounds, isAdmin, type UserRound } from "../admin";
 import { loadStats } from "../stats";
-import NameDialog from "./NameDialog";
 import Guide from "../guide/Guide";
 import { cachedScoreLines, fetchScoreLines, storeScoreLines, type RoundScoreLine } from "../roundScores";
 
@@ -18,11 +18,6 @@ const STATUS_LABEL: Record<string, string> = {
   playing: "진행중",
   done: "완료",
 };
-
-const LINKABLE: { id: OAuthProvider; label: string }[] = [
-  { id: "kakao", label: "카카오" },
-  { id: "google", label: "Google" },
-];
 
 /** 마지막으로 받은 내 라운드 목록 (사용자별). 통신이 없을 때 홈에 보여준다 */
 const LIST_KEY = "mentalgame-rounds-cache";
@@ -137,18 +132,9 @@ function AllRounds({
   }
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="flag" size={18} />
-          </span>
-          전체 라운드
-        </div>
-        <button className="icon-btn" aria-label="닫기" onClick={onClose}>
-          <Icon name="close" size={20} />
-        </button>
-      </div>
+      <TopBar left={<BackButton onClick={onClose} />} />
       <div className="sheet">
+        <h2 className="page-title">전체 라운드</h2>
         <input
           className="input"
           placeholder="골프장·함께 친 사람 찾기"
@@ -182,15 +168,8 @@ function AllRounds({
 }
 
 /** 홈 (라운드 탭): 새 라운드·코드로 참여·진행 중·최근 라운드. 전적·기록은 하단 탭 */
-export default function RoundsHomeScreen({
-  onCreate,
-  onAdmin,
-}: {
-  onCreate: () => void;
-  onAdmin: () => void;
-}) {
-  const { user, signOutUser, linkProvider, unlinkProvider, error, clearError, guestMoved, clearGuestMoved } =
-    useAuth();
+export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void }) {
+  const { user, error, clearError, guestMoved, clearGuestMoved } = useAuth();
   const { openRound, exitNotice, clearExitNotice } = useRound();
   // 마지막으로 받은 목록을 먼저 보여준다 (통신이 없어도 라운드를 다시 열 수 있게)
   const [rounds, setRounds] = useState<RoundListItem[]>(() => readListCache(user?.uid));
@@ -200,20 +179,13 @@ export default function RoundsHomeScreen({
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   /** 전체 라운드 보기 (월별·검색·종류) */
   const [showAll, setShowAll] = useState(false);
   useBack(showAll, () => setShowAll(false));
-  // 기기 뒤로가기: 프로필 메뉴 닫기
-  useBack(menuOpen, () => setMenuOpen(false));
   // 기기 뒤로가기: 내보내짐 안내 닫기
   useBack(!!exitNotice, clearExitNotice);
-  const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
-  // 관리자 계정이면 프로필 메뉴에 대시보드 버튼을 보여준다
+  // 관리자 계정이면 진행 중·최근 라운드를 다른 사용자 것으로도 볼 수 있다
   const [admin, setAdmin] = useState(false);
-  /** 프로필 메뉴: 내 이름 바꾸기 */
-  const [nameOpen, setNameOpen] = useState(false);
-  useBack(nameOpen, () => setNameOpen(false));
   /** 사용 방법 (뒤로가기는 설명서가 받는다) */
   const [guideOpen, setGuideOpen] = useState(false);
   /** 라운드별 이름 옆 타수 (보관해 둔 것을 먼저 보여 준다) */
@@ -307,27 +279,6 @@ export default function RoundsHomeScreen({
       void join(invited);
     }
   }, []);
-
-  const isAnon = !!user?.isAnonymous;
-  const providers = user?.providers ?? [];
-
-  const link = async (p: OAuthProvider) => {
-    setLinkBusy(p);
-    await linkProvider(p);
-    setLinkBusy(null);
-  };
-
-  const unlink = async (p: OAuthProvider, label: string) => {
-    if (
-      !window.confirm(
-        `${label} 연결을 해제할까요? 해제하면 ${label}로는 이 계정에 로그인할 수 없어요.`
-      )
-    )
-      return;
-    setLinkBusy(p);
-    await unlinkProvider(p);
-    setLinkBusy(null);
-  };
 
   // 라운드 삭제는 방장만. (참여자가 빠지면 끝난 라운드의 정산이 바뀌므로 참여자용 삭제는 두지 않는다)
   const removeRound = async (r: RoundRow) => {
@@ -470,116 +421,15 @@ export default function RoundsHomeScreen({
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="flag" size={18} />
-          </span>
-          멘탈게임
-        </div>
-        <div className="actions">
-          <button className="icon-btn guide-btn" aria-label="사용 방법" onClick={() => setGuideOpen(true)}>
-            <Icon name="book" size={21} />
+      {/* 인스타그램처럼: 왼쪽 새 라운드, 가운데 글자 로고, 오른쪽 알림 (사용 방법·프로필은 하단 바 내 사진) */}
+      <TopBar
+        left={
+          <button className="icon-btn" aria-label="새 라운드 만들기" onClick={onCreate}>
+            <Icon name="plus" size={28} />
           </button>
-          <div style={{ position: "relative" }}>
-            <button className="avatar-btn" onClick={() => setMenuOpen((v) => !v)}>
-              <Avatar
-                photoUrl={isAnon ? null : user?.photoURL}
-                fallback="user"
-                size={34}
-              />
-            </button>
-            {menuOpen && (
-              <div className="menu">
-                <div className="menu-head">
-                  <div className="mn">{isAnon ? "게스트" : user?.displayName ?? "사용자"}</div>
-                  <div className="me">{isAnon ? "로그인 없이 참여 중" : user?.email}</div>
-                </div>
-                {!isAnon && (
-                  <div className="menu-links">
-                    <div className="ml-title">로그인 계정 연결</div>
-                    {LINKABLE.map(({ id, label }) => {
-                      const linked = providers.includes(id);
-                      return (
-                        <div className="ml-row" key={id}>
-                          <span className={`ml-ic ${id}`}>
-                            {id === "kakao" ? <KakaoLogo size={14} /> : <GoogleLogo size={14} />}
-                          </span>
-                          <span className="ml-name">{label}</span>
-                          {linked && <span className="ml-on">연결됨</span>}
-                          {linked ? (
-                            providers.length > 1 && (
-                              <button
-                                className="ml-btn ghost"
-                                disabled={linkBusy !== null}
-                                onClick={() => void unlink(id, label)}
-                              >
-                                해제
-                              </button>
-                            )
-                          ) : (
-                            <button
-                              className="ml-btn"
-                              disabled={linkBusy !== null}
-                              onClick={() => void link(id)}
-                            >
-                              {linkBusy === id ? "…" : "연결"}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setGuideOpen(true);
-                  }}
-                >
-                  <Icon name="book" size={17} className="inline-ic" />
-                  사용 방법
-                </button>
-                {!isAnon && (
-                  <button
-                    className="menu-item"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setNameOpen(true);
-                    }}
-                  >
-                    <Icon name="user" size={17} className="inline-ic" />
-                    내 이름·성별 바꾸기
-                  </button>
-                )}
-                {admin && (
-                  <button
-                    className="menu-item"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onAdmin();
-                    }}
-                  >
-                    <Icon name="chart" size={17} className="inline-ic" />
-                    관리자 대시보드
-                  </button>
-                )}
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    void signOutUser();
-                  }}
-                >
-                  <Icon name="logout" size={17} className="inline-ic" />
-                  {isAnon ? "나가기 / 로그인 화면" : "로그아웃"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+        }
+        right={<NoticeButton />}
+      />
 
       <div className="sheet">
 
@@ -612,18 +462,8 @@ export default function RoundsHomeScreen({
           <br />
           <b>멘탈만 챙기세요</b>
         </p>
-        <button className="big-cta" onClick={onCreate}>
-          <span className="ic">
-            <Icon name="plus" size={24} />
-          </span>
-          <span className="tx">
-            <b>새 라운드 만들기</b>
-            <small>방장이 되어 코드를 발급해요</small>
-          </span>
-        </button>
-
-        <div className="section-title">코드로 참여하기</div>
-        <div className="card">
+        {/* 코드로 참여: 파란 상자 (제목 없이 칸 안 안내 글자로) */}
+        <div className="card join-card">
           <div className="join-row">
             <input
               className="input code-input"
@@ -643,11 +483,7 @@ export default function RoundsHomeScreen({
               {joining ? "…" : "참여"}
             </button>
           </div>
-          {err && (
-            <p className="hint" style={{ color: "var(--loss)", marginTop: 8 }}>
-              {err}
-            </p>
-          )}
+          {err && <p className="join-err">{err}</p>}
         </div>
 
         {loadFailed && (
@@ -758,7 +594,6 @@ export default function RoundsHomeScreen({
         )}
       </div>
 
-      {nameOpen && <NameDialog initial={user?.displayName ?? ""} onClose={() => setNameOpen(false)} />}
       {guideOpen && <Guide onClose={() => setGuideOpen(false)} />}
 
       {/* 방장이 나를 내보냈거나 라운드를 지워서 라운드 화면이 닫혔을 때: 가운데 팝업 */}

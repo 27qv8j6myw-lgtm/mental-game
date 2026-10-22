@@ -14,7 +14,10 @@ import AdminScreen from "./screens/AdminScreen";
 import StatsScreen from "./screens/StatsScreen";
 import NameDialog from "./screens/NameDialog";
 import RankingScreen from "./screens/RankingScreen";
-import { Icon } from "./icons";
+import ProfileMenu from "./screens/ProfileMenu";
+import TopBar, { BackButton } from "./screens/TopBar";
+import PlayBar, { DockButton } from "./screens/PlayBar";
+import { Avatar, Icon } from "./icons";
 import { firstUnsaved } from "./model";
 import { useBack } from "./back";
 import { useOnline } from "./online";
@@ -55,7 +58,10 @@ function NamePrompt() {
 
 function MemberFlow() {
   const round = useRound();
+  const { user } = useAuth();
   const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking">("home");
+  /** 하단 바 프로필 사진을 누르면 여는 메뉴 */
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // 라운드를 만들어 들어갔으면, 라운드를 닫을 때 만들기 화면이 아니라 홈으로 돌아온다
   // (전적·라운드 기록에서 연 라운드는 닫으면 그 화면으로 돌아온다)
@@ -71,17 +77,7 @@ function MemberFlow() {
     if (round.loading || !round.session) {
       return (
         <div className="app">
-          <div className="topbar">
-            <div className="brand">
-              <span className="dot">
-                <Icon name="flag" size={18} />
-              </span>
-              멘탈게임
-            </div>
-            <button className="icon-btn" aria-label="닫기" onClick={() => round.closeRound()}>
-              <Icon name="close" size={20} />
-            </button>
-          </div>
+          <TopBar left={<BackButton label="라운드 목록으로" onClick={() => round.closeRound()} />} />
           <div className="sheet center-col" style={{ justifyContent: "center" }}>
             {round.loading ? (
               <div className="empty-note">라운드 불러오는 중…</div>
@@ -104,33 +100,43 @@ function MemberFlow() {
 
   if (view === "create") return <CreateRoundScreen onCancel={() => setView("home")} />;
   if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
-  // 홈·전적·기록·랭킹은 하단 탭으로 오간다
+  // 홈·전적·기록·랭킹은 하단 탭으로 오간다 (아이콘만, 떠 있는 유리 바). 오른쪽 끝은 프로필
   const tabs = (
-    <div className="tabbar">
-      {(
-        [
-          ["home", "flag", "라운드"],
-          ["stats", "trophy", "전적"],
-          ["ranking", "podium", "랭킹"],
-          ["records", "chart", "기록"],
-        ] as const
-      ).map(([v, icon, label]) => (
+    <>
+      <nav className="tabbar" aria-label="메뉴">
+        {(
+          [
+            ["home", "flag", "라운드"],
+            ["stats", "trophy", "전적"],
+            ["ranking", "medal", "랭킹"],
+            ["records", "graph", "기록"],
+          ] as const
+        ).map(([v, icon, label]) => (
+          <button
+            key={v}
+            className={view === v ? "active" : ""}
+            aria-pressed={view === v}
+            aria-label={label}
+            onClick={() => {
+              setProfileOpen(false);
+              setView(v);
+              window.scrollTo(0, 0);
+            }}
+          >
+            <Icon name={icon} size={24} />
+          </button>
+        ))}
         <button
-          key={v}
-          className={view === v ? "active" : ""}
-          aria-pressed={view === v}
-          onClick={() => {
-            setView(v);
-            window.scrollTo(0, 0);
-          }}
+          className={`tab-profile${profileOpen ? " active" : ""}`}
+          aria-label="내 정보"
+          aria-expanded={profileOpen}
+          onClick={() => setProfileOpen((v) => !v)}
         >
-          <span className="ic">
-            <Icon name={icon} size={20} />
-          </span>
-          {label}
+          <Avatar photoUrl={user?.photoURL} fallback="user" size={28} />
         </button>
-      ))}
-    </div>
+      </nav>
+      <ProfileMenu open={profileOpen} onClose={() => setProfileOpen(false)} onAdmin={() => setView("admin")} />
+    </>
   );
   return (
     <>
@@ -141,7 +147,7 @@ function MemberFlow() {
       ) : view === "ranking" ? (
         <RankingScreen onClose={() => setView("home")} />
       ) : (
-        <RoundsHomeScreen onCreate={() => setView("create")} onAdmin={() => setView("admin")} />
+        <RoundsHomeScreen onCreate={() => setView("create")} />
       )}
       {tabs}
     </>
@@ -216,19 +222,11 @@ function RoundPlay({ session }: { session: Session }) {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="flag" size={18} />
-          </span>
-          <span className="brand-name">{session.config.courseName || "멘탈게임"}</span>
-          {/* 통신이 끊겼거나 저장이 밀려 있으면: 입력은 이 폰에 보관했다가 연결되면 올린다 */}
-          {(!online || !!session.pendingSaves) && (
-            <span className="offline-pill">{online ? "저장 대기" : "오프라인"}</span>
-          )}
-        </div>
-        {/* 홀 진행 ↔ 정산 결과(기록 분석)는 아이콘으로, X 는 라운드 목록으로 */}
-        <div className={`actions ${busy ? "locked" : ""}`}>
+      {/* 왼쪽 홀 진행 ↔ 오른쪽 정산 결과(기록 분석). 라운드 목록으로는 아래 왼쪽 ‹ */}
+      <TopBar
+        className="round-top"
+        locked={busy}
+        left={
           <button
             className={`icon-btn ${tab === "game" ? "on" : ""}`}
             aria-label="홀 진행"
@@ -236,8 +234,10 @@ function RoundPlay({ session }: { session: Session }) {
             disabled={busy}
             onClick={() => showTab("game")}
           >
-            <Icon name="flag" size={20} />
+            <Icon name="flag" size={24} />
           </button>
+        }
+        right={
           <button
             className={`icon-btn ${tab === "result" ? "on" : ""}`}
             aria-label={isRecord ? "기록 분석" : "정산 결과"}
@@ -245,13 +245,10 @@ function RoundPlay({ session }: { session: Session }) {
             disabled={busy}
             onClick={() => showTab("result")}
           >
-            <Icon name={isRecord ? "chart" : "trophy"} size={20} />
+            <Icon name={isRecord ? "graph" : "trophy"} size={24} />
           </button>
-          <button className="icon-btn" aria-label="라운드 목록으로" disabled={busy} onClick={() => round.closeRound()}>
-            <Icon name="close" size={20} />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {tab === "game" ? (
         isRecord ? (
@@ -277,16 +274,27 @@ function RoundPlay({ session }: { session: Session }) {
 
       {/* 정산 결과·기록 분석 화면의 라운드 종료 (홀 진행에서는 아래 버튼 줄에 있다).
           내기 라운드는 모든 홀을 저장한 뒤에만 */}
+      {/* 아래 왼쪽: 라운드 목록으로 (홀 진행의 저장·정산 결과의 확정과 같은 줄, 늘 같은 자리) */}
+      <button
+        className="round-exit"
+        aria-label="라운드 목록으로"
+        disabled={busy}
+        onClick={() => round.closeRound()}
+      >
+        <Icon name="home" size={26} />
+      </button>
+      {/* 통신이 끊겼거나 저장이 밀려 있으면: 입력은 이 폰에 보관했다가 연결되면 올린다 */}
+      {(!online || !!session.pendingSaves) && (
+        <span className="offline-pill round-net">{online ? "저장 대기" : "오프라인"}</span>
+      )}
+
       {round.isHost &&
         session.status === "playing" &&
         tab === "result" &&
         (isRecord || allSaved || !session.holeSave) && (
-          <div className="floating-finish">
-            <button className="btn-primary" onClick={finalize}>
-              <Icon name="finish" size={18} className="inline-ic" />{" "}
-              {isRecord ? "라운드 종료" : "최종 확정"}
-            </button>
-          </div>
+          <PlayBar action={<DockButton label={isRecord ? "종료" : "확정"} onClick={finalize} />}>
+            <span className="pb-hint">{isRecord ? "라운드 종료" : "최종 확정"}</span>
+          </PlayBar>
         )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { useBack } from "../back";
 import { Avatar, Icon } from "../icons";
+import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import {
   cachedRanking,
   excludeFromRanking,
@@ -237,26 +238,25 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="app">
-      <div className="topbar">
-        <div className="brand">
-          <span className="dot">
-            <Icon name="podium" size={18} />
-          </span>
-          {managing ? "랭킹 관리" : person ? person.name || "랭킹" : "랭킹"}
-        </div>
-        <div className="actions">
+      {/* 뒤로가기: 랭킹 관리·사람 프로필 → 랭킹, 랭킹 → 홈 */}
+      <TopBar
+        left={
+          <BackButton
+            onClick={() => (managing ? setManaging(false) : selected ? setSelected(null) : close())}
+          />
+        }
+        right={<NoticeButton />}
+      />
+
+      <div className="sheet">
+        <div className="page-title-row">
+          <h2 className="page-title">{managing ? "랭킹 관리" : person ? person.name || "랭킹" : "랭킹"}</h2>
           {data && !managing && (
             <button className="rk-manage-btn" onClick={openManage}>
               랭킹 관리
             </button>
           )}
-          <button className="icon-btn" aria-label="닫기" onClick={close}>
-            <Icon name="close" size={20} />
-          </button>
         </div>
-      </div>
-
-      <div className="sheet">
         {err && (
           <div className="card">
             <div className="empty-note" style={{ color: "var(--loss)" }}>
@@ -344,15 +344,15 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
           <div className="rk-hidden">
             <Icon name="podium" size={34} />
             <b>랭킹을 숨겨서 다른 사람 랭킹도 볼 수 없어요</b>
-            <span>오른쪽 위 랭킹 관리에서 공개 범위를 바꾸면 다시 볼 수 있어요.</span>
+            <span>위의 랭킹 관리에서 공개 범위를 바꾸면 다시 볼 수 있어요.</span>
           </div>
         )}
 
         {data && !data.hidden && !managing && !person && (
           <>
+            {/* 범위는 제목 줄 '랭킹 관리'에서 바꾼다 */}
             <div className="rk-scope">
               <span>{SCOPE_CAPTION[data.visibility]}</span>
-              <button onClick={openManage}>범위 바꾸기</button>
             </div>
 
             <div className="segmented" style={{ marginBottom: 12 }}>
