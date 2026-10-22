@@ -1,0 +1,3 @@
+// 앱 공통 설정
+// 앱이 띄우는 웹 주소 (xcconfig 에서는 // 가 주석이라 호스트만 적고 앱에서 https:// 를 붙인다)
+MG_WEB_HOST = mental-game-two.vercel.app

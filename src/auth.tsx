@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { isSupabaseConfigured, supabase } from "./supabase";
+import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin } from "./native";
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
@@ -96,8 +97,11 @@ function claimGuest(): Promise<GuestMoved | null> {
 }
 
 function oauthOptions(provider: OAuthProvider) {
+  const native = isNativeApp();
   return {
-    redirectTo: window.location.origin,
+    // iOS 앱: 로그인 창은 앱이 열고(시스템 로그인 창), 끝나면 앱 주소로 돌아와 앱이 이 웹에 결과를 넘긴다
+    redirectTo: native ? NATIVE_LOGIN_REDIRECT : window.location.origin,
+    skipBrowserRedirect: native,
     // Supabase 기본 scope에는 account_email이 있어, 비즈 앱이 아니면 카카오가 KOE205로 거절한다.
     ...(provider === "kakao" && {
       queryParams: { scope: "profile_nickname profile_image" },
@@ -222,10 +226,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               /* 저장소를 못 쓰면 옮기지 못한다 (관리자가 옮길 수 있다) */
             }
         }
-        const { error: e } = await supabase.auth.signInWithOAuth({
+        const { data: started, error: e } = await supabase.auth.signInWithOAuth({
           provider,
           options: oauthOptions(provider),
         });
+        if (!e && isNativeApp() && started.url) openNativeLogin(started.url);
         if (e) {
           setError("로그인에 실패했어요. 다시 시도해 주세요.");
           console.error(e);
@@ -234,10 +239,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       linkProvider: async (provider) => {
         if (!supabase) return;
         setError(null);
-        const { error: e } = await supabase.auth.linkIdentity({
+        const { data: started, error: e } = await supabase.auth.linkIdentity({
           provider,
           options: oauthOptions(provider),
         });
+        if (!e && isNativeApp() && started?.url) openNativeLogin(started.url);
         if (e) {
           console.error(e);
           setError(

@@ -366,11 +366,12 @@ function RoundDetail({
       <TopBar left={<BackButton label="라운드 기록으로" onClick={onBack} />} right={<NoticeButton />} />
       <div className="sheet results">
         <h2 className="page-title">{r.courseName || "라운드 기록"}</h2>
-        <div className="section-title">
-          {r.date}
-          {tee && ` · ${tee}`} · <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
-        </div>
         <div className="card rr-sum">
+          {/* 날짜·티·게임 방식 */}
+          <div className="rr-meta">
+            {[r.date, tee].filter(Boolean).join(" · ")}
+            <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+          </div>
           <div className="rr-total">
             <b>{r.summary.holesPlayed === 0 ? "–" : r.summary.strokes}</b>
             <span>타</span>

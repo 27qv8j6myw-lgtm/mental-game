@@ -85,7 +85,6 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
     );
   // 고른 사람이 라운드 티와 다른 티를 쳤으면(남녀 혼성) 그 티와 그 티의 레이팅
   const tee = teeLabel(selected?.tee || config.courseTee);
-  const played = Math.max(0, ...[...byPlayer.values()].map((v) => v.s.holesPlayed));
   const [sharing, setSharing] = useState(false);
   const rSel = ratingFor(
     playerRating(config.rating, config.teeRatings, selected?.tee),
@@ -151,15 +150,6 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
 
   return (
     <>
-      <div className="result-hero">
-        <div className="big">
-          <Icon name="chart" size={22} className="inline-ic" /> 라운드 기록
-        </div>
-        <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
-          {config.date} · {played}개 홀 진행{tee && ` · ${tee}`}
-        </div>
-      </div>
-
       <div className="sheet results">
         {/* 알림 (최종 확정 실패 등): 정산 화면에서는 맨 위에 */}
         {session.notice && (
@@ -207,6 +197,10 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
               {selected.id === myUid ? "내 기록" : `${selected.name || "?"} 기록`}
             </div>
             <div className="card rr-sum">
+              {/* 날짜·골프장·티 (예전 위쪽 '라운드 기록' 머리 대신 카드 안에) */}
+              <div className="rr-meta">
+                {[config.date, config.courseName, tee].filter(Boolean).join(" · ")}
+              </div>
               <div className="rr-total">
                 <b>{mine.s.holesPlayed === 0 ? "–" : mine.s.strokes}</b>
                 <span>타</span>

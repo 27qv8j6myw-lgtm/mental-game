@@ -3852,6 +3852,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-variant-numeric: tabular-nums;
 }
 .st-chips,
+/* 내 기록 카드 맨 위: 날짜·골프장·티 */
+.rr-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
 .st-golf {
   display: flex;
   flex-wrap: wrap;

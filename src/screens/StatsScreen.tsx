@@ -404,9 +404,6 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
 
         {person && by === "strokes" && (
           <>
-            <button className="st-back" onClick={() => setSelected(null)}>
-              <Icon name="chevronLeft" size={16} /> 전체 보기
-            </button>
             <StrokeHero
               p={person}
               label={person.uid === myUid ? "내 평균 타수 (18홀)" : "나와 함께한 라운드 평균 (18홀)"}
@@ -492,9 +489,6 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
 
         {person && by === "money" && (
           <>
-            <button className="st-back" onClick={() => setSelected(null)}>
-              <Icon name="chevronLeft" size={16} /> 전체 보기
-            </button>
             <PersonHero
               p={person}
               label={person.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"}

@@ -273,9 +273,6 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
         {/* 랭킹 관리: 숨기기 · 제외한 사람 */}
         {data && managing && (
           <>
-            <button className="st-back" onClick={() => setManaging(false)}>
-              <Icon name="chevronLeft" size={16} /> 랭킹으로
-            </button>
             <div className="rk-notice">
               <Icon name="info" size={18} />
               <div>
@@ -471,9 +468,6 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
 
         {data && !data.hidden && !managing && person && selected && (
           <>
-            <button className="st-back" onClick={() => setSelected(null)}>
-              <Icon name="chevronLeft" size={16} /> 순위로
-            </button>
             <div className="card st-hero">
               <div className="st-hero-top">
                 <Avatar photoUrl={person.photoUrl} gender={person.gender} size={40} />

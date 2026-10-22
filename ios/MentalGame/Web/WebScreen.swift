@@ -1,0 +1,72 @@
+import SwiftUI
+import WebKit
+
+/// 앱의 유일한 화면: 웹(멘탈게임)을 화면 가득 띄운다.
+/// 처음 열릴 때까지는 시작 화면과 같은 로고를, 연결이 안 되면 다시 시도 화면을 위에 덮는다
+struct WebScreen: View {
+    @State private var web = WebController()
+
+    var body: some View {
+        ZStack {
+            Color("LaunchBackground").ignoresSafeArea()
+            // 안전 영역(노치·홈 표시줄)은 웹이 CSS env(safe-area-inset-*) 로 직접 비킨다
+            WebViewHost(webView: web.webView).ignoresSafeArea()
+
+            if !web.hasLoaded && web.phase == .loading {
+                SplashView().transition(.opacity)
+            }
+            if web.phase == .offline {
+                OfflineView { web.retry() }.transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: web.phase)
+        .animation(.easeOut(duration: 0.25), value: web.hasLoaded)
+        // 로그인 창 밖에서 돌아오는 로그인 주소도 받는다 (kr.mentalgame.golf://login-callback)
+        .onOpenURL { web.openLoginCallback($0) }
+    }
+}
+
+/// WKWebView 를 SwiftUI 에 붙인다 (웹뷰는 WebController 가 하나만 만들어 계속 쓴다)
+private struct WebViewHost: UIViewRepresentable {
+    let webView: WKWebView
+
+    func makeUIView(context: Context) -> WKWebView { webView }
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+}
+
+/// 시작 화면(UILaunchScreen)과 같은 모양: 바탕색에 글자 로고
+private struct SplashView: View {
+    var body: some View {
+        ZStack {
+            Color("LaunchBackground").ignoresSafeArea()
+            Image("LaunchLogo")
+        }
+    }
+}
+
+/// 처음 열 때 연결이 안 되고 기기에 남은 화면도 없을 때
+private struct OfflineView: View {
+    let retry: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color("LaunchBackground").ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "wifi.slash")
+                    .font(.system(size: 40, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text("연결이 안 돼요")
+                    .font(.title3.bold())
+                Text("인터넷 연결을 확인하고 다시 시도해 주세요.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("다시 시도", action: retry)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 6)
+            }
+            .padding(32)
+        }
+    }
+}
