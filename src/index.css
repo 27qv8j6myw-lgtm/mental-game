@@ -64,6 +64,13 @@ body {
   margin: 0;
   padding: 0;
 }
+/* 화면 오른쪽 스크롤 막대를 숨긴다 (스크롤은 그대로 된다). 안쪽 스크롤 영역도 같게 */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
 /* iOS Safari: 가로로 돌렸을 때 글자가 임의로 커지지 않게,
    점수 버튼 등을 빠르게 두 번 눌러도 화면이 확대되지 않게 (핀치 확대는 그대로) */
 html {
@@ -2178,6 +2185,31 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   margin-top: 3px;
   line-height: 1.45;
 }
+/* 라운드 목록: 이름 옆 타수 · 진행 중 파 대비 타수 */
+.ri-p {
+  white-space: nowrap;
+}
+.ri-score {
+  margin-left: 4px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ri-score small {
+  margin-left: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.ri-live {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--paper-3);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+}
 
 /* 정산: 버디 인별 (받은 돈 / 낸 돈 내역) */
 .bd-player {
@@ -4184,6 +4216,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 11.5px;
   font-weight: 700;
   color: var(--ink-faint);
+  /* "0번" 이 0 과 번으로 갈라지지 않게 */
+  white-space: nowrap;
 }
 /* 스코어 분포: 세로 막대 */
 .sd-bars {
@@ -5526,4 +5560,512 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   font-size: 12.5px;
   font-weight: 700;
   color: #6d5bd0;
+}
+
+/* 전적: 금액 / 타수 순위 기준 */
+.st-by {
+  margin-bottom: 14px;
+}
+.st-hero-amt small {
+  margin-left: 1px;
+  font-size: 14px;
+  font-weight: 800;
+}
+/* 타수 순위: 나(기준) 줄 */
+.st-row.st-row-me {
+  width: calc(100% + 32px);
+  background: var(--olive-soft);
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+/* 라운드별 타수: 나 기준 승·패·무 */
+.st-res {
+  flex: none;
+  min-width: 24px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-align: center;
+  background: var(--paper-3);
+  color: var(--ink-soft);
+}
+.st-res.win {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.st-res.loss {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+
+/* ============ 랭킹 ============ */
+.rk-period {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 12px;
+}
+.rk-period b {
+  font-size: 17px;
+  font-weight: 800;
+}
+.rk-period .icon-btn:disabled {
+  opacity: 0.3;
+}
+/* 시상대: 2위 · 1위 · 3위 */
+.rk-podium {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 18px 12px 0;
+  overflow: hidden;
+}
+.rk-pod {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.rk-pod:active {
+  opacity: 0.7;
+}
+.rk-pod-face {
+  position: relative;
+  margin-bottom: 4px;
+}
+.rk-pod-face .avatar {
+  box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--medal);
+}
+.rk-medal {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--medal);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.m1 {
+  --medal: #f2b705;
+  --medal-soft: #fdf0c2;
+}
+.m2 {
+  --medal: #a3adb8;
+  --medal-soft: #e9ecf0;
+}
+.m3 {
+  --medal: #c98a4b;
+  --medal-soft: #f4e3d2;
+}
+.rk-pod-name {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rk-pod-name .me-tag {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+.rk-pod-avg {
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.rk-pod-avg small {
+  margin-left: 1px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.rk-pod-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.rk-pod-base {
+  width: 100%;
+  margin-top: 6px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, var(--medal-soft), var(--paper-2));
+}
+.rk-pod.p1 .rk-pod-base {
+  height: 56px;
+}
+.rk-pod.p2 .rk-pod-base {
+  height: 38px;
+}
+.rk-pod.p3 .rk-pod-base {
+  height: 26px;
+}
+.rk-title {
+  justify-content: space-between;
+}
+.rk-compare {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+/* 순위 변화: 오르면 빨강 ▲, 내리면 파랑 ▼ */
+.rk-chg-col {
+  flex: none;
+  width: 36px;
+  text-align: right;
+}
+.rk-chg {
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rk-chg.up {
+  color: var(--loss);
+}
+.rk-chg.down {
+  color: var(--olive);
+}
+.rk-chg.same {
+  color: var(--ink-faint);
+}
+.rk-chg.new {
+  font-size: 10.5px;
+  color: var(--mustard);
+}
+/* 칩 안의 순위 변화는 칩 모양을 받지 않게 */
+.st-golf span.rk-chg {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+/* 이용자: 베스트 스코어 */
+.rk-best-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rk-best-top b {
+  font-family: var(--font-num);
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.rk-best-top b small {
+  margin-left: 2px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.rk-best-top span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+
+/* 랭킹 위 안내 블록 (공개 안내 / 숨긴 상태) */
+.rk-notice {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.rk-notice > svg {
+  flex: none;
+  margin-top: 1px;
+}
+.rk-notice div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.rk-notice b {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.rk-notice span {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* 전적 타수 맞대결: 나와 친 라운드 · 전체 라운드 평균 비교 (나 / 그 사람) */
+.st-vs-avg {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.st-vs-avg span {
+  color: var(--ink-soft);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.st-vs-avg .h {
+  text-align: right;
+  font-weight: 800;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-vs-avg b,
+.st-vs-avg em {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-style: normal;
+}
+.st-vs-avg b {
+  font-size: 15px;
+  font-weight: 800;
+}
+.st-vs-avg em {
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+/* 홈 진행 중: 관리자 본인 / 사용자 보기 */
+.home-scope {
+  margin-bottom: 10px;
+}
+.home-scope button {
+  padding: 8px;
+}
+.ri-open.ri-static {
+  cursor: default;
+}
+.home-scope-hint {
+  margin: 2px 2px 14px;
+}
+.ri-open.ri-static:active {
+  opacity: 1;
+}
+
+/* 랭킹 관리: 제외한 사람 · 제외 버튼 */
+.st-row.rk-ex-row {
+  cursor: default;
+}
+.st-row.rk-ex-row:active {
+  opacity: 1;
+}
+.rk-ex-btn {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--olive-deep);
+}
+
+/* 랭킹 상단: 랭킹 관리 버튼 (파란 타원) */
+.rk-manage-btn {
+  padding: 7px 13px;
+  border: none;
+  border-radius: 999px;
+  background: var(--olive);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.rk-manage-btn:active {
+  opacity: 0.8;
+}
+/* 랭킹 위 한 줄: 지금 보는 범위 (내 공개 범위를 따른다) */
+.rk-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 2px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.rk-scope button {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--olive);
+}
+/* 랭킹을 숨긴 사람: 화면 가운데 안내 */
+.rk-hidden {
+  min-height: calc(100vh - 220px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px;
+  text-align: center;
+  color: var(--ink-faint);
+}
+.rk-hidden b {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.45;
+}
+.rk-hidden span {
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* 랭킹 관리: 공개 범위 고르기 */
+.rk-vis {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.rk-vis-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.rk-vis-row:last-child {
+  border-bottom: none;
+}
+.rk-vis-row .tinfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rk-vis-row .t {
+  font-weight: 700;
+  font-size: 14.5px;
+}
+.rk-vis-row .s {
+  font-size: 12px;
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+.rk-radio {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+}
+.rk-vis-row.on .rk-radio {
+  border: 6px solid var(--olive);
+}
+.rk-vis-row.on .t {
+  color: var(--olive-deep);
+}
+/* 이용자 카드: 이름 옆 빨간 타원 '제외' */
+.rk-hero-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.rk-hero-name b {
+  min-width: 0;
+}
+.rk-ex-pill {
+  flex: none;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* 이름(실명) 정하기 팝업 */
+.alert-box.name-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.name-box h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+.name-desc {
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+.name-err {
+  font-size: 12.5px;
+  color: var(--loss);
+}
+.name-cancel {
+  padding: 8px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+/* 관리자 최근 가입자: 닉네임 옆 실명 (눌러서 고친다) */
+.ad-real {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ad-real.none {
+  background: var(--paper-3);
+  color: var(--ink-faint);
 }

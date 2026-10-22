@@ -12,6 +12,8 @@ import CreateRoundScreen from "./screens/CreateRoundScreen";
 import LobbyScreen from "./screens/LobbyScreen";
 import AdminScreen from "./screens/AdminScreen";
 import StatsScreen from "./screens/StatsScreen";
+import NameDialog from "./screens/NameDialog";
+import RankingScreen from "./screens/RankingScreen";
 import { Icon } from "./icons";
 import { firstUnsaved } from "./model";
 import { useBack } from "./back";
@@ -32,14 +34,26 @@ export default function App() {
   }
 
   if (mode === "signed-out") return <LoginScreen />;
-  return <MemberFlow />;
+  return (
+    <>
+      <MemberFlow />
+      <NamePrompt />
+    </>
+  );
+}
+
+/** 처음 로그인했을 때: 앱에서 쓸 이름(실명)을 정하기 전까지 띄운다 (게스트는 묻지 않는다) */
+function NamePrompt() {
+  const { user } = useAuth();
+  if (!user || user.isAnonymous || user.nameSet) return null;
+  return <NameDialog initial={user.providerName ?? ""} />;
 }
 
 /* ============================ 로그인 사용자: 멀티플레이어 ============================ */
 
 function MemberFlow() {
   const round = useRound();
-  const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records">("home");
+  const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking">("home");
 
   // 라운드를 만들어 들어갔으면, 라운드를 닫을 때 만들기 화면이 아니라 홈으로 돌아온다
   // (전적·라운드 기록에서 연 라운드는 닫으면 그 화면으로 돌아온다)
@@ -88,13 +102,14 @@ function MemberFlow() {
 
   if (view === "create") return <CreateRoundScreen onCancel={() => setView("home")} />;
   if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
-  // 홈·전적·기록은 하단 탭으로 오간다
+  // 홈·전적·기록·랭킹은 하단 탭으로 오간다
   const tabs = (
     <div className="tabbar">
       {(
         [
           ["home", "flag", "라운드"],
           ["stats", "trophy", "전적"],
+          ["ranking", "podium", "랭킹"],
           ["records", "chart", "기록"],
         ] as const
       ).map(([v, icon, label]) => (
@@ -121,6 +136,8 @@ function MemberFlow() {
         <StatsScreen onClose={() => setView("home")} />
       ) : view === "records" ? (
         <RecordStatsScreen onClose={() => setView("home")} />
+      ) : view === "ranking" ? (
+        <RankingScreen onClose={() => setView("home")} />
       ) : (
         <RoundsHomeScreen onCreate={() => setView("create")} onAdmin={() => setView("admin")} />
       )}

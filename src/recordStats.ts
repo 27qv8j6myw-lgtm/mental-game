@@ -279,37 +279,80 @@ export async function loadRecordRounds(
     ),
   ]);
   return list
-    .map((r) => {
-      const holes = roundHoles(
-        r.hole_count,
+    .map((r) =>
+      recordRound(
+        {
+          id: r.id,
+          date: r.date,
+          courseName: r.course_name,
+          courseTee: r.course_tee ?? "",
+          holeCount: r.hole_count,
+          gameMode: r.rules.gameMode ?? "stroke",
+          rating: r.rules.rating ?? null,
+        },
         pars.filter((h) => h.round_id === r.id),
         scores.filter((s) => s.round_id === r.id && s.player_uid === myUid),
-        stats.filter((s) => s.round_id === r.id && s.player_uid === myUid)
-      );
-      const summary = summarize(holes);
-      const female = players.some(
-        (p) => p.round_id === r.id && p.user_uid === myUid && p.gender === "female"
-      );
-      const rating = ratingFor(r.rules.rating, female ? "F" : "M");
-      return {
-        roundId: r.id,
-        date: r.date,
-        courseName: r.course_name,
-        courseTee: r.course_tee ?? "",
-        holeCount: r.hole_count,
-        gameMode: r.rules.gameMode ?? "stroke",
-        holes,
-        summary,
-        differential:
-          rating && r.hole_count === 18 && summary.holesPlayed === 18
-            ? differential(summary.strokes, rating.cr, rating.slope)
-            : null,
-        rating: r.rules.rating ?? null,
-        ratingLabel: rating ? `KGA ${rating.cr}/${rating.slope}` : null,
-      };
-    })
+        stats.filter((s) => s.round_id === r.id && s.player_uid === myUid),
+        players.some((p) => p.round_id === r.id && p.user_uid === myUid && p.gender === "female")
+      )
+    )
     .filter((r) => r.summary.holesPlayed > 0)
     .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** 한 사람의 한 라운드 기록 → 분석·보정타수 (홈 '라운드 기록'과 랭킹의 이용자 기록이 같이 쓴다) */
+export function recordRound(
+  r: {
+    id: string;
+    date: string;
+    courseName: string;
+    courseTee: string;
+    holeCount: number;
+    gameMode: GameMode;
+    rating: CourseRating | null;
+  },
+  pars: { hole_index: number; par: number }[],
+  scores: { hole_index: number; rel: number }[],
+  stats: (HoleStat & { hole_index: number })[],
+  female: boolean
+): RecordRound {
+  const holes = roundHoles(r.holeCount, pars, scores, stats);
+  const summary = summarize(holes);
+  // 보정타수에 쓸 레이팅은 그 사람 성별로
+  const rating = ratingFor(r.rating, female ? "F" : "M");
+  return {
+    roundId: r.id,
+    date: r.date,
+    courseName: r.courseName,
+    courseTee: r.courseTee,
+    holeCount: r.holeCount,
+    gameMode: r.gameMode,
+    holes,
+    summary,
+    differential:
+      rating && r.holeCount === 18 && summary.holesPlayed === 18
+        ? differential(summary.strokes, rating.cr, rating.slope)
+        : null,
+    rating: r.rating,
+    ratingLabel: rating ? `KGA ${rating.cr}/${rating.slope}` : null,
+  };
+}
+
+const meanOf = (xs: number[]) => (xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length);
+
+/** 라운드 묶음 요약: 평균·베스트·라운드당 퍼트는 18홀을 다 친 라운드만 (부분합을 섞지 않는다) */
+export function digestRecords(rs: RecordRound[]) {
+  const full = rs.filter((r) => r.holeCount === 18 && r.summary.holesPlayed === 18);
+  // 보정타수: KGA 레이팅이 있는 18홀 라운드만
+  const diffs = rs.map((r) => r.differential).filter((v): v is number => v != null);
+  return {
+    count: rs.length,
+    avg: meanOf(full.map((r) => r.summary.strokes)),
+    best: full.length ? Math.min(...full.map((r) => r.summary.strokes)) : null,
+    putts: meanOf(full.map((r) => r.summary.putts).filter((v): v is number => v != null)),
+    avgDiff: meanOf(diffs),
+    all: summarize(rs.flatMap((r) => r.holes)),
+  };
 }
 
 /** 한 사람의 홀별 기록 (파는 입력이 없으면 4, 타수는 더블파까지) */

@@ -152,7 +152,7 @@ export function RecordAnalysis({
 }
 
 /**
- * 티샷 결과: 반원은 훅(왼쪽)·적중(가운데)·슬라이스(오른쪽) 셋만 그 비중대로 나눠 칠한다. 오른쪽에 벙커·OB·해저드.
+ * 티샷 결과: 반원은 왼쪽 미스(훅)·적중(가운데)·오른쪽 미스(슬라이스) 셋만 그 비중대로 나눠 칠한다. 오른쪽에 벙커·OB·해저드.
  * 짧음(기타)은 방향이 아니어서 반원에 넣지 않고 아래에 따로 적는다.
  * 비율과 페어웨이 적중률은 방향을 적은 홀 기준, 벙커·OB·해저드는 전체 티샷(친 파4·5 홀) 중 비중. 개수보다 비율을 크게
  */
@@ -211,14 +211,14 @@ function TeeShotChart({ s }: { s: RecordSummary }) {
               <Icon name="hook" size={14} strokeWidth={2.4} />
               {dirShare(left)}
             </b>
-            <small>훅 {left}홀</small>
+            <small>왼쪽 미스 {left}홀</small>
           </div>
           <div className="ts-dir slice">
             <b>
               {dirShare(right)}
               <Icon name="slice" size={14} strokeWidth={2.4} />
             </b>
-            <small>슬라이스 {right}홀</small>
+            <small>오른쪽 미스 {right}홀</small>
           </div>
         </div>
         {/* 기타(짧음)는 반원 밖에 따로 */}

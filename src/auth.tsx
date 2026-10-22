@@ -22,6 +22,10 @@ export interface AuthUser {
   bank: { name: string; account: string } | null;
   /** 대기실에서 고른 성별 (다음 라운드에도 쓴다. KGA 남/여 레이팅 선택에 필요). 고른 적 없으면 null */
   gender: "male" | "female" | null;
+  /** 앱에서 쓸 이름(실명)을 직접 정했는지. 안 정했으면 처음에 묻는다 (카카오 닉네임 대신) */
+  nameSet: boolean;
+  /** 로그인한 서비스(카카오·구글)의 이름. 이름을 정할 때 미리 채워 둔다 */
+  providerName: string | null;
 }
 
 interface AuthCtx {
@@ -36,6 +40,8 @@ interface AuthCtx {
   saveBankAccount: (name: string, account: string) => Promise<void>;
   /** 내 계정(user_metadata)에 성별을 저장해 다음 라운드에서도 쓴다 */
   saveGender: (gender: "male" | "female") => Promise<void>;
+  /** 앱에서 쓸 이름(실명)을 저장한다. 성공하면 true */
+  saveName: (name: string) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
 }
@@ -80,11 +86,14 @@ function mapUser(u: {
 }): AuthUser {
   const meta = u.user_metadata ?? {};
   const isAnonymous = !!u.is_anonymous;
+  // 로그인할 때마다 카카오·구글 이름으로 full_name 이 덮어써져서, 직접 정한 이름은 mg_name 에 따로 둔다
+  const appName = typeof meta.mg_name === "string" && meta.mg_name.trim() ? meta.mg_name.trim() : null;
+  const providerName = (meta.full_name as string) || (meta.name as string) || null;
   return {
     uid: u.id,
-    displayName: isAnonymous
-      ? null
-      : (meta.full_name as string) || (meta.name as string) || u.email || null,
+    displayName: isAnonymous ? null : appName || providerName || u.email || null,
+    nameSet: !!appName,
+    providerName,
     photoURL: isAnonymous
       ? null
       : (meta.avatar_url as string) || (meta.picture as string) || null,
@@ -213,6 +222,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (data.user) setUser(mapUser(data.user));
+      },
+      saveName: async (name) => {
+        if (!supabase) return false;
+        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_name: name.trim() } });
+        if (e) {
+          console.error(e);
+          return false;
+        }
+        if (data.user) setUser(mapUser(data.user));
+        return true;
       },
       clearError: () => setError(null),
       signOutUser: async () => {

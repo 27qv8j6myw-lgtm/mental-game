@@ -27,7 +27,9 @@ type IconName =
   | "hook"
   | "slice"
   | "ring"
-  | "short";
+  | "short"
+  | "podium"
+  | "edit";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -117,6 +119,21 @@ const PATHS: Record<IconName, JSX.Element> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5" />
       <path d="M12 7.5h.01" />
+    </>
+  ),
+  // 고치기: 연필
+  edit: (
+    <>
+      <path d="M4 20h4L19 9l-4-4L4 16v4Z" />
+      <path d="M13.5 6.5l4 4" />
+    </>
+  ),
+  // 랭킹: 시상대 (가운데 1위가 가장 높다)
+  podium: (
+    <>
+      <path d="M9 20V9h6v11" />
+      <path d="M3 20v-6h6M15 20v-8h6v8" />
+      <path d="M2 20h20" />
     </>
   ),
   chart: (

@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useAuth, type OAuthProvider } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
 import { takeInvite } from "../invite";
-import { joinRoundByCode, leaveOrDeleteRound, listMyRounds } from "../rounds";
+import { joinRoundByCode, leaveOrDeleteRound, listMyRounds, subscribeRoundScores } from "../rounds";
 import { Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import type { RoundListItem, RoundRow } from "../types";
-import { GAME_MODE_LABEL, teeLabel } from "../util";
-import { isAdmin } from "../admin";
+import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
+import { fetchUserRounds, isAdmin, type UserRound } from "../admin";
 import { loadStats } from "../stats";
+import NameDialog from "./NameDialog";
+import { cachedScoreLines, fetchScoreLines, storeScoreLines, type RoundScoreLine } from "../roundScores";
 
 const STATUS_LABEL: Record<string, string> = {
   lobby: "대기중",
@@ -42,12 +44,47 @@ function writeListCache(uid: string | undefined, list: RoundListItem[]) {
 /** 홈에 보여줄 끝난 라운드 수 (나머지는 전체 보기) */
 const RECENT = 5;
 
-/** 함께 친 사람 이름 (자리 순, 방장이 고친 이름 우선) */
+/** 관리자: 진행 중·최근 라운드를 본인 것 / 다른 사용자 것 중 무엇으로 볼지 (탭을 오가도 유지) */
+type ActiveScope = "mine" | "users";
+let lastScope: ActiveScope = "mine";
+/** 관리자 사용자 보기를 다시 받는 간격 (다른 사람 라운드는 실시간 구독이 안 된다) */
+const USERS_REFRESH_MS = 30_000;
+
+/** 함께 친 사람 (자리 순) */
+const seated = (r: RoundListItem) => [...r.round_players].sort((a, b) => a.seat_order - b.seat_order);
+/** 이름 (방장이 고친 이름 우선) */
+const nameOf = (r: RoundListItem, p: RoundListItem["round_players"][number]) =>
+  r.rules.nameOverrides?.[p.user_uid] ?? (p.name || "이름 미정");
 const playerNames = (r: RoundListItem) =>
-  [...r.round_players]
-    .sort((a, b) => a.seat_order - b.seat_order)
-    .map((p) => r.rules.nameOverrides?.[p.user_uid] ?? (p.name || "이름 미정"))
+  seated(r)
+    .map((p) => nameOf(r, p))
     .join(", ");
+
+/** 함께 친 사람 이름 + 타수. 진행 중이면 지금까지의 파 대비 타수 (+5, E, -1) */
+function PlayersLine({ r, line }: { r: RoundListItem; line?: RoundScoreLine }) {
+  return (
+    <div className="ri-players">
+      {seated(r).map((p, i) => {
+        const s = line?.players[p.user_uid];
+        return (
+          <Fragment key={p.user_uid}>
+            {i > 0 && ", "}
+            <span className="ri-p">
+              {nameOf(r, p)}
+              {s && line && (
+                <b className="ri-score">
+                  {line.live ? relLabel(s.toPar) : s.strokes}
+                  {/* 일찍 끝낸 라운드: 친 홀까지의 타수 */}
+                  {!line.live && s.played < line.holeCount && <small>({s.played}홀)</small>}
+                </b>
+              )}
+            </span>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 type RoundFilter = "all" | "stroke" | "skins" | "record" | "host";
 const FILTERS: [RoundFilter, string][] = [
@@ -171,6 +208,71 @@ export default function RoundsHomeScreen({
   const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
   // 관리자 계정이면 프로필 메뉴에 대시보드 버튼을 보여준다
   const [admin, setAdmin] = useState(false);
+  /** 프로필 메뉴: 내 이름 바꾸기 */
+  const [nameOpen, setNameOpen] = useState(false);
+  useBack(nameOpen, () => setNameOpen(false));
+  /** 라운드별 이름 옆 타수 (보관해 둔 것을 먼저 보여 준다) */
+  const uid = user?.uid ?? "";
+  const [lines, setLines] = useState<Record<string, RoundScoreLine>>(
+    () => cachedScoreLines(uid, rounds).lines
+  );
+  const roundsRef = useRef(rounds);
+  roundsRef.current = rounds;
+
+  const refreshLines = async (targets: RoundListItem[]) => {
+    if (!uid || targets.length === 0) return;
+    try {
+      const got = await fetchScoreLines(targets);
+      setLines((prev) => ({ ...prev, ...got }));
+      storeScoreLines(uid, roundsRef.current, got);
+    } catch (e) {
+      console.error("타수 불러오기 실패", e);
+    }
+  };
+
+  // 목록을 받으면 보이는 라운드의 타수: 홈(진행 중 + 최근 5개)은 늘 새로, 전체 보기는 바뀐 라운드만
+  useEffect(() => {
+    if (loading || rounds.length === 0) return;
+    const done = rounds.filter((r) => r.status === "done");
+    const { fresh } = cachedScoreLines(uid, rounds);
+    void refreshLines([
+      ...rounds.filter((r) => r.status !== "done"),
+      ...done.slice(0, RECENT),
+      ...(showAll ? done.slice(RECENT).filter((r) => !fresh.has(r.id)) : []),
+    ]);
+  }, [rounds, loading, showAll]);
+
+  // 진행 중 라운드: 누가 스코어를 넣으면 타수를 바로 고친다 (앱으로 돌아왔을 때도 다시 받는다)
+  const liveIds = rounds
+    .filter((r) => r.status === "playing")
+    .map((r) => r.id)
+    .sort()
+    .join(",");
+  useEffect(() => {
+    if (!liveIds) return;
+    const ids = liveIds.split(",");
+    const refresh = () => void refreshLines(roundsRef.current.filter((r) => ids.includes(r.id)));
+    let timer: number | undefined;
+    const later = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, 400);
+    };
+    let off = () => {};
+    try {
+      off = subscribeRoundScores(ids, later);
+    } catch (e) {
+      console.error(e);
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      off();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [liveIds]);
 
   const load = async () => {
     setLoading(true);
@@ -263,24 +365,44 @@ export default function RoundsHomeScreen({
     }
   };
 
+  /** 라운드 한 줄의 내용: 이름·게임 방식·진행 홀 / 날짜·티 / 함께 친 사람과 타수 */
+  const itemBody = (r: RoundListItem, line: RoundScoreLine | undefined, hostName?: string) => (
+    <>
+      <div className="ri-name">
+        <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
+        {/* 게임 방식: 값이 없는 예전 라운드는 타당 */}
+        <span className={`mode-tag ${r.rules.gameMode ?? "stroke"}`}>
+          {GAME_MODE_LABEL[r.rules.gameMode ?? "stroke"]}
+        </span>
+        {/* 진행 중: 몇 홀까지 쳤는지 (이름 옆 타수는 파 대비) */}
+        {line?.live && <span className="ri-live">{line.played}홀 진행</span>}
+      </div>
+      <div className="ri-sub">
+        {r.date}
+        {r.tee_time && ` · ${r.tee_time}`}
+        {teeLabel(r.course_tee) && ` · ${teeLabel(r.course_tee)}`}
+        {hostName != null ? ` · 방장 ${hostName}` : r.host_uid === user?.uid ? " · 방장" : ""}
+      </div>
+      {r.round_players.length > 0 && <PlayersLine r={r} line={line} />}
+    </>
+  );
+  /** 관리자 사용자 보기: 다른 사람 라운드 (참여자가 아니어서 열 수 없고 보기만) */
+  const otherItem = (r: RoundListItem, line: RoundScoreLine) => {
+    const host = r.round_players.find((p) => p.user_uid === r.host_uid);
+    return (
+      <div key={r.id} className="round-item">
+        <div className="ri-open ri-static">{itemBody(r, line, host ? nameOf(r, host) : "")}</div>
+        <div className="ri-right">
+          <span className={`badge st-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
+        </div>
+      </div>
+    );
+  };
   /** 라운드 한 줄 (홈·전체 보기 공용) */
   const item = (r: RoundListItem) => (
     <div key={r.id} className="round-item">
       <button className="ri-open" onClick={() => openRound(r.id)}>
-        <div className="ri-name">
-          <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
-          {/* 게임 방식: 값이 없는 예전 라운드는 타당 */}
-          <span className={`mode-tag ${r.rules.gameMode ?? "stroke"}`}>
-            {GAME_MODE_LABEL[r.rules.gameMode ?? "stroke"]}
-          </span>
-        </div>
-        <div className="ri-sub">
-          {r.date}
-          {r.tee_time && ` · ${r.tee_time}`}
-          {teeLabel(r.course_tee) && ` · ${teeLabel(r.course_tee)}`}
-          {r.host_uid === user?.uid ? " · 방장" : ""}
-        </div>
-        {r.round_players.length > 0 && <div className="ri-players">{playerNames(r)}</div>}
+        {itemBody(r, lines[r.id])}
       </button>
       <div className="ri-right">
         <span className={`badge st-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
@@ -294,6 +416,41 @@ export default function RoundsHomeScreen({
   );
   const activeRounds = rounds.filter((r) => r.status !== "done");
   const doneRounds = rounds.filter((r) => r.status === "done");
+
+  // 관리자: 진행 중·최근 라운드 본인 / 사용자 보기. 사용자 보기는 고를 때·앱으로 돌아올 때·30초마다 다시 받는다
+  const [scope, setScopeState] = useState<ActiveScope>(lastScope);
+  const setScope = (v: ActiveScope) => {
+    lastScope = v;
+    setScopeState(v);
+  };
+  const [userRounds, setUserRounds] = useState<{ active: UserRound[]; recent: UserRound[] } | null>(null);
+  const [userErr, setUserErr] = useState(false);
+  const showUsers = admin && scope === "users";
+  useEffect(() => {
+    if (!showUsers) return;
+    let alive = true;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      fetchUserRounds(RECENT * 2)
+        .then((list) => {
+          if (!alive) return;
+          setUserRounds(list);
+          setUserErr(false);
+        })
+        .catch((e) => {
+          console.error(e);
+          if (alive) setUserErr(true);
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, USERS_REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [showUsers]);
 
   if (showAll) {
     return (
@@ -364,6 +521,18 @@ export default function RoundsHomeScreen({
                     );
                   })}
                 </div>
+              )}
+              {!isAnon && (
+                <button
+                  className="menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setNameOpen(true);
+                  }}
+                >
+                  <Icon name="user" size={17} className="inline-ic" />
+                  내 이름 바꾸기
+                </button>
               )}
               {admin && (
                 <button
@@ -470,13 +639,67 @@ export default function RoundsHomeScreen({
         ) : (
           <>
             {/* 진행 중(대기·진행)은 늘 위에, 끝난 라운드는 최근 5개만 (나머지는 전체 보기) */}
-            {activeRounds.length > 0 && (
+            {(activeRounds.length > 0 || admin) && (
               <>
                 <div className="section-title">진행 중</div>
-                {activeRounds.map(item)}
+                {/* 관리자: 내 라운드 / 다른 사용자들의 라운드 */}
+                {admin && (
+                  <div className="segmented home-scope">
+                    <button className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>
+                      본인
+                    </button>
+                    <button className={scope === "users" ? "active" : ""} onClick={() => setScope("users")}>
+                      사용자{userRounds && userRounds.active.length > 0 ? ` ${userRounds.active.length}` : ""}
+                    </button>
+                  </div>
+                )}
+                {!showUsers &&
+                  (activeRounds.length > 0 ? (
+                    activeRounds.map(item)
+                  ) : (
+                    <div className="card">
+                      <div className="empty-note">진행 중인 내 라운드가 없어요.</div>
+                    </div>
+                  ))}
+                {showUsers &&
+                  (userErr && !userRounds ? (
+                    <div className="card">
+                      <div className="empty-note">
+                        불러오지 못했어요. 처음이면 Supabase 에서 admin.sql 을 다시 실행해 주세요.
+                      </div>
+                    </div>
+                  ) : !userRounds ? (
+                    <div className="card">
+                      <div className="empty-note">불러오는 중…</div>
+                    </div>
+                  ) : userRounds.active.length === 0 ? (
+                    <div className="card">
+                      <div className="empty-note">지금 진행 중인 다른 사용자 라운드가 없어요.</div>
+                    </div>
+                  ) : (
+                    <>
+                      {userRounds.active.map((u) => otherItem(u.round, u.line))}
+                      <p className="hint home-scope-hint">
+                        어제부터의 대기·진행 중 라운드예요 (내가 참여한 라운드 빼고). 30초마다 새로 받아요.
+                      </p>
+                    </>
+                  ))}
               </>
             )}
-            {doneRounds.length > 0 && (
+            {/* 관리자 사용자 보기: 다른 사용자들의 최근 끝난 라운드 */}
+            {showUsers && userRounds && (
+              <>
+                <div className="section-title">최근 라운드 · 사용자</div>
+                {userRounds.recent.length === 0 ? (
+                  <div className="card">
+                    <div className="empty-note">다른 사용자의 끝난 라운드가 없어요.</div>
+                  </div>
+                ) : (
+                  userRounds.recent.map((u) => otherItem(u.round, u.line))
+                )}
+              </>
+            )}
+            {doneRounds.length > 0 && !showUsers && (
               <>
                 <div className="section-title">최근 라운드</div>
                 {doneRounds.slice(0, RECENT).map(item)}
@@ -490,6 +713,8 @@ export default function RoundsHomeScreen({
           </>
         )}
       </div>
+
+      {nameOpen && <NameDialog initial={user?.displayName ?? ""} onClose={() => setNameOpen(false)} />}
 
       {/* 방장이 나를 내보냈거나 라운드를 지워서 라운드 화면이 닫혔을 때: 가운데 팝업 */}
       {exitNotice && (

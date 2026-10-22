@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { scoreLine, type RoundScoreLine } from "./roundScores";
+import type { RoundListItem } from "./types";
 
 /** admin_stats() 결과 (supabase/admin.sql) */
 export interface AdminStats {
@@ -53,7 +55,10 @@ export interface AdminRound {
 
 export interface AdminUser {
   user_id: string;
+  /** 카카오·구글 이름 (닉네임) */
   name: string;
+  /** 앱에서 정한 이름(실명). 아직 안 정했으면 null */
+  real_name: string | null;
   /** 앞 두 글자만 보이는 이메일. 카카오만 쓰는 사람은 없음 */
   email_masked: string | null;
   providers: string[];
@@ -118,5 +123,31 @@ export async function fetchAiGrants(): Promise<AiGrant[]> {
 /** 관리자: AI 분석 허용 / 해제 */
 export async function setAiGrant(userId: string, on: boolean): Promise<void> {
   const { error } = await requireDb().rpc("admin_set_ai_grant", { p_user_id: userId, p_on: on });
+  if (error) throw error;
+}
+
+/** 관리자 홈 '사용자' 보기: 라운드 한 줄 + 사람별 타수 */
+export interface UserRound {
+  round: RoundListItem;
+  line: RoundScoreLine;
+}
+
+/** 다른 사용자들의 진행 중 라운드·최근 끝난 라운드 (관리자만) */
+export async function fetchUserRounds(recent = 10): Promise<{ active: UserRound[]; recent: UserRound[] }> {
+  if (!supabase) return { active: [], recent: [] };
+  const { data, error } = await supabase.rpc("admin_user_rounds", { p_recent: recent });
+  if (error) throw error;
+  type Row = RoundListItem & {
+    holes: { hole_index: number; par: number; saved_at: string | null }[];
+    scores: { hole_index: number; player_uid: string; rel: number }[];
+  };
+  const v = (data ?? { active: [], recent: [] }) as { active: Row[]; recent: Row[] };
+  const toItem = ({ holes, scores, ...round }: Row): UserRound => ({ round, line: scoreLine(round, holes, scores) });
+  return { active: v.active.map(toItem), recent: v.recent.map(toItem) };
+}
+
+/** 사용자의 앱 이름(실명)을 고친다 (관리자만). 빈 값이면 지워서 다음 로그인 때 다시 묻는다 */
+export async function setUserName(userId: string, name: string): Promise<void> {
+  const { error } = await requireDb().rpc("admin_set_user_name", { p_user_id: userId, p_name: name.trim() });
   if (error) throw error;
 }

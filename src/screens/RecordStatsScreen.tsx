@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
-import { loadRecordRounds, summarize, type RecordRound } from "../recordStats";
+import { digestRecords, loadRecordRounds, type RecordRound } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
 import RecDate from "./RecDate";
@@ -15,7 +15,6 @@ import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./I
 import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
-const mean = (xs: number[]) => (xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length);
 
 /** 묶어 볼 기간: 전체 / 연도별 / 월별 */
 type Scope = "all" | "year" | "month";
@@ -30,20 +29,7 @@ const periodKey = (date: string, scope: Scope) => (scope === "year" ? date.slice
 const periodLabel = (key: string) =>
   key.length === 4 ? `${key}년` : `${key.slice(0, 4)}년 ${Number(key.slice(5, 7))}월`;
 
-/** 라운드 묶음 요약: 평균·베스트·라운드당 퍼트는 18홀을 다 친 라운드만 (부분합을 섞지 않는다) */
-function digest(rs: RecordRound[]) {
-  const full = rs.filter((r) => r.holeCount === 18 && r.summary.holesPlayed === 18);
-  // 보정타수: KGA 레이팅이 있는 18홀 라운드만
-  const diffs = rs.map((r) => r.differential).filter((v): v is number => v != null);
-  return {
-    count: rs.length,
-    avg: mean(full.map((r) => r.summary.strokes)),
-    best: full.length ? Math.min(...full.map((r) => r.summary.strokes)) : null,
-    putts: mean(full.map((r) => r.summary.putts).filter((v): v is number => v != null)),
-    avgDiff: mean(diffs),
-    all: summarize(rs.flatMap((r) => r.holes)),
-  };
-}
+const digest = digestRecords;
 
 /** 라운드를 열었다 돌아왔을 때 보던 기간을 그대로 보여주려고 기억해 둔다. 화면을 닫으면 지운다 */
 let lastView: { scope: Scope; period: string | null } = { scope: "all", period: null };

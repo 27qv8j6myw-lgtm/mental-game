@@ -50,6 +50,21 @@ export interface PersonStats {
   history: RoundRecord[];
   /** 나와 함께한 라운드에서 내 금액이 더 많았던(win)·적었던(loss)·같았던(draw) 횟수. 나 자신은 null */
   vsMe: { win: number; loss: number; draw: number; myTotal: number; theirTotal: number } | null;
+  /** 나와 함께한 라운드 중 둘 다 끝까지 친 라운드의 타수 맞대결. 그런 라운드가 없거나 나 자신이면 null */
+  strokesVsMe: StrokesVsMe | null;
+}
+
+export interface StrokesVsMe {
+  /** 내 타수가 더 적었던(win)·많았던(loss)·같았던(draw) 라운드 수 (내 기준) */
+  win: number;
+  loss: number;
+  draw: number;
+  rounds: number;
+  /** 그 사람 타수 − 내 타수의 라운드 평균 (소수 첫째 자리). − 면 나보다 적게 친다 */
+  diff: number;
+  /** 그중 18홀 라운드의 평균 타수 (나 / 그 사람) */
+  myAvg18: number | null;
+  theirAvg18: number | null;
 }
 
 export interface StatsResult {
@@ -129,6 +144,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
           eagles: 0,
           history: [],
           vsMe: null,
+          strokesVsMe: null,
         } as PersonStats);
       cur.name = p.name || cur.name;
       cur.photoUrl = p.photoUrl ?? cur.photoUrl;
@@ -145,6 +161,9 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
       people.set(key, cur);
     }
   }
+
+  // 라운드별 내 기록 (타수 맞대결용)
+  const myRounds = new Map((people.get(myUid)?.history ?? []).map((r) => [r.roundId, r]));
 
   for (const person of people.values()) {
     const full = person.history.filter((r) => r.holeCount === 18 && r.gross != null);
@@ -168,6 +187,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
         vs.theirTotal += r.net;
       }
       person.vsMe = vs;
+      person.strokesVsMe = strokesVs(person.history, myRounds);
     }
   }
 
@@ -176,6 +196,28 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
     me: people.get(myUid) ?? null,
     people: list,
     roundCount: netByRound.size,
+  };
+}
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
+const avgOf = (xs: number[]) => (xs.length === 0 ? null : round1(xs.reduce((a, b) => a + b, 0) / xs.length));
+
+/** 그 사람의 라운드들과 내 라운드 기록 → 둘 다 끝까지 친 라운드의 타수 맞대결 */
+function strokesVs(history: RoundRecord[], mine: Map<string, RoundRecord>): StrokesVsMe | null {
+  const pairs = history.flatMap((r) => {
+    const m = mine.get(r.roundId);
+    return m?.gross != null && r.gross != null ? [{ me: m.gross, them: r.gross, holes: r.holeCount }] : [];
+  });
+  if (pairs.length === 0) return null;
+  const full = pairs.filter((x) => x.holes === 18);
+  return {
+    win: pairs.filter((x) => x.me < x.them).length,
+    loss: pairs.filter((x) => x.me > x.them).length,
+    draw: pairs.filter((x) => x.me === x.them).length,
+    rounds: pairs.length,
+    diff: round1(pairs.reduce((s, x) => s + x.them - x.me, 0) / pairs.length),
+    myAvg18: avgOf(full.map((x) => x.me)),
+    theirAvg18: avgOf(full.map((x) => x.them)),
   };
 }
 

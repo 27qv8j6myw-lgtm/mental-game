@@ -5,6 +5,7 @@ import {
   fetchRecentRounds,
   fetchRecentUsers,
   setAiGrant,
+  setUserName,
   type AdminRound,
   type AdminStats,
   type AdminUser,
@@ -15,6 +16,7 @@ import { GAME_MODE_LABEL } from "../util";
 import type { GameMode } from "../types";
 import RatioBar from "./RatioBar";
 import ScorecardImportScreen from "./ScorecardImportScreen";
+import NameDialog from "./NameDialog";
 import { useBack } from "../back";
 
 const STATUS_LABEL: Record<string, string> = { lobby: "대기중", playing: "진행중", done: "완료" };
@@ -132,6 +134,21 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
       setNotice("AI 분석 권한을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setGrantBusy(null);
+    }
+  };
+
+  // 사용자 실명 고치기 (고르는 중인 사람)
+  const [naming, setNaming] = useState<AdminUser | null>(null);
+  useBack(!!naming, () => setNaming(null));
+  const saveUserName = async (name: string) => {
+    if (!naming) return false;
+    try {
+      await setUserName(naming.user_id, name);
+      setUsers((us) => us.map((u) => (u.user_id === naming.user_id ? { ...u, real_name: name.trim() || null } : u)));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
     }
   };
 
@@ -436,6 +453,15 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                     <div className="ad-row-main">
                       <div className="ri-name">
                         <span className="ri-title">{u.name || "이름 없음"}</span>
+                        {/* 앱에서 정한 이름(실명). 누르면 관리자가 고친다 */}
+                        <button
+                          className={`ad-real ${u.real_name ? "" : "none"}`}
+                          onClick={() => setNaming(u)}
+                          aria-label={`${u.name || "이름 없음"} 실명 고치기`}
+                        >
+                          {u.real_name ?? "실명 없음"}
+                          <Icon name="edit" size={11} />
+                        </button>
                         <span className="ad-prov">
                           {u.providers.includes("kakao") && (
                             <span className="ml-ic kakao">
@@ -477,9 +503,22 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             )}
+            <p className="hint" style={{ margin: "6px 2px 0" }}>
+              닉네임 옆은 처음 로그인할 때 적은 실명이에요. 눌러서 고칠 수 있어요.
+            </p>
           </>
         )}
       </div>
+      {naming && (
+        <NameDialog
+          initial={naming.real_name ?? naming.name}
+          title="실명 고치기"
+          desc={`${naming.name || "이름 없음"}님의 앱 이름(실명)이에요. 비우고 저장하면 다음 로그인 때 다시 물어요. 랭킹에는 바로, 그 사람 앱에는 길어야 1시간 안에 반영돼요.`}
+          onSave={saveUserName}
+          onClose={() => setNaming(null)}
+          allowEmpty
+        />
+      )}
     </div>
   );
 }

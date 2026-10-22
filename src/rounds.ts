@@ -407,6 +407,20 @@ export async function leaveOrDeleteRound(
   }
 }
 
+/** 여러 라운드의 홀·스코어 변경을 구독 (홈 목록의 진행 중 라운드 타수). 변경 시 onChange() */
+export function subscribeRoundScores(roundIds: string[], onChange: () => void) {
+  const db = requireDb();
+  const filter = `round_id=in.(${roundIds.join(",")})`;
+  const channel = db
+    .channel(`round-scores:${roundIds.join(",")}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "round_holes", filter }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "round_scores", filter }, onChange)
+    .subscribe();
+  return () => {
+    db.removeChannel(channel);
+  };
+}
+
 /** 라운드 관련 테이블(+ 기록 모드 상세 기록) 변경을 구독. 변경 시 onChange() 호출(재조회 트리거). */
 export function subscribeRound(roundId: string, onChange: () => void) {
   const db = requireDb();

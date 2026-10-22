@@ -202,10 +202,14 @@ as $$
 $$;
 
 -- ============ 최근 가입자 (관리자만, 이메일은 앞 2글자만) ============
+-- name: 카카오·구글 이름(닉네임), real_name: 앱에서 정한 이름(실명, 처음 로그인할 때 입력. 없으면 null)
+-- (돌려주는 칸이 바뀌어 예전 함수를 지우고 다시 만든다)
+drop function if exists public.admin_recent_users(int);
 create or replace function public.admin_recent_users(p_limit int default 30)
 returns table (
   user_id uuid,
   name text,
+  real_name text,
   email_masked text,
   providers text[],
   created_at timestamptz,
@@ -220,6 +224,7 @@ as $$
   select
     u.id,
     coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name', ''),
+    nullif(trim(u.raw_user_meta_data ->> 'mg_name'), ''),
     case
       when coalesce(u.email, '') = '' then null
       else left(split_part(u.email, '@', 1), 2) || '***@' || split_part(u.email, '@', 2)
@@ -234,12 +239,110 @@ as $$
   limit least(greatest(coalesce(p_limit, 30), 1), 100);
 $$;
 
+-- ============ 다른 사용자들의 라운드 (관리자만, 홈의 '사용자' 보기) ============
+-- active: 대기·진행 중이고 라운드 날짜(없으면 만든 날)가 어제 이후인 라운드 (진행 중 먼저, 날짜·티오프 순)
+-- recent: 끝난 라운드 최근 p_recent 개 (최근 날짜 순)
+-- 관리자가 참여한 라운드는 뺀다 (본인 보기에 있다). 이름 옆 타수를 보여 주려고 홀·스코어도 함께 준다
+drop function if exists public.admin_active_rounds();
+create or replace function public.admin_user_rounds(p_recent int default 10)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with others as (
+    select
+      r.*,
+      coalesce(nullif(r.date, ''), to_char(r.created_at at time zone 'Asia/Seoul', 'YYYY-MM-DD')) as day
+    from public.rounds r
+    where public.is_admin()
+      and not exists (
+        select 1 from public.round_players me
+        where me.round_id = r.id and me.user_uid = auth.uid())
+  ),
+  picked as (
+    (select o.*, 'active' as part from others o
+      where o.status in ('lobby', 'playing')
+        and o.day >= to_char((now() at time zone 'Asia/Seoul') - interval '1 day', 'YYYY-MM-DD')
+      order by o.status = 'playing' desc, o.created_at desc
+      limit 50)
+    union all
+    (select o.*, 'recent' as part from others o
+      where o.status = 'done'
+      order by o.day desc, o.created_at desc
+      limit least(greatest(coalesce(p_recent, 10), 1), 50))
+  ),
+  built as (
+    select
+      p.part, p.status, p.day, p.tee_time, p.created_at,
+      jsonb_build_object(
+        'id', p.id, 'join_code', p.join_code, 'host_uid', p.host_uid,
+        'course_name', p.course_name, 'course_tee', p.course_tee, 'date', p.date, 'tee_time', p.tee_time,
+        'unit', p.unit, 'rules', p.rules, 'handicap_settle', p.handicap_settle, 'hole_count', p.hole_count,
+        'status', p.status, 'created_at', p.created_at, 'updated_at', p.updated_at,
+        'round_players', coalesce((
+          select jsonb_agg(jsonb_build_object('user_uid', rp.user_uid, 'name', rp.name, 'seat_order', rp.seat_order))
+          from public.round_players rp where rp.round_id = p.id), '[]'::jsonb),
+        -- 저장 칸(saved_at)은 holesave.sql 을 실행한 DB 에만 있어서 행 전체(to_jsonb)에서 꺼낸다
+        'holes', coalesce((
+          select jsonb_agg(jsonb_build_object('hole_index', h.hole_index, 'par', h.par, 'saved_at', to_jsonb(h) -> 'saved_at'))
+          from public.round_holes h where h.round_id = p.id), '[]'::jsonb),
+        'scores', coalesce((
+          select jsonb_agg(jsonb_build_object('hole_index', sc.hole_index, 'player_uid', sc.player_uid, 'rel', sc.rel))
+          from public.round_scores sc where sc.round_id = p.id), '[]'::jsonb)
+      ) as v
+    from picked p
+  )
+  select jsonb_build_object(
+    'active', coalesce((
+      select jsonb_agg(v order by status = 'playing' desc, day, tee_time)
+      from built where part = 'active'), '[]'::jsonb),
+    'recent', coalesce((
+      select jsonb_agg(v order by day desc, created_at desc)
+      from built where part = 'recent'), '[]'::jsonb)
+  );
+$$;
+
+-- ============ 사용자 실명 고치기 (관리자만) ============
+-- 앱에서 쓰는 이름(user_metadata.mg_name)을 바꾼다. 빈 값이면 지워서 다음 로그인 때 다시 묻는다.
+-- 그 사람 앱에는 로그인이 갱신될 때(길어야 1시간) 반영되고, 랭킹은 바로 이 이름을 쓴다
+create or replace function public.admin_set_user_name(p_user_id uuid, p_name text)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v text := trim(coalesce(p_name, ''));
+begin
+  if not public.is_admin() then
+    raise exception 'ADMIN_ONLY' using errcode = '42501';
+  end if;
+  if char_length(v) > 20 then
+    raise exception 'NAME_TOO_LONG' using errcode = '22023';
+  end if;
+  update auth.users
+    set raw_user_meta_data = case
+      when v = '' then coalesce(raw_user_meta_data, '{}'::jsonb) - 'mg_name'
+      else coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('mg_name', v)
+    end
+    where id = p_user_id;
+  if not found then
+    raise exception 'NO_USER' using errcode = 'P0002';
+  end if;
+end $$;
+
 -- 로그인한 사용자만 호출할 수 있다 (관리자가 아니면 통계는 오류, 목록은 빈 결과)
 revoke all on function public.is_admin() from public, anon;
 revoke all on function public.admin_stats() from public, anon;
 revoke all on function public.admin_recent_rounds(int) from public, anon;
 revoke all on function public.admin_recent_users(int) from public, anon;
+revoke all on function public.admin_user_rounds(int) from public, anon;
+revoke all on function public.admin_set_user_name(uuid, text) from public, anon;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.admin_stats() to authenticated;
 grant execute on function public.admin_recent_rounds(int) to authenticated;
 grant execute on function public.admin_recent_users(int) to authenticated;
+grant execute on function public.admin_user_rounds(int) to authenticated;
+grant execute on function public.admin_set_user_name(uuid, text) to authenticated;
