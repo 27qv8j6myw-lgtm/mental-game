@@ -10,6 +10,7 @@ import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { fetchUserRounds, isAdmin, type UserRound } from "../admin";
 import { loadStats } from "../stats";
 import NameDialog from "./NameDialog";
+import Guide from "../guide/Guide";
 import { cachedScoreLines, fetchScoreLines, storeScoreLines, type RoundScoreLine } from "../roundScores";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -213,6 +214,8 @@ export default function RoundsHomeScreen({
   /** 프로필 메뉴: 내 이름 바꾸기 */
   const [nameOpen, setNameOpen] = useState(false);
   useBack(nameOpen, () => setNameOpen(false));
+  /** 사용 방법 (뒤로가기는 설명서가 받는다) */
+  const [guideOpen, setGuideOpen] = useState(false);
   /** 라운드별 이름 옆 타수 (보관해 둔 것을 먼저 보여 준다) */
   const uid = user?.uid ?? "";
   const [lines, setLines] = useState<Record<string, RoundScoreLine>>(
@@ -474,92 +477,107 @@ export default function RoundsHomeScreen({
           </span>
           멘탈게임
         </div>
-        <div style={{ position: "relative" }}>
-          <button className="avatar-btn" onClick={() => setMenuOpen((v) => !v)}>
-            <Avatar
-              photoUrl={isAnon ? null : user?.photoURL}
-              fallback="user"
-              size={34}
-            />
+        <div className="actions">
+          <button className="icon-btn guide-btn" aria-label="사용 방법" onClick={() => setGuideOpen(true)}>
+            <Icon name="book" size={21} />
           </button>
-          {menuOpen && (
-            <div className="menu">
-              <div className="menu-head">
-                <div className="mn">{isAnon ? "게스트" : user?.displayName ?? "사용자"}</div>
-                <div className="me">{isAnon ? "로그인 없이 참여 중" : user?.email}</div>
-              </div>
-              {!isAnon && (
-                <div className="menu-links">
-                  <div className="ml-title">로그인 계정 연결</div>
-                  {LINKABLE.map(({ id, label }) => {
-                    const linked = providers.includes(id);
-                    return (
-                      <div className="ml-row" key={id}>
-                        <span className={`ml-ic ${id}`}>
-                          {id === "kakao" ? <KakaoLogo size={14} /> : <GoogleLogo size={14} />}
-                        </span>
-                        <span className="ml-name">{label}</span>
-                        {linked && <span className="ml-on">연결됨</span>}
-                        {linked ? (
-                          providers.length > 1 && (
-                            <button
-                              className="ml-btn ghost"
-                              disabled={linkBusy !== null}
-                              onClick={() => void unlink(id, label)}
-                            >
-                              해제
-                            </button>
-                          )
-                        ) : (
-                          <button
-                            className="ml-btn"
-                            disabled={linkBusy !== null}
-                            onClick={() => void link(id)}
-                          >
-                            {linkBusy === id ? "…" : "연결"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+          <div style={{ position: "relative" }}>
+            <button className="avatar-btn" onClick={() => setMenuOpen((v) => !v)}>
+              <Avatar
+                photoUrl={isAnon ? null : user?.photoURL}
+                fallback="user"
+                size={34}
+              />
+            </button>
+            {menuOpen && (
+              <div className="menu">
+                <div className="menu-head">
+                  <div className="mn">{isAnon ? "게스트" : user?.displayName ?? "사용자"}</div>
+                  <div className="me">{isAnon ? "로그인 없이 참여 중" : user?.email}</div>
                 </div>
-              )}
-              {!isAnon && (
+                {!isAnon && (
+                  <div className="menu-links">
+                    <div className="ml-title">로그인 계정 연결</div>
+                    {LINKABLE.map(({ id, label }) => {
+                      const linked = providers.includes(id);
+                      return (
+                        <div className="ml-row" key={id}>
+                          <span className={`ml-ic ${id}`}>
+                            {id === "kakao" ? <KakaoLogo size={14} /> : <GoogleLogo size={14} />}
+                          </span>
+                          <span className="ml-name">{label}</span>
+                          {linked && <span className="ml-on">연결됨</span>}
+                          {linked ? (
+                            providers.length > 1 && (
+                              <button
+                                className="ml-btn ghost"
+                                disabled={linkBusy !== null}
+                                onClick={() => void unlink(id, label)}
+                              >
+                                해제
+                              </button>
+                            )
+                          ) : (
+                            <button
+                              className="ml-btn"
+                              disabled={linkBusy !== null}
+                              onClick={() => void link(id)}
+                            >
+                              {linkBusy === id ? "…" : "연결"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <button
                   className="menu-item"
                   onClick={() => {
                     setMenuOpen(false);
-                    setNameOpen(true);
+                    setGuideOpen(true);
                   }}
                 >
-                  <Icon name="user" size={17} className="inline-ic" />
-                  내 이름·성별 바꾸기
+                  <Icon name="book" size={17} className="inline-ic" />
+                  사용 방법
                 </button>
-              )}
-              {admin && (
+                {!isAnon && (
+                  <button
+                    className="menu-item"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setNameOpen(true);
+                    }}
+                  >
+                    <Icon name="user" size={17} className="inline-ic" />
+                    내 이름·성별 바꾸기
+                  </button>
+                )}
+                {admin && (
+                  <button
+                    className="menu-item"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAdmin();
+                    }}
+                  >
+                    <Icon name="chart" size={17} className="inline-ic" />
+                    관리자 대시보드
+                  </button>
+                )}
                 <button
                   className="menu-item"
                   onClick={() => {
                     setMenuOpen(false);
-                    onAdmin();
+                    void signOutUser();
                   }}
                 >
-                  <Icon name="chart" size={17} className="inline-ic" />
-                  관리자 대시보드
+                  <Icon name="logout" size={17} className="inline-ic" />
+                  {isAnon ? "나가기 / 로그인 화면" : "로그아웃"}
                 </button>
-              )}
-              <button
-                className="menu-item"
-                onClick={() => {
-                  setMenuOpen(false);
-                  void signOutUser();
-                }}
-              >
-                <Icon name="logout" size={17} className="inline-ic" />
-                {isAnon ? "나가기 / 로그인 화면" : "로그아웃"}
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -635,6 +653,10 @@ export default function RoundsHomeScreen({
               <div className="section-title">내 라운드</div>
               <div className="card">
                 <div className="empty-note">아직 참여한 라운드가 없어요.</div>
+                <button className="btn-line wide gd-start" onClick={() => setGuideOpen(true)}>
+                  <Icon name="book" size={16} className="inline-ic" />
+                  처음이라면 사용 방법 보기
+                </button>
               </div>
             </>
           )
@@ -717,6 +739,7 @@ export default function RoundsHomeScreen({
       </div>
 
       {nameOpen && <NameDialog initial={user?.displayName ?? ""} onClose={() => setNameOpen(false)} />}
+      {guideOpen && <Guide onClose={() => setGuideOpen(false)} />}
 
       {/* 방장이 나를 내보냈거나 라운드를 지워서 라운드 화면이 닫혔을 때: 가운데 팝업 */}
       {exitNotice && (

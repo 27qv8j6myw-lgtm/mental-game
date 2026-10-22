@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import Guide from "../guide/Guide";
+import type { TopicId } from "../guide/content";
 import type {
   BetRules,
   CourseRating,
@@ -120,6 +122,14 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
   const [holeCount, setHoleCount] = useState(last?.holeCount ?? 18);
   const [busy, setBusy] = useState(false);
+  /** 사용 방법: 섹션 제목 옆 '자세히'로 그 항목을 덮어 연다 (닫으면 입력이 그대로) */
+  const [guideAt, setGuideAt] = useState<TopicId | null>(null);
+  const More = ({ to }: { to: TopicId }) => (
+    <button className="gd-more" onClick={() => setGuideAt(to)}>
+      자세히
+      <Icon name="chevronRight" size={13} />
+    </button>
+  );
   const [err, setErr] = useState<string | null>(null);
 
   // KGA 코스레이팅: 골프장 이름 추천 → 코스 선택 → 티 박스에 맞는 레이팅
@@ -395,14 +405,20 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           </p>
         </div>
 
-        <div className="section-title">게임 방식</div>
+        <div className="section-title">
+          게임 방식
+          <More to="modes" />
+        </div>
         <div className="card">
           <GameModeField value={gameMode} onChange={setGameMode} />
         </div>
 
         {isCaddie && (
           <>
-            <div className="section-title">캐디피</div>
+            <div className="section-title">
+              캐디피
+              <More to="caddie" />
+            </div>
             <div className="card">
               <CaddieFeeField fee={caddieFee} holeCount={holeCount} onChange={setCaddieFee} />
               <p className="hint caddie-rule">
@@ -410,7 +426,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                 마지막 홀까지 넘어간 돈은 모두가 나눠 내요. 계좌이체 없이 현금으로 모아요.
               </p>
             </div>
-            <div className="section-title">핸디캡</div>
+            <div className="section-title">
+              핸디캡
+              <More to="hc-adjust" />
+            </div>
             <div className="card">
               <p className="hint" style={{ margin: 0 }}>
                 타수 보정 방식이에요. {HANDICAP_HINT.adjust}
@@ -421,7 +440,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         {isRank && (
           <>
-            <div className="section-title">등수 정하는 방식</div>
+            <div className="section-title">
+              등수 정하는 방식
+              <More to="rank" />
+            </div>
             <div className="card">
               <RankMethodField value={rankRules.method} onChange={(method) => setRankRules((r) => ({ ...r, method }))} />
               {rankRules.method === "points" && (
@@ -450,7 +472,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             {/* 핸디 타수: 타당과 같은 세 가지 핸디 방식 */}
             {rankRules.method === "net" && (
               <>
-                <div className="section-title">핸디캡 설정 방식</div>
+                <div className="section-title">
+                  핸디캡 설정 방식
+                  <More to="hc-modes" />
+                </div>
                 <div className="card">
                   <HandicapModeField value={handicapMode} onChange={setHandicapMode} />
                 </div>
@@ -464,7 +489,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
             {rankPays && (
               <>
-                <div className="section-title">지불 방법</div>
+                <div className="section-title">
+                  지불 방법
+                  <More to="payment" />
+                </div>
                 <div className="card">
                   <PaymentFields
                     payment={payment}
@@ -536,7 +564,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           </p>
         </div>
 
-        <div className="section-title">지불 방법</div>
+        <div className="section-title">
+          지불 방법
+          <More to="payment" />
+        </div>
         <div className="card">
           <PaymentFields
             payment={payment}
@@ -549,7 +580,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           />
         </div>
 
-        <div className="section-title">핸디캡 설정 방식</div>
+        <div className="section-title">
+          핸디캡 설정 방식
+          <More to="hc-modes" />
+        </div>
         <div className="card">
           <HandicapModeField value={handicapMode} onChange={setHandicapMode} />
         </div>
@@ -558,7 +592,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         {(gameMode === "skins" || (isRank && rankRules.method === "skins")) && (
           <>
-            <div className="section-title">배수 조건</div>
+            <div className="section-title">
+              배수 조건
+              <More to="skins" />
+            </div>
             <div className="card">
               <SkinsMultiplierFields value={skinsRules} onChange={setSkinsRules} />
             </div>
@@ -567,7 +604,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         {showStrokeRules && (
           <>
-            <div className="section-title">배판 규칙</div>
+            <div className="section-title">
+              배판 규칙
+              <More to="multiplier" />
+            </div>
             <div className="card">
               <RuleToggles rules={rules} onChange={setRules} />
               <div className="rules-cap">
@@ -602,6 +642,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             : "라운드 만들고 코드 받기"}
         </button>
       </div>
+      {guideAt && <Guide topic={guideAt} onClose={() => setGuideAt(null)} />}
     </div>
   );
 }

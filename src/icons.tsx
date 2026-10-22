@@ -29,7 +29,8 @@ type IconName =
   | "ring"
   | "short"
   | "podium"
-  | "edit";
+  | "edit"
+  | "book";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -119,6 +120,13 @@ const PATHS: Record<IconName, JSX.Element> = {
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5" />
       <path d="M12 7.5h.01" />
+    </>
+  ),
+  // 사용 방법: 펼친 책
+  book: (
+    <>
+      <path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5Z" />
+      <path d="M12 6.5v13" />
     </>
   ),
   // 고치기: 연필
