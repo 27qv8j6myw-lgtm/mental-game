@@ -88,6 +88,9 @@ export default function LoginScreen() {
           <br />
           라운드는 방장이 만든 <b>초대 코드</b>로 참여할 수 있어요.
         </p>
+        <p className="auth-policy">
+          시작하면 <a href="/privacy">개인정보처리방침</a>에 동의하는 것으로 봐요 · <a href="/support">고객 지원</a>
+        </p>
 
         {!configured && (
           <div className="auth-err">

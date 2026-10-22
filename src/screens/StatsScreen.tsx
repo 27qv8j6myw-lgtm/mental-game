@@ -77,7 +77,8 @@ function PersonHero({
   onOpen,
 }: {
   p: PersonStats;
-  label: string;
+  /** 사진 옆 이름 위 설명 (내 카드는 없음) */
+  label?: string;
   onOpen?: () => void;
 }) {
   return (
@@ -89,9 +90,9 @@ function PersonHero({
       onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
     >
       <div className="st-hero-top">
-        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={40} />
+        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={56} />
         <div className="st-hero-name">
-          <span>{label}</span>
+          {label && <span>{label}</span>}
           <b>{p.name || "?"}</b>
         </div>
         <div className={`st-hero-amt ${tone(p.total)}`}>{money(p.total)}</div>
@@ -150,7 +151,7 @@ function StrokeHero({ p, label, onOpen }: { p: PersonStats; label: string; onOpe
       onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
     >
       <div className="st-hero-top">
-        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={40} />
+        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={56} />
         <div className="st-hero-name">
           <span>{label}</span>
           <b>{p.name || "?"}</b>
@@ -370,7 +371,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
       {stats && stats.roundCount > 0 && !person && by === "money" && (
         <>
           {stats.me && (
-            <PersonHero p={stats.me} label="내 누적 금액" onOpen={() => open(myUid)} />
+            <PersonHero p={stats.me} onOpen={() => open(myUid)} />
           )}
 
           <div className="section-title">함께한 사람들 {others.length}명</div>
@@ -485,7 +486,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         <>
           <PersonHero
             p={person}
-            label={person.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"}
+            label={person.uid === myUid ? undefined : "나와 함께한 라운드 누적"}
           />
 
           {person.vsMe ? (

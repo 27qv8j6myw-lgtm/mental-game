@@ -1898,6 +1898,35 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   inset: 0;
   z-index: 40;
 }
+/* 문장마다 줄을 바꾼 글자 (sentences.ts): 넣은 줄바꿈을 그대로 보여 준다 */
+[data-sentences] {
+  white-space: pre-line;
+}
+/* 프로필 메뉴 맨 아래: 고객 지원 · 개인정보처리방침 (작고 옅게) */
+.menu-foot {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+  padding: 8px 10px 4px;
+  border-top: var(--border);
+}
+.menu-foot a {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+/* 로그인 화면 맨 아래 정책 안내 */
+.auth-policy {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.auth-policy a {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
 /* 프로필 메뉴 머리: 이름·이메일 오른쪽에 회원 탈퇴 (작고 옅게, 이름 줄에 맞춤) */
 .profile-menu .menu-head {
   display: flex;
@@ -4202,10 +4231,11 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 
 /* ============ 전적 ============ */
+/* 전적 사람 카드: 사진을 크게, 이름·칩 사이를 넉넉히 */
 .st-hero-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 .st-hero-name {
   flex: 1;
@@ -4214,12 +4244,14 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   flex-direction: column;
 }
 .st-hero-name span {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink-soft);
 }
 .st-hero-name b {
-  font-size: 16px;
+  margin-top: 2px;
+  font-size: 20px;
+  letter-spacing: -0.02em;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4261,7 +4293,15 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 .st-golf {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+.st-hero .st-chips,
+.st-hero-top + .st-golf {
+  margin: 16px 0 0;
+}
+/* 오른쪽 금액·평균 타수: 좁은 폰에서는 조금 작게 해서 이름 칸을 남긴다 */
+.st-hero .st-hero-top .st-hero-amt {
+  font-size: clamp(19px, 5.6vw, 24px);
 }
 .st-golf span {
   background: transparent;

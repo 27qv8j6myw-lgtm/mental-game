@@ -100,7 +100,9 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const res = await fetch(req);
-          if (res.ok && (res.headers.get("content-type") || "").includes("text/html")) {
+          // 개인정보처리방침·고객 지원 같은 따로 된 페이지는 앱 화면(보관본)으로 저장하지 않는다
+          const appScreen = !/^\/(privacy|support)(\.html)?$/.test(url.pathname);
+          if (appScreen && res.ok && (res.headers.get("content-type") || "").includes("text/html")) {
             event.waitUntil(keepShell(res.clone()));
           }
           return res;

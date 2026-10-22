@@ -166,6 +166,11 @@ export default function ProfileMenu({
               <Icon name="logout" size={17} className="inline-ic" />
               로그아웃
             </button>
+            {/* 정책·문의 (웹 페이지 public/privacy.html · support.html) */}
+            <div className="menu-foot">
+              <a href="/support">고객 지원</a>
+              <a href="/privacy">개인정보처리방침</a>
+            </div>
           </div>
         </>
       )}
