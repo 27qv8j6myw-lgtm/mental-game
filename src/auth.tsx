@@ -11,6 +11,8 @@ import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin, requestAppleLogin 
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
+/** 프로필에서 연결·해제할 수 있는 로그인 (Apple 은 iOS 앱에서만 연결) */
+export type LinkProvider = OAuthProvider | "apple";
 
 export interface AuthUser {
   uid: string;
@@ -42,7 +44,9 @@ interface AuthCtx {
   /** 로그인 화면에 띄울 안내 (탈퇴 완료 등) */
   notice: string | null;
   linkProvider: (provider: OAuthProvider) => Promise<void>;
-  unlinkProvider: (provider: OAuthProvider) => Promise<void>;
+  unlinkProvider: (provider: LinkProvider) => Promise<void>;
+  /** iOS 앱: 아이폰의 Apple 로그인 창으로 지금 계정에 Apple 을 연결한다 */
+  linkApple: () => Promise<void>;
   /** 내 계정(user_metadata)에 계좌를 저장해 다음 라운드에서도 쓴다 */
   saveBankAccount: (name: string, account: string) => Promise<void>;
   /** 내 계정(user_metadata)에 성별을 저장해 다음 라운드에서도 쓴다 */
@@ -112,6 +116,18 @@ function randomNonce(): string {
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** iOS 앱의 Apple 로그인 창을 띄워 신원 토큰을 받는다 (취소하면 null) */
+async function appleIdToken(): Promise<
+  { token: string; nonce: string; fullName?: string } | { error: string } | null
+> {
+  // 토큰을 다른 곳에서 다시 쓰지 못하게: 원래 값은 Supabase 에, SHA-256 은 Apple 에 준다
+  const raw = randomNonce();
+  const result = await requestAppleLogin(await sha256(raw));
+  if (result.cancelled) return null;
+  if (!result.idToken) return { error: result.error ?? "no token" };
+  return { token: result.idToken, nonce: raw, fullName: result.fullName ?? undefined };
 }
 
 function oauthOptions(provider: OAuthProvider) {
@@ -271,14 +287,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
         }
       },
+      linkApple: async () => {
+        if (!supabase || !isNativeApp()) return;
+        setError(null);
+        const result = await appleIdToken();
+        if (!result) return;
+        if ("error" in result) {
+          console.error("Apple 연결 실패", result.error);
+          setError("Apple 계정을 연결하지 못했어요. 다시 시도해 주세요.");
+          return;
+        }
+        const { data, error: e } = await supabase.auth.linkIdentity({
+          provider: "apple",
+          token: result.token,
+          nonce: result.nonce,
+        });
+        if (e) {
+          console.error(e);
+          setError(
+            (e.code && REDIRECT_ERRORS[e.code]) || "Apple 계정을 연결하지 못했어요. 다시 시도해 주세요."
+          );
+          return;
+        }
+        // 연결한 Apple 이 user.identities 에 들어간 세션으로 바꾼다 (새로고침 뒤에도 연결됨으로)
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        const u = refreshed.user ?? data.user;
+        if (u) setUser(mapUser(u));
+      },
       unlinkProvider: async (provider) => {
         if (!supabase) return;
         setError(null);
         const { data, error: idErr } = await supabase.auth.getUserIdentities();
-        const identity = data?.identities.find((i) => i.provider === provider);
-        if (idErr || !identity) {
+        if (idErr || !data) {
           console.error(idErr);
           setError("연결 정보를 불러오지 못했어요. 다시 시도해 주세요.");
+          return;
+        }
+        const identity = data.identities.find((i) => i.provider === provider);
+        if (!identity) {
+          // 다른 기기에서 이미 해제했으면: 이 기기의 연결 표시만 새로 받아 맞춘다
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          if (refreshed.user) setUser(mapUser(refreshed.user));
           return;
         }
         const { error: e } = await supabase.auth.unlinkIdentity(identity);
@@ -335,19 +384,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null);
         setNotice(null);
         if (!supabase || !isNativeApp()) return;
-        // 토큰을 다른 곳에서 다시 쓰지 못하게: 원래 값은 Supabase 에, SHA-256 은 Apple 에 준다
-        const raw = randomNonce();
-        const result = await requestAppleLogin(await sha256(raw));
-        if (result.cancelled) return;
-        if (!result.idToken) {
+        const result = await appleIdToken();
+        if (!result) return;
+        if ("error" in result) {
           console.error("Apple 로그인 실패", result.error);
           setError("Apple 로그인에 실패했어요. 다시 시도해 주세요.");
           return;
         }
         const { data, error: e } = await supabase.auth.signInWithIdToken({
           provider: "apple",
-          token: result.idToken,
-          nonce: raw,
+          token: result.token,
+          nonce: result.nonce,
         });
         if (e) {
           console.error(e);

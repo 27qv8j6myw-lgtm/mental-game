@@ -352,7 +352,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                       {me
                         ? `평균 ${p.avg18 ?? "–"}${p.avg18 != null ? "타" : ""}`
                         : vs
-                          ? `나와 ${vs.rounds}라운드 · ${vs.win}승 ${vs.loss}패${vs.draw > 0 ? ` ${vs.draw}무` : ""}`
+                          ? `${vs.rounds}라운드 · ${vs.win}승 ${vs.loss}패${vs.draw > 0 ? ` ${vs.draw}무` : ""}`
                           : "함께 끝까지 친 라운드 없음"}
                     </span>
                   </span>
@@ -385,7 +385,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                   {/* 누르면 나오는 '나와 맞대결'과 같은 기준: 내 승수 먼저 */}
                   <span className="st-row-sub">
                     {p.vsMe
-                      ? `나와 ${p.vsMe.win + p.vsMe.loss + p.vsMe.draw}라운드 · ${p.vsMe.win}승 ${p.vsMe.loss}패${p.vsMe.draw > 0 ? ` ${p.vsMe.draw}무` : ""}`
+                      ? `${p.vsMe.win + p.vsMe.loss + p.vsMe.draw}라운드 · ${p.vsMe.win}승 ${p.vsMe.loss}패${p.vsMe.draw > 0 ? ` ${p.vsMe.draw}무` : ""}`
                       : `${p.rounds}라운드 · ${record(p)}`}
                   </span>
                 </span>
@@ -401,7 +401,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         <>
           <StrokeHero
             p={person}
-            label={person.uid === myUid ? "내 평균 타수 (18홀)" : "나와 함께한 라운드 평균 (18홀)"}
+            label={person.uid === myUid ? "내 평균 타수 (18홀)" : "함께한 라운드 평균 (18홀)"}
           />
 
           {person.strokesVsMe && (
@@ -426,9 +426,8 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                 }
               />
               <p className="hint" style={{ margin: "8px 2px 0" }}>
-                둘 다 끝까지 친 {person.strokesVsMe.rounds}라운드에서 타수가 적은 쪽이 이겨요. 평균은 18홀
-                라운드이고, 전체 라운드는 나와 치지 않은 라운드까지 모두예요. 함께 칠 때 +면 나와 칠 때 더 많이
-                쳐요.
+                둘 다 끝까지 친 {person.strokesVsMe.rounds}라운드에서 타수가 적은 쪽이 이겨요. 평균은 18홀 라운드
+                기준이에요. 전체 라운드는 나와 안 친 라운드도 포함해요. 함께 칠 때 +면 나와 칠 때 더 많이 쳐요.
               </p>
             </>
           )}
@@ -486,7 +485,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         <>
           <PersonHero
             p={person}
-            label={person.uid === myUid ? undefined : "나와 함께한 라운드 누적"}
+            label={person.uid === myUid ? undefined : "나와 누적"}
           />
 
           {person.vsMe ? (
@@ -571,8 +570,8 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                   sub={
                     p
                       ? k === "money"
-                        ? p.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"
-                        : p.uid === myUid ? "내 평균 타수 (18홀)" : "나와 함께한 라운드 평균"
+                        ? p.uid === myUid ? "내 누적 금액" : "함께한 라운드 누적"
+                        : p.uid === myUid ? "내 평균 타수 (18홀)" : "함께한 라운드 평균"
                       : k === "money"
                         ? "누적 금액 순"
                         : "나와의 평균 타수 차이 순"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useAuth, type OAuthProvider } from "../auth";
+import { useAuth, type LinkProvider, type OAuthProvider } from "../auth";
+import { isNativeApp } from "../native";
 import { useBack } from "../back";
 import { AppleLogo, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { isAdmin } from "../admin";
@@ -24,10 +25,12 @@ export default function ProfileMenu({
   onClose: () => void;
   onAdmin: () => void;
 }) {
-  const { user, signOutUser, linkProvider, unlinkProvider, deleteAccount } = useAuth();
+  const { user, signOutUser, linkProvider, linkApple, unlinkProvider, deleteAccount } = useAuth();
   // 기기 뒤로가기: 메뉴 닫기
   useBack(open, onClose);
-  const [linkBusy, setLinkBusy] = useState<OAuthProvider | null>(null);
+  const [linkBusy, setLinkBusy] = useState<LinkProvider | null>(null);
+  // Apple 은 아이폰의 Apple 로그인 창으로 연결해서 iOS 앱에서만 연결할 수 있다 (해제는 어디서나)
+  const [native] = useState(() => isNativeApp());
   // 관리자 계정이면 대시보드 버튼을 보여준다
   const [admin, setAdmin] = useState(false);
   useEffect(() => {
@@ -49,10 +52,16 @@ export default function ProfileMenu({
     setLinkBusy(null);
   };
 
-  const unlink = async (p: OAuthProvider, label: string) => {
+  const connectApple = async () => {
+    setLinkBusy("apple");
+    await linkApple();
+    setLinkBusy(null);
+  };
+
+  const unlink = async (p: LinkProvider, label: string) => {
     if (
       !window.confirm(
-        `${label} 연결을 해제할까요? 해제하면 ${label}로는 이 계정에 로그인할 수 없어요.`
+        `${label} 연결을 해제할까요?\n해제하면 ${label}로 로그인할 수 없어요.`
       )
     )
       return;
@@ -86,14 +95,29 @@ export default function ProfileMenu({
             </div>
             <div className="menu-links">
               <div className="ml-title">로그인 계정 연결</div>
-              {/* Apple 은 iOS 앱의 Apple 로그인으로만 연결된다: 연결돼 있으면 보여 주기만 */}
-              {providers.includes("apple") && (
+              {/* Apple: 연결은 iOS 앱에서만 (웹에서는 연결돼 있을 때만 보이고 해제할 수 있다) */}
+              {(native || providers.includes("apple")) && (
                 <div className="ml-row">
                   <span className="ml-ic apple">
                     <AppleLogo size={13} />
                   </span>
                   <span className="ml-name">Apple</span>
-                  <span className="ml-on">연결됨</span>
+                  {providers.includes("apple") && <span className="ml-on">연결됨</span>}
+                  {providers.includes("apple") ? (
+                    providers.length > 1 && (
+                      <button
+                        className="ml-btn ghost"
+                        disabled={linkBusy !== null}
+                        onClick={() => void unlink("apple", "Apple")}
+                      >
+                        해제
+                      </button>
+                    )
+                  ) : (
+                    <button className="ml-btn" disabled={linkBusy !== null} onClick={() => void connectApple()}>
+                      {linkBusy === "apple" ? "…" : "연결"}
+                    </button>
+                  )}
                 </div>
               )}
               {LINKABLE.map(({ id, label }) => {
@@ -199,9 +223,11 @@ function LeaveDialog({ onCancel, onLeave }: { onCancel: () => void; onLeave: () 
       <div className="alert-box leave-box" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <h3>회원 탈퇴</h3>
         <ul>
-          <li>계정과 내 기록(홀별 기록·AI 분석·랭킹 설정)이 지워지고 되돌릴 수 없어요.</li>
-          <li>함께 친 라운드는 다른 사람의 정산·전적이 바뀌지 않게 남고, 내 이름은 '탈퇴한 사용자'로 바뀌어요.</li>
-          <li>내가 방장인 라운드는 함께 친 사람에게 넘어가고, 혼자 친 라운드는 지워져요.</li>
+          <li>계정과 내 기록이 지워지고 되돌릴 수 없어요.</li>
+          <li>함께 친 라운드는 다른 사람을 위해 남아요.</li>
+          <li>내 이름은 '탈퇴한 사용자'로 바뀌어요.</li>
+          <li>방장인 라운드는 함께 친 사람에게 넘어가요.</li>
+          <li>혼자 친 라운드는 지워져요.</li>
         </ul>
         {failed && <div className="leave-err">탈퇴하지 못했어요. 연결을 확인하고 다시 시도해 주세요.</div>}
         <div className="leave-actions">

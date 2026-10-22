@@ -48,7 +48,7 @@ export default function GuestMoveSheet({
     if (busy) return;
     if (
       !window.confirm(
-        `게스트 '${guestLabel}'의 라운드 ${guest.rounds.length}개를 ${label(u)} 계정으로 옮길까요?\n옮긴 뒤에는 되돌릴 수 없어요.`
+        `게스트 '${guestLabel}'의 라운드 ${guest.rounds.length}개를\n${label(u)} 계정으로 옮길까요?\n옮긴 뒤에는 되돌릴 수 없어요.`
       )
     )
       return;

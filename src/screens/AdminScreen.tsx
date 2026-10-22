@@ -5,12 +5,14 @@ import {
   fetchGuestPlayers,
   fetchRecentRounds,
   fetchRecentUsers,
-  setAiGrant,
+  AI_LEVEL_LABEL,
+  setAiLevel,
   setUserName,
   type AdminRound,
   type AdminStats,
   type AdminUser,
   type AiGrant,
+  type AiLevel,
   type GuestPlayer,
 } from "../admin";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
@@ -141,17 +143,26 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
       })
     );
   }, []);
-  const toggleGrant = async (userId: string, on: boolean) => {
+  /** AI 단계 바꾸기 (none: 해제) */
+  const changeAi = async (userId: string, level: AiLevel | "none") => {
     setGrantBusy(userId);
     try {
-      await setAiGrant(userId, on);
+      await setAiLevel(userId, level);
       await loadGrants();
     } catch (e) {
       console.error(e);
-      setNotice("AI 분석 권한을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setNotice(
+        (e as Error)?.message === "NEED_SQL"
+          ? "AI 고급을 쓰려면 Supabase 에서 insight.sql 을 다시 실행해 주세요."
+          : "AI 권한을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요."
+      );
     } finally {
       setGrantBusy(null);
     }
+  };
+  const levelOf = (userId: string): AiLevel | null => {
+    const g = grants?.find((x) => x.user_id === userId);
+    return g ? g.level ?? "basic" : null;
   };
 
   // 사용자 실명·성별 고치기 (고르는 중인 사람)
@@ -334,7 +345,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
             <b>{Number(stats.rounds.avg_players).toFixed(1)}명</b>
           </div>
           <div>
-            <span>스코어 수정된 라운드</span>
+            <span>수정된 라운드</span>
             <b>{num(stats.activity.edited_rounds)}개</b>
           </div>
           <div>
@@ -414,8 +425,8 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* AI 분석 권한: 관리자는 늘 쓸 수 있고, 여기서 허용한 사람은 내 기록에서 쓸 수 있다 */}
-      <div className="section-title">AI 분석 권한 {grants ? `${grants.length}명` : ""}</div>
+      {/* AI 권한: 관리자는 늘 모두. 기본은 내 기록 AI 분석, 고급은 + 라운드 중 홀 코칭 */}
+      <div className="section-title">AI 권한 {grants ? `${grants.length}명` : ""}</div>
       <div className="card ad-list">
         {grants === null ? (
           <div className="empty-note">Supabase 에서 insight.sql 을 실행하면 권한을 줄 수 있어요.</div>
@@ -432,10 +443,24 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                   <Segs items={[g.email_masked ?? "이메일 없음", `허용 ${mdLocal(g.created_at)}`]} />
                 </div>
               </div>
+              <div className="ad-ai-level" role="radiogroup" aria-label="AI 단계">
+                {(["basic", "advanced"] as AiLevel[]).map((lv) => (
+                  <button
+                    key={lv}
+                    className={(g.level ?? "basic") === lv ? "active" : ""}
+                    role="radio"
+                    aria-checked={(g.level ?? "basic") === lv}
+                    disabled={grantBusy === g.user_id}
+                    onClick={() => (g.level ?? "basic") !== lv && void changeAi(g.user_id, lv)}
+                  >
+                    {lv === "basic" ? "기본" : "고급"}
+                  </button>
+                ))}
+              </div>
               <button
-                className="ad-ai on"
+                className="ad-ai"
                 disabled={grantBusy === g.user_id}
-                onClick={() => void toggleGrant(g.user_id, false)}
+                onClick={() => void changeAi(g.user_id, "none")}
               >
                 해제
               </button>
@@ -444,7 +469,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
         )}
       </div>
       <p className="hint" style={{ margin: "6px 2px 0" }}>
-        관리자는 늘 쓸 수 있어요. 허용한 사람은 자기 기록에서만 AI 분석을 만들고 볼 수 있어요.
+        관리자는 늘 모두 쓸 수 있어요. AI 기본은 기록 AI 분석, AI 고급은 라운드 중 홀 코칭까지 돼요.
       </p>
 
       {/* 예전 '로그인 없이 참여하기'(게스트)로 친 라운드: 진짜 계정으로 옮긴다 (있을 때만) */}
@@ -537,15 +562,14 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                   {u.avg_score != null && <b className="ad-avg">평균 {Number(u.avg_score).toFixed(1)}</b>}
                   라운드 {num(u.round_count)}
                 </span>
+                {/* 처음 누르면 AI 기본, 허용된 사람은 단계 표시 (단계 바꾸기·해제는 위 AI 권한에서) */}
                 {grants && (
                   <button
-                    className={`ad-ai ${grants.some((g) => g.user_id === u.user_id) ? "on" : ""}`}
-                    disabled={grantBusy === u.user_id}
-                    onClick={() =>
-                      void toggleGrant(u.user_id, !grants.some((g) => g.user_id === u.user_id))
-                    }
+                    className={`ad-ai ${levelOf(u.user_id) ? "on" : ""}`}
+                    disabled={grantBusy === u.user_id || !!levelOf(u.user_id)}
+                    onClick={() => void changeAi(u.user_id, "basic")}
                   >
-                    {grants.some((g) => g.user_id === u.user_id) ? "AI 허용됨" : "AI 허용"}
+                    {levelOf(u.user_id) ? AI_LEVEL_LABEL[levelOf(u.user_id)!] : "AI 허용"}
                   </button>
                 )}
               </div>
@@ -616,7 +640,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
           initial={naming.real_name ?? naming.name}
           initialGender={naming.gender}
           title="실명·성별 고치기"
-          desc={`${naming.name || "이름 없음"}님의 앱 이름(실명)과 성별이에요. 이름을 비우고 저장하면 다음 로그인 때 다시 물어요. 랭킹에는 바로, 그 사람 앱에는 길어야 1시간 안에 반영돼요.`}
+          desc={`${naming.name || "이름 없음"}님의 앱 이름(실명)과 성별이에요. 이름을 비우고 저장하면 다음 로그인 때 다시 물어요. 라운드·전적·랭킹에는 바로, 그 사람 앱의 내 이름은 길어야 1시간 안에 바뀌어요.`}
           onSave={saveUserName}
           onClose={() => setNaming(null)}
           allowEmpty

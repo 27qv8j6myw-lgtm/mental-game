@@ -13,6 +13,9 @@ import { caddieSummary } from "../caddie";
 import { rankPrizeBalanced, rankRules, rankSummary } from "../rankGame";
 import RoundSettingsSheet from "./RoundSettingsSheet";
 import type { Gender, RoundPlayerRow, TeeBox } from "../types";
+import { playerRating } from "../model";
+import { ratingFor } from "../kga";
+import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 
 const STROKE_PRESETS = [5, 10];
 
@@ -118,6 +121,12 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
   const setBase = (uid: string) =>
     void updateRound({ rules: { ...round.rules, baseUid: uid } });
   const isAdjust = handicapMode === "adjust";
+  // 초대 코드 카드의 코스 난이도: 내가 칠 티·내 성별의 레이팅 (KGA 목록에서 고른 골프장일 때만)
+  const meRow = bundle.players.find((p) => p.user_uid === myUid);
+  const myRating = ratingFor(
+    playerRating(round.rules.rating, round.rules.teeRatings, meRow?.tee ?? undefined),
+    meRow?.gender === "female" ? "F" : "M"
+  );
   const adjOf = (uid: string) => round.rules.strokeAdj?.[uid] ?? 0;
   const setAdj = (uid: string, v: number) =>
     void updateRound({
@@ -189,7 +198,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
 
   /** 방장: 참여자 내보내기 */
   const doKick = async (uid: string, name: string) => {
-    if (!window.confirm(`${name || "이 참여자"} 님을 내보낼까요?\n다시 들어오려면 코드를 입력해야 해요.`)) return;
+    if (!window.confirm(`${name || "이 참여자"} 님을 내보낼까요?\n다시 들어오려면 코드가 필요해요.`)) return;
     setActionErr(null);
     try {
       await kickPlayer(uid);
@@ -270,9 +279,17 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
             )}
           </div>
           <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
+          {/* 날짜·시간·홀 (티는 사람마다 달라서 뺀다) / 내 티·성별 기준 코스 난이도 / 내기 방식 */}
           <div className="cc-meta">
-            {round.date} · {round.tee_time} · {round.hole_count}홀 ·{" "}
-            {teeLabel(round.course_tee) && `${teeLabel(round.course_tee)} · `}
+            {[round.date, round.tee_time, `${round.hole_count}홀`].filter(Boolean).join(" · ")}
+          </div>
+          {myRating && (
+            <div className="cc-meta cc-diff">
+              <DifficultyChip slope={myRating.slope} />
+              <BogeyExpect cr={myRating.cr} slope={myRating.slope} par={myRating.par} />
+            </div>
+          )}
+          <div className="cc-meta">
             {isRecord ? (
               "기록 모드 (내기 없음)"
             ) : gameMode === "caddie" ? (
@@ -291,7 +308,10 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
           </div>
         </div>
 
-        <div className="section-title">참여자 {bundle.players.length}명</div>
+        <div className="section-title">
+          참여자 {bundle.players.length}
+          {!isRecord && round.rules.playerCount ? `/${round.rules.playerCount}` : ""}명
+        </div>
         {/* 등수 내기 주고받는 돈: 지금 인원으로 합이 0원이어야 송금을 계산한다 */}
         {rank && !rankPrizeBalanced(rank, bundle.players.length) && (
           <div className="card base-pick missing">
@@ -630,8 +650,8 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
           className={`btn-ghost ${isHost ? "del" : ""}`}
           onClick={() => {
             const msg = isHost
-              ? "라운드를 삭제할까요?\n참여한 사람 모두 이 라운드에서 나가게 돼요."
-              : "이 라운드에서 나갈까요?\n다시 들어오려면 코드를 입력해야 해요.";
+              ? "라운드를 삭제할까요?\n참여한 사람 모두 라운드에서 나가요."
+              : "이 라운드에서 나갈까요?\n다시 들어오려면 코드가 필요해요.";
             if (window.confirm(msg)) void doLeave();
           }}
         >

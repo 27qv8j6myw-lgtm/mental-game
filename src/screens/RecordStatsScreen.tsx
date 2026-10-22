@@ -10,6 +10,7 @@ import PaneHead, { LogoHead } from "./PaneHead";
 import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
+import { RatingLines } from "./CourseDifficulty";
 import TrendChart from "./TrendChart";
 import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
 import ShareImageSheet from "./ShareImageSheet";
@@ -126,10 +127,11 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
     else {
       setDetailId(r.roundId);
       window.scrollTo(0, 0);
+      document.querySelector(".split-pane.rec-left")?.scrollTo(0, 0);
     }
   };
 
-  if (detail)
+  if (detail && !split)
     return <RoundDetail r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} />;
 
   const status = (
@@ -256,7 +258,7 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
       {shown.map((r) => {
         return (
           <button
-            className="st-rec st-rec-btn"
+            className={`st-rec st-rec-btn ${split && r.roundId === detailId ? "rr-on" : ""}`}
             key={r.roundId}
             onClick={() => openDetail(r)}
           >
@@ -306,12 +308,19 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
       {split ? (
         // 펼친 iPhone Duo: 왼쪽 분석까지 · 오른쪽 라운드별 기록
         <div className="split-view">
-          <div className="split-pane">
-            <LogoHead />
-            <div className="sheet results">
-              {status}
-              {analysis}
-            </div>
+          <div className="split-pane rec-left">
+            {/* 내기 라운드를 누르면 이 칸에 그 라운드 내 기록 (오른쪽 목록은 그대로) */}
+            {detail ? (
+              <RoundDetail embedded r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} />
+            ) : (
+              <>
+                <LogoHead />
+                <div className="sheet results">
+                  {status}
+                  {analysis}
+                </div>
+              </>
+            )}
           </div>
           <div className="split-pane">
             <PaneHead title="라운드별 기록" />
@@ -340,11 +349,14 @@ function RoundDetail({
   r,
   all,
   onBack,
+  embedded = false,
 }: {
   r: RecordRound;
   /** 내 기록 라운드 전체 (AI 분석의 평소 기록) */
   all: RecordRound[];
   onBack: () => void;
+  /** 펼친 iPhone Duo: 왼쪽 칸 안에 (위 바 대신 로고 머리, 오른쪽 칸에는 라운드별 기록이 그대로) */
+  embedded?: boolean;
 }) {
   const tee = teeLabel(r.courseTee);
   const { user } = useAuth();
@@ -395,66 +407,79 @@ function RoundDetail({
       rating: r.ratingLabel,
       mode: r.gameMode,
     });
+  const body = (
+    <div className="sheet results">
+      <h2 className="page-title">{r.courseName || "라운드 기록"}</h2>
+      <div className="card rr-sum">
+        {/* 날짜·티·게임 방식 */}
+        <div className="rr-meta">
+          {[r.date, tee].filter(Boolean).join(" · ")}
+          <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+        </div>
+        <div className="rr-total">
+          <b>{r.summary.holesPlayed === 0 ? "–" : r.summary.strokes}</b>
+          <span>타</span>
+          {r.summary.holesPlayed > 0 && <em>{relLabel(r.summary.toPar)}</em>}
+        </div>
+        <div className="st-golf">
+          <span>
+            전반 <b>{r.summary.out ?? "–"}</b>
+          </span>
+          {r.holeCount > 9 && (
+            <span>
+              후반 <b>{r.summary.in ?? "–"}</b>
+            </span>
+          )}
+          <span>
+            퍼트 <b>{r.summary.putts ?? "–"}</b>
+          </span>
+          <span>
+            {r.summary.holesPlayed}/{r.holeCount}홀
+          </span>
+        </div>
+        {r.differential != null && (
+          <div className="rr-adj">
+            <div className="rr-adj-main">
+              <span>보정타수</span>
+              <b>{r.differential.toFixed(1)}</b>
+            </div>
+            {r.rating && <RatingLines rating={r.rating} sex={user?.gender === "female" ? "F" : "M"} />}
+          </div>
+        )}
+      </div>
+      <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
+        <Icon name="share" size={17} />
+        스코어카드 이미지로 공유·저장
+      </button>
+      {canAi && <InsightAction state={ai} />}
+      <div className="section-title">분석</div>
+      <RecordAnalysis s={r.summary} insight={canAi ? ai.insight ?? undefined : undefined} />
+      <div className="section-title">스코어카드</div>
+      <RecordScorecard holes={r.holes} />
+      {canAi && <InsightSummary state={ai} />}
+    </div>
+  );
+  const sheet = sharing && (
+    <ShareImageSheet
+      make={makeScorecard}
+      fileName={`scorecard-${r.date || "round"}.png`}
+      title="내 스코어카드"
+      onClose={() => setSharing(false)}
+    />
+  );
+  if (embedded)
+    return (
+      <>
+        <LogoHead onBack={onBack} />
+        {body}
+        {sheet}
+      </>
+    );
   return (
     <div className="app">
       <TopBar left={<BackButton label="라운드 기록으로" onClick={onBack} />} right={<NoticeButton />} />
-      <div className="sheet results">
-        <h2 className="page-title">{r.courseName || "라운드 기록"}</h2>
-        <div className="card rr-sum">
-          {/* 날짜·티·게임 방식 */}
-          <div className="rr-meta">
-            {[r.date, tee].filter(Boolean).join(" · ")}
-            <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
-          </div>
-          <div className="rr-total">
-            <b>{r.summary.holesPlayed === 0 ? "–" : r.summary.strokes}</b>
-            <span>타</span>
-            {r.summary.holesPlayed > 0 && <em>{relLabel(r.summary.toPar)}</em>}
-          </div>
-          <div className="st-golf">
-            <span>
-              전반 <b>{r.summary.out ?? "–"}</b>
-            </span>
-            {r.holeCount > 9 && (
-              <span>
-                후반 <b>{r.summary.in ?? "–"}</b>
-              </span>
-            )}
-            <span>
-              퍼트 <b>{r.summary.putts ?? "–"}</b>
-            </span>
-            <span>
-              {r.summary.holesPlayed}/{r.holeCount}홀
-            </span>
-          </div>
-          {r.differential != null && (
-            <div className="rr-adj">
-              <div className="rr-adj-main">
-                <span>보정타수</span>
-                <b>{r.differential.toFixed(1)}</b>
-              </div>
-            </div>
-          )}
-        </div>
-        <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
-          <Icon name="share" size={17} />
-          스코어카드 이미지로 공유·저장
-        </button>
-        {canAi && <InsightAction state={ai} />}
-        <div className="section-title">분석</div>
-        <RecordAnalysis s={r.summary} insight={canAi ? ai.insight ?? undefined : undefined} />
-        <div className="section-title">스코어카드</div>
-        <RecordScorecard holes={r.holes} />
-        {canAi && <InsightSummary state={ai} />}
-      </div>
-      {sharing && (
-        <ShareImageSheet
-          make={makeScorecard}
-          fileName={`scorecard-${r.date || "round"}.png`}
-          title="내 스코어카드"
-          onClose={() => setSharing(false)}
-        />
-      )}
+      {body}
+      {sheet}
     </div>
   );
 }

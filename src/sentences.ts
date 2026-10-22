@@ -5,12 +5,12 @@
  * 팝업(alert·confirm·prompt)도 같은 규칙으로 문장마다 줄을 바꾼다
  */
 
-/** 한글 뒤 마침표·물음표·느낌표 다음 빈칸 (다음 글자가 가운뎃점·닫는 괄호면 그대로) */
-const BETWEEN = /([가-힣][.?!])[  ]+(?=[^\s·)])/g;
+/** 한글(또는 닫는 괄호) 뒤 마침표·물음표·느낌표 다음 빈칸 (다음 글자가 가운뎃점·닫는 괄호면 그대로) */
+const BETWEEN = /([가-힣)][.?!])[  ]+(?=[^\s·)])/g;
 /** 글자 조각 끝의 문장 끝 + 빈칸 (뒤에 <b> 같은 다른 조각이 이어질 때) */
-const AT_END = /([가-힣][.?!])[  ]+$/;
+const AT_END = /([가-힣)][.?!])[  ]+$/;
 /** 앞 조각이 문장 끝으로 끝났는지 */
-const ENDS_SENTENCE = /[가-힣][.?!]$/;
+const ENDS_SENTENCE = /[가-힣)][.?!]$/;
 
 export const breakSentences = (s: string) => s.replace(BETWEEN, "$1\n");
 
@@ -24,8 +24,15 @@ function fixText(t: Text) {
   if (!v || !el || el.closest(SKIP)) return;
   let next = breakSentences(v);
   if (t.nextSibling) next = next.replace(AT_END, "$1\n");
-  const prev = t.previousSibling?.textContent;
-  if (prev && ENDS_SENTENCE.test(prev)) next = next.replace(/^[  ]+(?=\S)/, "\n");
+  // 앞 조각이 문장으로 끝났으면 이 조각 앞 빈칸을 줄바꿈으로 ({" "} 같은 빈칸뿐인 조각은 건너뛰고 본다)
+  let p = t.previousSibling;
+  while (p && p.nodeType === Node.TEXT_NODE && !p.textContent?.trim()) p = p.previousSibling;
+  const prev = p?.textContent?.trimEnd();
+  if (prev && ENDS_SENTENCE.test(prev)) {
+    // 빈칸뿐인 조각은 줄바꿈 하나로 (뒤에 글자가 이어질 때), 글자가 있으면 앞 빈칸을 줄바꿈으로
+    if (!next.trim()) next = t.nextSibling ? "\n" : next;
+    else if (!(t.previousSibling?.textContent ?? "").endsWith("\n")) next = next.replace(/^[  ]+(?=\S)/, "\n");
+  }
   if (next === v) return;
   // 한 줄로 자르는 칸(nowrap·말줄임)은 그대로 둔다
   if (!(MARK in el.dataset) && getComputedStyle(el).whiteSpace !== "normal") return;

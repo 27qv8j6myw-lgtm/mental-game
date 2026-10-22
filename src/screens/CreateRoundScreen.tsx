@@ -48,6 +48,8 @@ import {
   RankMethodField,
   RankPrizeField,
   PaymentFields,
+  PlayerCountField,
+  rankAmountsFor,
   RuleToggles,
   SkinsMultiplierFields,
 } from "./RoundFields";
@@ -117,19 +119,26 @@ export default function CreateRoundScreen({
   const [payment, setPayment] = useState<PaymentMethod>(last?.payment ?? "transfer");
   const [handicapSettle, setHandicapSettle] = useState<SettleTiming>(last?.handicapSettle ?? "post");
   const [handicapMode, setHandicapMode] = useState<HandicapMode>(last?.handicapMode ?? "avg");
-  const [rules, setRules] = useState<BetRules>(
-    last?.rules ?? {
+  // 동타 배판은 지난 라운드에서 껐어도 늘 켠 채로 시작한다 (라운드마다 끌 수 있다)
+  const [rules, setRules] = useState<BetRules>(() => ({
+    ...(last?.rules ?? {
       parPenalty: true,
       doublePar: false,
-      tie: false,
       birdieDouble: false,
       maxMultiplier: 2,
-    }
-  );
+    }),
+    tie: true,
+  }));
   const [caddieFee, setCaddieFee] = useState(last?.caddieFee ?? 160000);
   const [rankRules, setRankRules] = useState<RankRules>(last?.rankRules ?? DEFAULT_RANK_RULES);
 
   const [holeCount, setHoleCount] = useState(last?.holeCount ?? 18);
+  /** 몇 인 플레이 (기본 4인): 등수별 금액 칸 수 */
+  const [playerCount, setPlayerCountState] = useState(4);
+  const setPlayerCount = (n: number) => {
+    setPlayerCountState(n);
+    setRankRules((r) => ({ ...r, amounts: rankAmountsFor(r, n) }));
+  };
   const [busy, setBusy] = useState(false);
   /** 사용 방법: 섹션 제목 옆 '자세히'로 그 항목을 덮어 연다 (닫으면 입력이 그대로) */
   const [guideAt, setGuideAt] = useState<TopicId | null>(null);
@@ -232,6 +241,7 @@ export default function CreateRoundScreen({
                   }),
           ...(rating && { rating }),
           ...(teeRatings && { teeRatings }),
+          ...(!isRecord && { playerCount }),
         },
         handicapSettle: isMoney ? handicapSettle : rankPays && payment === "transfer" ? "post" : "pre",
         holeCount,
@@ -375,6 +385,12 @@ export default function CreateRoundScreen({
               ))}
             </div>
           </div>
+          {!isRecord && (
+            <div className="field">
+              <label>인원</label>
+              <PlayerCountField value={playerCount} onChange={setPlayerCount} />
+            </div>
+          )}
           {/* 난이도: 남자 화이트 티 기준 KGA 레이팅과 보기 플레이어 예상 스코어 */}
           {course && (
             <div className="field">
@@ -400,7 +416,7 @@ export default function CreateRoundScreen({
             </div>
           )}
           <p className="hint tee-note">
-            티 박스는 대기실에서 사람마다 골라요 (기본 화이트, 여성은 레드). 보정타수·스코어카드는 각자 고른 티
+            티는 대기실에서 각자 골라요 (기본 화이트, 여성 레드). 보정타수·스코어카드는 각자 고른 티
             기준이에요.
           </p>
         </div>
@@ -422,8 +438,8 @@ export default function CreateRoundScreen({
             <div className="card">
               <CaddieFeeField fee={caddieFee} holeCount={holeCount} onChange={setCaddieFee} />
               <p className="hint caddie-rule">
-                내는 홀마다 꼴찌가 1만원을 내요. 공동 꼴찌면 다음 홀로 넘어가 다음 홀 꼴찌가 2만원을 내고,
-                마지막 홀까지 넘어간 돈은 모두가 나눠 내요. 계좌이체 없이 현금으로 모아요.
+                내는 홀마다 꼴찌가 1만원을 내요. 공동 꼴찌면 다음 홀 꼴찌가 2만원을 내요. 마지막 홀까지 넘어가면
+                모두 나눠 내요. 계좌이체 없이 현금으로 모아요.
               </p>
             </div>
             <div className="section-title">
@@ -464,7 +480,7 @@ export default function CreateRoundScreen({
               )}
               {rankRules.method !== "net" && (
                 <p className="hint" style={{ marginTop: 10 }}>
-                  핸디는 타수 보정이에요. 방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요.
+                  핸디는 타수 보정이에요. 방장이 대기실에서 사람마다 잡아줄 타수를 정해요.
                 </p>
               )}
             </div>
@@ -484,7 +500,7 @@ export default function CreateRoundScreen({
 
             <div className="section-title">등수 금액</div>
             <div className="card">
-              <RankPrizeField rules={rankRules} onChange={setRankRules} />
+              <RankPrizeField rules={rankRules} onChange={setRankRules} count={playerCount} />
             </div>
 
             {rankPays && (

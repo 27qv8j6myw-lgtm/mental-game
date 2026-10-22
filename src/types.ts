@@ -142,6 +142,8 @@ export interface StoredRules extends BetRules {
   teeRatings?: Partial<Record<TeeBox, CourseRating>>;
   /** 값이 없는 예전 라운드는 타당 */
   gameMode?: GameMode;
+  /** 몇 인 플레이인지 (2~5, 라운드 만들 때 고른다. 등수별 금액 칸 수). 예전 라운드엔 없음 → 참여 인원 */
+  playerCount?: number;
   payment?: PaymentMethod;
   handicapMode?: HandicapMode;
   /** 최저핸디 대비 방식에서 방장이 정한 기준 인원(user_uid). 이 사람의 핸디는 0 */

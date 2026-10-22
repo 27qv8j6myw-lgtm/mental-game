@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "../icons";
 import type { TopicId } from "./content";
 
@@ -101,11 +101,42 @@ export function Example({ title, label = "계산 예시", children }: { title: s
   );
 }
 
-/** 작은 표. 숫자 칸은 오른쪽 정렬 (num 에 칸 번호) */
+/**
+ * 작은 표. 숫자 칸은 오른쪽 정렬 (num 에 칸 번호).
+ * 첫 칸(제목)은 줄을 바꾸지 않는다. 숫자 칸이 없는 표는 설명이 한 줄에 안 들어가거나 표가 넘치면
+ * 줄마다 제목 아래 다음 줄들에 설명을 길게 쓴다 (stacked. 세 칸 이상이면 설명 앞에 칸 이름)
+ */
 export function Table({ head, rows, num = [] }: { head: ReactNode[]; rows: ReactNode[][]; num?: number[] }) {
+  const ref = useRef<HTMLTableElement>(null);
+  const [stacked, setStacked] = useState(false);
+  const canStack = num.length === 0;
+  useLayoutEffect(() => {
+    const table = ref.current;
+    if (!canStack || !table) return;
+    const measure = () => {
+      // 나란히 놓았을 때 설명 칸이 두 줄 이상이 되는지 본다
+      table.classList.remove("stacked");
+      const lineCount = (el: HTMLElement) => {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        return new Set([...r.getClientRects()].filter((x) => x.width > 1).map((x) => Math.round(x.top / 4))).size;
+      };
+      const wraps =
+        table.scrollWidth > (table.parentElement?.clientWidth ?? table.scrollWidth) + 1 ||
+        [...table.querySelectorAll<HTMLTableCellElement>("tbody td:not(:first-child)")].some(
+          (td) => lineCount(td) > 1 + (td.textContent?.split("\n").length ?? 1) - 1
+        );
+      if (wraps) table.classList.add("stacked");
+      setStacked(wraps);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(table.parentElement ?? table);
+    return () => ro.disconnect();
+  }, [canStack, rows]);
   return (
     <div className="gd-table-wrap">
-      <table className="gd-table">
+      <table ref={ref} className={`gd-table ${stacked ? "stacked" : ""}`}>
         <thead>
           <tr>
             {head.map((h, i) => (
@@ -119,7 +150,12 @@ export function Table({ head, rows, num = [] }: { head: ReactNode[]; rows: React
           {rows.map((r, i) => (
             <tr key={i}>
               {r.map((c, j) => (
-                <td key={j} className={num.includes(j) ? "num" : ""}>
+                <td
+                  key={j}
+                  className={num.includes(j) ? "num" : ""}
+                  // 세 칸 이상 표를 쌓아 보일 때 값 앞에 붙는 칸 이름
+                  data-label={head.length > 2 && j > 0 && typeof head[j] === "string" ? head[j] : undefined}
+                >
                   {c}
                 </td>
               ))}

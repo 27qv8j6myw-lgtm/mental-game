@@ -1,5 +1,8 @@
 -- ============ AI 분석: 권한 · 보관 ============
--- 기록 화면의 'AI 분석'은 관리자와, 관리자가 대시보드에서 허용한 사람만 쓸 수 있다.
+-- AI 기능은 관리자와, 관리자가 대시보드에서 허용한 사람만 쓸 수 있다. 허용은 두 단계:
+--   기본(basic): 기록 화면의 'AI 분석'
+--   고급(advanced): 기본 + 라운드 중 홀마다 AI 코칭 (api/coach.ts)
+-- 관리자는 늘 모두 쓸 수 있다.
 -- 한 번 만든 분석은 round_insights 에 저장해 두고, 다음에 열 때 다시 만들지 않고 쓴다.
 -- Supabase 대시보드 > SQL Editor 에서 admin.sql 다음에 실행. 여러 번 실행해도 안전하다.
 -- 파일 전체를 붙여 넣고(일부만 선택하지 말고) 실행한다.
@@ -12,6 +15,10 @@ create table if not exists public.ai_grants (
 );
 -- 정책을 두지 않아 앱에서 직접 읽거나 쓸 수 없다. 아래 함수로만 다룬다
 alter table public.ai_grants enable row level security;
+-- 허용 단계 (예전에 허용한 사람은 기본)
+alter table public.ai_grants add column if not exists level text not null default 'basic';
+alter table public.ai_grants drop constraint if exists ai_grants_level_check;
+alter table public.ai_grants add constraint ai_grants_level_check check (level in ('basic', 'advanced'));
 
 -- 나는 AI 분석을 쓸 수 있나 (관리자 또는 허용된 사람)
 create or replace function public.can_use_ai()
@@ -25,6 +32,20 @@ as $$
 $$;
 revoke all on function public.can_use_ai() from public, anon;
 grant execute on function public.can_use_ai() to authenticated;
+
+-- 나는 라운드 중 AI 홀 코칭을 쓸 수 있나 (관리자 또는 고급으로 허용된 사람)
+create or replace function public.can_use_ai_coach()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin()
+    or exists (select 1 from public.ai_grants where user_id = auth.uid() and level = 'advanced');
+$$;
+revoke all on function public.can_use_ai_coach() from public, anon;
+grant execute on function public.can_use_ai_coach() to authenticated;
 
 -- 관리자: AI 분석 허용 / 해제
 create or replace function public.admin_set_ai_grant(p_user_id uuid, p_on boolean)
@@ -46,9 +67,34 @@ end $$;
 revoke all on function public.admin_set_ai_grant(uuid, boolean) from public, anon;
 grant execute on function public.admin_set_ai_grant(uuid, boolean) to authenticated;
 
--- 관리자: AI 분석을 허용한 사람 목록 (이메일은 앞 2글자만)
+-- 관리자: AI 단계 정하기 (none: 해제 · basic: 기본 · advanced: 고급)
+create or replace function public.admin_set_ai_level(p_user_id uuid, p_level text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'ADMIN_ONLY' using errcode = '42501';
+  end if;
+  if p_level = 'none' then
+    delete from public.ai_grants where user_id = p_user_id;
+  elsif p_level in ('basic', 'advanced') then
+    insert into public.ai_grants (user_id, level) values (p_user_id, p_level)
+      on conflict (user_id) do update set level = excluded.level;
+  else
+    raise exception 'BAD_LEVEL' using errcode = '22023';
+  end if;
+end $$;
+revoke all on function public.admin_set_ai_level(uuid, text) from public, anon;
+grant execute on function public.admin_set_ai_level(uuid, text) to authenticated;
+
+-- 관리자: AI 분석을 허용한 사람 목록 (이메일은 앞 2글자만, 허용 단계 포함)
+-- (돌려주는 칸이 늘어 예전 함수를 지우고 다시 만든다)
+drop function if exists public.admin_ai_grants();
 create or replace function public.admin_ai_grants()
-returns table (user_id uuid, name text, email_masked text, created_at timestamptz)
+returns table (user_id uuid, name text, email_masked text, created_at timestamptz, level text)
 language sql
 stable
 security definer
@@ -56,12 +102,13 @@ set search_path = public, auth
 as $$
   select
     g.user_id,
-    coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name', ''),
+    coalesce(nullif(trim(u.raw_user_meta_data ->> 'mg_name'), ''), u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name', ''),
     case
       when coalesce(u.email, '') = '' then null
       else left(split_part(u.email, '@', 1), 2) || '***@' || split_part(u.email, '@', 2)
     end,
-    g.created_at
+    g.created_at,
+    g.level
   from public.ai_grants g
   join auth.users u on u.id = g.user_id
   where public.is_admin()

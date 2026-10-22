@@ -73,12 +73,9 @@ const AMT_MIN = 9;
 export default function ResultsScreen({
   session,
   onEditScores,
-  onFinishEarly,
 }: {
   session: Session;
   onEditScores: () => void;
-  /** 방장: 홀을 다 저장하기 전에 라운드 끝내기 (없으면 버튼을 숨긴다) */
-  onFinishEarly?: () => void;
 }) {
   const { config } = session;
   // 정산은 저장된 홀만 (홀 저장 방식에서 입력 중인 홀은 빠진다)
@@ -377,11 +374,6 @@ export default function ResultsScreen({
             <button className="btn-line" onClick={() => setEditing(true)}>
               정산 설정 수정
             </button>
-            {onFinishEarly && (
-              <button className="btn-line warn" onClick={onFinishEarly}>
-                라운드 일찍 끝내기
-              </button>
-            )}
           </div>
         )}
 
@@ -489,7 +481,7 @@ export default function ResultsScreen({
               ① 스킨스 정산
             </div>
             <p className="hint" style={{ margin: "0 2px 10px" }}>
-              단독 최저 타수가 그 홀에 걸린 스킨을 모두 가져가고, 다른 참여자 모두에게서{" "}
+              단독 최저 타수가 그 홀 스킨을 모두 가져가요. 한 사람마다{" "}
               <b>스킨 수 × {won(config.unit)}</b>씩 받아요.
             </p>
             <NetList net={skins.net} />

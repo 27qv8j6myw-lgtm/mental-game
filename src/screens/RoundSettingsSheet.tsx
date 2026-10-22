@@ -38,6 +38,8 @@ import {
   PaymentFields,
   RankMethodField,
   RankPrizeField,
+  PlayerCountField,
+  rankAmountsFor,
   RuleToggles,
   SkinsMultiplierFields,
   StrokeAdjField,
@@ -66,6 +68,11 @@ export default function RoundSettingsSheet({
   const inLobby = session.status === "lobby";
   const [unit, setUnit] = useState(cfg.unit);
   const [holeCount, setHoleCount] = useState(bundle?.round.hole_count ?? 18);
+  /** 몇 인 플레이 (예전 라운드는 지금 참여 인원) */
+  const joined = bundle?.players.length ?? cfg.players.length;
+  const [playerCount, setPlayerCountState] = useState(
+    Math.min(5, Math.max(2, bundle?.round.rules.playerCount ?? joined))
+  );
   const [gameMode, setGameMode] = useState<GameMode>(cfg.gameMode);
   // 캐디피·등수 내기는 방식을 바꾸지 않고 그 방식의 설정만 고친다
   const isCaddie = cfg.gameMode === "caddie";
@@ -74,6 +81,10 @@ export default function RoundSettingsSheet({
   const [caddieFee, setCaddieFee] = useState(cfg.rules.caddie?.fee ?? 0);
   const rankInit = rankRules(cfg);
   const [rank, setRank] = useState<RankRules>(rankInit);
+  const setPlayerCount = (n: number) => {
+    setPlayerCountState(n);
+    setRank((r) => ({ ...r, amounts: rankAmountsFor(r, Math.max(n, joined)) }));
+  };
   /** 등수 내기 핸디 타수의 핸디 방식 (포인트·스킨스는 늘 타수 보정). 대기실에서만 바꾼다 */
   const [rankHm, setRankHm] = useState<HandicapMode>(
     isRank && rankInit.method === "net" ? cfg.handicapMode : "avg"
@@ -221,6 +232,7 @@ export default function RoundSettingsSheet({
           ...(usesStrokeRules && rules),
           ...(usesSkins && { skins }),
           ...modeRules,
+          playerCount,
         };
         await updateRound({
           handicap_settle: settle,
@@ -322,6 +334,10 @@ export default function RoundSettingsSheet({
                 ))}
               </div>
             </div>
+            <div className="section-title">인원</div>
+            <div className="card">
+              <PlayerCountField value={playerCount} onChange={setPlayerCount} />
+            </div>
           </>
         )}
 
@@ -392,7 +408,7 @@ export default function RoundSettingsSheet({
             )}
             <div className="section-title">등수 금액</div>
             <div className="card">
-              <RankPrizeField rules={rank} onChange={setRank} count={Math.max(2, bundle.players.length)} />
+              <RankPrizeField rules={rank} onChange={setRank} count={Math.max(2, playerCount, bundle.players.length)} />
             </div>
           </>
         )}

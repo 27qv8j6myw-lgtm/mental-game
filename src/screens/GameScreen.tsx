@@ -20,6 +20,9 @@ import { useUnfolded } from "../rail";
 import { firstUnsaved, settledHoles } from "../model";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import HoleStatFields from "./HoleStatFields";
+import CoachCard from "./CoachCard";
+import { useHoleCoach } from "../coach";
+import { useAiAccess } from "./Insight";
 import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
 
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
@@ -86,12 +89,6 @@ export default function GameScreen({
   const inputOn = live || editing;
   const filled = config.players.filter((p) => view.scores[p.id] != null).length;
   const allIn = filled === config.players.length;
-  const missing = config.players.filter((p) => view.scores[p.id] == null);
-  /** 저장 버튼: 누가 남았는지 (두 명까지는 이름, 그 이상은 인원) */
-  const missingLabel =
-    missing.length <= 2
-      ? `${missing.map((p) => p.name || "?").join("·")} 입력하면 저장`
-      : `${missing.length}명 더 입력하면 저장`;
   const pending = session.pendingHoles.has(idx);
 
   // ---- 내 기록 (퍼트·티샷·벌타): 내 이름을 눌러 열고, 저장/취소로 끝낸다 ----
@@ -101,8 +98,15 @@ export default function GameScreen({
   const hasMyStat = !sameStat(myStat, EMPTY_STAT);
   const [rec, setRec] = useState<HoleStat | null>(null);
   const recDirty = rec !== null && !sameStat(rec, myStat);
+  // AI 홀 코칭 (관리자·AI 고급): 내 기록을 저장할 때마다 두 줄 코칭을 홀 상태 칸에 띄운다
+  const aiAccess = useAiAccess(myUid);
+  const coachOn = aiAccess.coach && isPlayer && status === "playing";
+  const { coaching, coach, close: closeCoach } = useHoleCoach(session, myUid, activeRoundId, coachOn);
   const saveRec = () => {
-    if (rec && myUid && recDirty) session.setStat(idx, myUid, rec);
+    if (rec && myUid && recDirty) {
+      session.setStat(idx, myUid, rec);
+      coach(idx, rec, view.scores[myUid] ?? null);
+    }
     setRec(null);
   };
   // 홀을 옮기면 (초안이 있으면 옮길 수 없다) 닫는다
@@ -374,16 +378,6 @@ export default function GameScreen({
   // 이 홀 상태 한 줄 (PAR 위 고정 자리)
   // 다 저장했으면 마지막 홀에서 확정. 펼친 화면은 정산 칸 아래 확정이 없으니 어느 홀에서든
   const lastAllSaved = playing && allSaved && (idx === lastIdx || split);
-  /** 저장된 홀을 볼 때 아래 가운데 안내 */
-  const savedHint = lastAllSaved
-    ? session.isHost
-      ? "최종 확정"
-      : "방장이 확정하면 끝나요"
-    : status === "done"
-    ? "정산 결과 보기"
-    : playing && !allSaved && idx < frontier
-    ? `${frontier + 1}번 홀로`
-    : "";
   const barStatus: [kind: string, text: string] = moved && moved.hole === idx && !editing && !recDirty
     ? ["saved", moved.text]
     : editing
@@ -435,6 +429,7 @@ export default function GameScreen({
           <div className={`hole-status ${barStatus[0]}`} role="status">
             {barStatus[1]}
           </div>
+          {coaching && <CoachCard coaching={coaching} onClose={closeCoach} />}
           {session.notice && (
             <div className="notice-bar" role="alert">
               <span>{session.notice}</span>
@@ -729,30 +724,29 @@ export default function GameScreen({
         </div>
       </div>
 
-      {/* ---- 아래 줄: 가운데 안내 글자·글자 버튼, 오른쪽 동그라미 주 버튼. 늘 같은 자리 ---- */}
+      {/* ---- 아래 줄 오른쪽: 취소·수정 + 주 버튼 (왼쪽 홈·종료는 App). 늘 같은 자리 ---- */}
       {editing ? (
         <PlayBar
           unsaved
+          secondary={<DockButton tone="plain" label="취소" onClick={() => setDraft(null)} />}
           action={<DockButton label="저장" disabled={!allIn || editItems.length === 0} onClick={saveEdit} />}
-        >
-          <button className="pb-link" onClick={() => setDraft(null)}>
-            취소
-          </button>
-          <span className="pb-hint">
-            {!allIn ? "모두 입력해 주세요" : editItems.length === 0 ? "바뀐 게 없어요" : `${idx + 1}번 홀 수정 저장`}
-          </span>
-        </PlayBar>
+        />
       ) : recDirty ? (
-        <PlayBar unsaved action={<DockButton label="저장" disabled />}>
-          <span className="pb-hint">내 기록을 저장하거나 취소해 주세요</span>
-        </PlayBar>
-      ) : live ? (
-        <PlayBar action={<DockButton label="저장" disabled={!allIn} onClick={saveHole} />}>
-          <span className="pb-hint">{allIn ? `${idx + 1}번 홀 저장` : missingLabel}</span>
-        </PlayBar>
-      ) : (
-        // 저장된 홀: 오른쪽은 최종 확정(방장) · 정산 결과(끝난 라운드) · 다음 입력할 홀로
+        // 내 기록 초안: 아래 줄로도 저장·취소
         <PlayBar
+          unsaved
+          secondary={<DockButton tone="plain" label="취소" onClick={() => setRec(null)} />}
+          action={<DockButton label="저장" onClick={saveRec} />}
+        />
+      ) : live ? (
+        <PlayBar
+          secondary={<DockButton tone="plain" label="취소" disabled />}
+          action={<DockButton label="저장" disabled={!allIn} onClick={saveHole} />}
+        />
+      ) : (
+        // 저장된 홀: 수정, 오른쪽은 최종 확정(방장) · 정산 결과(끝난 라운드) · 다음 입력할 홀로
+        <PlayBar
+          secondary={canEdit ? <DockButton tone="plain" label="수정" onClick={startEdit} /> : undefined}
           action={
             lastAllSaved && session.isHost ? (
               <DockButton label="확정" onClick={onFinish} />
@@ -762,14 +756,7 @@ export default function GameScreen({
               <DockButton label="다음" onClick={() => go(frontier)} />
             ) : undefined
           }
-        >
-          {canEdit && (
-            <button className="pb-link" onClick={startEdit}>
-              수정
-            </button>
-          )}
-          {savedHint ? <span className="pb-hint">{savedHint}</span> : null}
-        </PlayBar>
+        />
       )}
     </>
   );

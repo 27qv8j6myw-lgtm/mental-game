@@ -1,5 +1,6 @@
 import AuthenticationServices
 import Observation
+import Photos
 import UIKit
 import WebKit
 
@@ -153,6 +154,35 @@ final class WebController: NSObject {
     }
 }
 
+// MARK: - 앱 → 웹 답, 사진 저장
+
+extension WebController {
+    /// 웹의 window.mgNative.reply(id, 결과) 로 돌려준다 (src/native.ts)
+    func reply(_ id: Int, _ payload: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        webView.evaluateJavaScript("window.mgNative && window.mgNative.reply(\(id), \(json))")
+    }
+
+    /// 사진 보관함에 이미지를 더한다 (처음 한 번 '사진 추가' 권한을 묻는다)
+    fileprivate func saveToPhotos(_ data: Data, requestID id: Int) {
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                Task { @MainActor in self.reply(id, ["denied": true]) }
+                return
+            }
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: nil)
+            }) { ok, error in
+                Task { @MainActor in
+                    self.reply(id, ok ? ["saved": true] : ["error": error?.localizedDescription ?? "unknown"])
+                }
+            }
+        }
+    }
+}
+
 // MARK: - 웹 → 앱 요청
 
 extension WebController: WKScriptMessageHandler {
@@ -170,6 +200,13 @@ extension WebController: WKScriptMessageHandler {
                   let id = body["id"] as? Int, let nonce = body["nonce"] as? String
             else { return }
             startAppleLogin(requestID: id, nonce: nonce)
+        case "saveImage":
+            // 스코어카드·정산 결과 이미지를 사진 보관함에 바로 저장한다 (공유 창을 거치지 않고)
+            guard let page = message.frameInfo.request.url, isAppPage(page),
+                  let id = body["id"] as? Int, let b64 = body["data"] as? String,
+                  let data = Data(base64Encoded: b64), UIImage(data: data) != nil
+            else { return }
+            saveToPhotos(data, requestID: id)
         default:
             break
         }
@@ -267,9 +304,9 @@ extension WebController: WKUIDelegate {
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping @MainActor () -> Void
     ) {
-        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "확인", style: .default) { _ in completionHandler() })
-        present(alert)
+        present(MessageAlertController(message: message, actions: [
+            .init(title: "확인", primary: true) { completionHandler() },
+        ]))
     }
 
     func webView(
@@ -278,10 +315,10 @@ extension WebController: WKUIDelegate {
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping @MainActor (Bool) -> Void
     ) {
-        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "취소", style: .cancel) { _ in completionHandler(false) })
-        alert.addAction(UIAlertAction(title: "확인", style: .default) { _ in completionHandler(true) })
-        present(alert)
+        present(MessageAlertController(message: message, actions: [
+            .init(title: "취소", primary: false) { completionHandler(false) },
+            .init(title: "확인", primary: true) { completionHandler(true) },
+        ]))
     }
 
     func webView(
@@ -373,14 +410,10 @@ extension WebController: ASAuthorizationControllerDelegate, ASAuthorizationContr
         webView.window ?? ASPresentationAnchor()
     }
 
-    /// 웹의 window.mgNative.reply(id, 결과) 로 돌려준다 (src/native.ts)
     private func replyApple(_ payload: [String: Any]) {
         guard let id = appleRequestID else { return }
         appleRequestID = nil
-        guard let data = try? JSONSerialization.data(withJSONObject: payload),
-              let json = String(data: data, encoding: .utf8)
-        else { return }
-        webView.evaluateJavaScript("window.mgNative && window.mgNative.reply(\(id), \(json))")
+        reply(id, payload)
     }
 }
 

@@ -81,7 +81,7 @@ export function SkinsMultiplierFields({
           <div className="tinfo">
             <span className="t">이월하면 2배</span>
             <span className="s">
-              최저 동타로 이월되면 스킨이 {value.carryDouble ? "1→2→4→8" : "1→2→3→4"}개로 불어나요
+              이월되면 스킨이 {value.carryDouble ? "1→2→4→8" : "1→2→3→4"}개로 불어나요
             </span>
           </div>
           <div className={`switch ${value.carryDouble ? "on" : ""}`} />
@@ -96,7 +96,7 @@ export function SkinsMultiplierFields({
         <div className="toggle-row" onClick={() => toggle("late")}>
           <div className="tinfo">
             <span className="t">후반 가중</span>
-            <span className="s">마지막 3개 홀(18홀이면 16~18번, 9홀이면 7~9번)은 ×2</span>
+            <span className="s">마지막 3개 홀은 ×2</span>
           </div>
           <div className={`switch ${value.late ? "on" : ""}`} />
         </div>
@@ -117,7 +117,7 @@ export function SkinsRules() {
         <li>홀마다 스킨 1개(홀당 금액)가 걸림</li>
         <li>단독 최저 타수 플레이어가 걸린 스킨을 모두 가져감</li>
         <li>이긴 사람은 모두에게서 스킨 수 × 홀당 금액씩 받음</li>
-        <li>최저 타수가 2명 이상이면 다음 홀로 이월돼 스킨이 쌓임</li>
+        <li>최저 동타면 다음 홀로 이월돼 스킨이 쌓임</li>
         <li>마지막 홀이 최저 동타면 동타인 사람끼리 나눠 가짐</li>
         <li>전원 동타면 남은 스킨은 사라짐</li>
         <li>타당의 배판·버디 추가 정산은 없음</li>
@@ -130,11 +130,11 @@ export function SkinsRules() {
 const HANDICAP_MODES: HandicapMode[] = ["avg", "stroke", "adjust"];
 
 export const HANDICAP_HINT: Record<HandicapMode, string> = {
-  avg: "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요.",
+  avg: "각자 대기실에서 평균 타수를 넣으면 핸디가 계산돼요. ±로 조정할 수 있어요.",
   stroke:
-    "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 골라요. 최저핸디 인원을 정해야 시작할 수 있어요.",
+    "방장이 대기실에서 최저핸디 인원을 정해요. 나머지는 받을 타수(+5·+10 등)를 골라요. 최저핸디 인원을 정해야 시작할 수 있어요.",
   adjust:
-    "방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요. 보기 이상일 때만 빼주고 파 아래로는 내려가지 않아요. 핸디캡 금액 정산은 없어요.",
+    "방장이 대기실에서 사람마다 잡아줄 타수를 정해요. 파4·파5 홀에서 0·1·2타를 빼줘요. 보기 이상일 때만 빼고 파 아래로는 안 내려가요. 핸디 금액 정산은 없어요.",
 };
 
 /** 핸디캡 설정 방식: 평균 타수 / 최저핸디 대비 / 타수 보정 */
@@ -331,12 +331,12 @@ export function RuleToggles({
         </ul>
         <div className="br-group">배판 계산</div>
         <ul>
-          <li>동일한 배판 조건은 홀당 1번씩 세고 인원 수로 곱하지 않음</li>
+          <li>같은 배판 조건은 홀당 1번만 셈</li>
           <li>한 홀에 서로 다른 배판 조건이 겹치면 곱함</li>
           <li>
             모든 배수는 <b>총 상한</b>을 넘지 않음
           </li>
-          <li>버디 배판을 끄면 버디는 1타, 이글은 2타 추가 정산 적용</li>
+          <li>버디 배판을 끄면 버디 1타·이글 2타 추가 정산</li>
           <li>홀 최대 타수는 더블파까지만 반영</li>
         </ul>
       </div>
@@ -432,9 +432,9 @@ export function CaddieFeeField({
 
 const RANK_METHODS: RankMethod[] = ["points", "net", "skins"];
 const RANK_METHOD_HINT: Record<RankMethod, string> = {
-  points: "타당처럼 두 명씩 타수 차이를 포인트로 쌓아 포인트가 많은 순으로 정해요.",
-  net: "핸디를 반영한 타수가 적은 순으로 정해요. 핸디 방식(평균 타수·최저핸디 대비·타수 보정)은 아래에서 골라요.",
-  skins: "홀마다 단독 최저 타수가 스킨을 가져가고, 딴 스킨이 많은 순으로 정해요.",
+  points: "타당처럼 두 명씩 타수 차이를 포인트로 쌓아요. 포인트가 많은 순으로 정해요.",
+  net: "핸디를 반영한 타수가 적은 순으로 정해요. 핸디 방식은 아래에서 골라요.",
+  skins: "홀마다 단독 최저 타수가 스킨을 가져가요. 딴 스킨이 많은 순으로 정해요.",
 };
 
 /** 등수 정하는 방식: 타당 포인트 / 핸디 타수 / 스킨스 */
@@ -460,12 +460,40 @@ const PRIZES: [RankPrize, string][] = [
   ["pay", "내는 돈"],
   ["exchange", "주고받는 돈"],
 ];
-const PAY_DEFAULT = [0, 10000, 20000, 30000];
-const EXCHANGE_DEFAULT = [20000, 10000, -10000, -20000];
+const PAY_DEFAULT = [0, 10000, 20000, 30000, 40000];
+/** 주고받는 돈 기본값: 인원마다 합이 0 (위 등수가 받고 아래 등수가 낸다) */
+const EXCHANGE_DEFAULT: Record<number, number[]> = {
+  2: [10000, -10000],
+  3: [10000, 0, -10000],
+  4: [20000, 10000, -10000, -20000],
+  5: [20000, 10000, 0, -10000, -20000],
+};
+/** 인원이 바뀌었을 때 등수 금액: 주고받는 돈은 합이 0 이 아니게 되면 그 인원의 기본값으로 */
+export function rankAmountsFor(rules: RankRules, count: number): number[] {
+  const cur = Array.from({ length: count }, (_, i) => rules.amounts[i] ?? 0);
+  if (rules.prize === "exchange" && cur.reduce((a, b) => a + b, 0) !== 0)
+    return EXCHANGE_DEFAULT[count] ?? EXCHANGE_DEFAULT[4];
+  return rules.amounts;
+}
+
+const PLAYER_COUNTS = [2, 3, 4, 5];
+
+/** 몇 인 플레이: 2·3·4·5인 (등수별 금액 칸 수와 대기실 인원 표시에 쓴다) */
+export function PlayerCountField({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="segmented">
+      {PLAYER_COUNTS.map((n) => (
+        <button key={n} className={value === n ? "active" : ""} onClick={() => onChange(n)}>
+          {n}인
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /**
  * 등수별 금액: 없음 / 내는 돈(각자 내서 모은다) / 주고받는 돈(+ 받음 · − 냄, 합 0 이면 송금).
- * count: 금액을 정할 등수 수 (라운드 만들 때 4, 대기실에서는 참여 인원)
+ * count: 금액을 정할 등수 수 (라운드 인원, 대기실에서 더 많이 들어왔으면 참여 인원)
  */
 export function RankPrizeField({
   rules,
@@ -481,7 +509,7 @@ export function RankPrizeField({
     // 내는 돈 ↔ 주고받는 돈은 금액 뜻이 달라서, 맞지 않으면 기본값으로
     let next = rules.amounts;
     if (prize === "pay" && next.some((v) => v < 0)) next = PAY_DEFAULT;
-    if (prize === "exchange" && next.every((v) => v >= 0)) next = EXCHANGE_DEFAULT;
+    if (prize === "exchange" && next.every((v) => v >= 0)) next = EXCHANGE_DEFAULT[count] ?? EXCHANGE_DEFAULT[4];
     onChange({ ...rules, prize, amounts: next });
   };
   const setAmount = (i: number, v: number) => {

@@ -55,3 +55,13 @@ export interface AppleLoginResult {
 
 /** 아이폰의 Apple 로그인 창을 연다. nonce 는 원래 값의 SHA-256 (토큰에 그대로 담겨 돌아온다) */
 export const requestAppleLogin = (nonceHash: string) => ask<AppleLoginResult>("apple", { nonce: nonceHash });
+
+export interface SaveImageResult {
+  saved?: boolean;
+  /** 사진 보관함 권한을 거절함 */
+  denied?: boolean;
+  error?: string;
+}
+
+/** 이미지(PNG base64)를 아이폰 사진 보관함에 바로 저장한다 (iOS 앱에서만) */
+export const saveImageToPhotos = (base64: string) => ask<SaveImageResult>("saveImage", { data: base64 });

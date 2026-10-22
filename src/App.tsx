@@ -17,9 +17,8 @@ import RankingScreen from "./screens/RankingScreen";
 import ProfileMenu from "./screens/ProfileMenu";
 import TopBar, { BackButton } from "./screens/TopBar";
 import { LogoHead } from "./screens/PaneHead";
-import PlayBar, { DockButton } from "./screens/PlayBar";
+import { DockButton } from "./screens/PlayBar";
 import { Avatar, Icon } from "./icons";
-import { firstUnsaved } from "./model";
 import { useBack } from "./back";
 import { useOnline } from "./online";
 import { useUnfolded } from "./rail";
@@ -206,7 +205,6 @@ function RoundPlay({ session }: { session: Session }) {
 
   // 홀 저장 방식: 저장 안 된 홀
   const unsaved = session.holeSave ? session.holes.filter((h) => h.saved === false).length : 0;
-  const allSaved = session.holeSave && firstUnsaved(session.holes) < 0;
 
   /** 방장: 최종 확정 (확정하면 방장만 고칠 수 있다) */
   const finishing = useRef(false);
@@ -227,19 +225,14 @@ function RoundPlay({ session }: { session: Session }) {
       finishing.current = false;
     }
   };
+  /** 라운드 종료(최종 확정): 방장만, 늘 확인 창으로 한 번 더 묻는다 */
   const finalize = () => {
-    if (isRecord) {
-      if (window.confirm("라운드를 종료할까요?\n종료해도 내 기록은 계속 고칠 수 있어요.")) void doFinish();
-      return;
-    }
-    if (!session.holeSave) {
-      if (window.confirm("최종 확정할까요?\n확정하면 정산이 끝나고 방장만 스코어를 고칠 수 있어요.")) void doFinish();
-      return;
-    }
-    const msg =
-      unsaved > 0
-        ? `아직 저장 안 된 홀이 ${unsaved}개 있어요.\n지금 종료하면 저장된 ${session.holes.length - unsaved}개 홀만 정산돼요. 최종 확정할까요?`
-        : "최종 확정할까요?\n확정하면 정산이 끝나고 방장만 스코어를 고칠 수 있어요.";
+    if (!round.isHost || session.status !== "playing") return;
+    const msg = isRecord
+      ? "라운드를 종료할까요?\n종료 뒤에도 내 기록은 고칠 수 있어요."
+      : session.holeSave && unsaved > 0
+        ? `라운드를 종료할까요?\n저장 안 된 홀이 ${unsaved}개 있어요.\n저장한 ${session.holes.length - unsaved}개 홀만 정산해요.`
+        : "라운드를 종료할까요?\n종료하면 정산이 확정돼요.\n이후엔 방장만 스코어를 고쳐요.";
     if (window.confirm(msg)) void doFinish();
   };
 
@@ -295,8 +288,6 @@ function RoundPlay({ session }: { session: Session }) {
               <ResultsScreen
                 session={session}
                 onEditScores={() => showTab("game")}
-                // 홀을 다 저장하기 전에 끝내기 (방장, 비·시간 문제로 일찍 마칠 때). 다 저장했으면 아래 '최종 확정'
-                onFinishEarly={round.isHost && session.status === "playing" && unsaved > 0 ? finalize : undefined}
               />
             )}
           </div>
@@ -304,7 +295,7 @@ function RoundPlay({ session }: { session: Session }) {
         {(split || tab === "game") && (
           <div className="split-pane game">
             {isRecord ? (
-              <RecordGameScreen session={session} onFinish={finalize} onBusyChange={onBusyChange} />
+              <RecordGameScreen session={session} onBusyChange={onBusyChange} />
             ) : (
               <GameScreen
                 session={session}
@@ -317,9 +308,8 @@ function RoundPlay({ session }: { session: Session }) {
         )}
       </div>
 
-      {/* 정산 결과·기록 분석 화면의 라운드 종료 (홀 진행에서는 아래 버튼 줄에 있다).
-          내기 라운드는 모든 홀을 저장한 뒤에만 */}
-      {/* 아래 왼쪽: 라운드 목록으로 (홀 진행의 저장·정산 결과의 확정과 같은 줄, 늘 같은 자리) */}
+      {/* 아래 줄 왼쪽: 라운드 목록으로(홈) · 방장의 라운드 종료(빨강). 홀 진행·정산 결과 어디서든 같은 자리.
+          저장 안 된 홀이 있으면 종료할 때 알려 준다 (finalize) */}
       <button
         className="round-exit"
         aria-label="라운드 목록으로"
@@ -328,21 +318,14 @@ function RoundPlay({ session }: { session: Session }) {
       >
         <Icon name="home" size={26} />
       </button>
+      {round.isHost && session.status === "playing" && (
+        <DockButton tone="danger" className="round-end" label="종료" disabled={busy} onClick={finalize} />
+      )}
       {/* 통신이 끊겼거나 저장이 밀려 있으면: 입력은 이 폰에 보관했다가 연결되면 올린다 */}
       {(!online || !!session.pendingSaves) && (
         <span className="offline-pill round-net">{online ? "저장 대기" : "오프라인"}</span>
       )}
 
-      {/* 펼친 화면에서는 아래 줄이 홀 진행 것 하나뿐이라, 다 저장하면 거기에 확정이 나온다 (GameScreen) */}
-      {round.isHost &&
-        session.status === "playing" &&
-        !split &&
-        tab === "result" &&
-        (isRecord || allSaved || !session.holeSave) && (
-          <PlayBar action={<DockButton label={isRecord ? "종료" : "확정"} onClick={finalize} />}>
-            <span className="pb-hint">{isRecord ? "라운드 종료" : "최종 확정"}</span>
-          </PlayBar>
-        )}
     </div>
   );
 }

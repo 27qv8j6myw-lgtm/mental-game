@@ -414,10 +414,13 @@ export function RecordScorecard({ holes }: { holes: HoleRecord[] }) {
         </table>
       ))}
       <p className="rsc-legend">
-        티샷 <Icon name="hook" size={12} /> 훅 <Icon name="ring" size={11} /> 적중{" "}
-        <Icon name="short" size={11} /> 짧음 <Icon name="slice" size={12} /> 슬라이스 ·{" "}
-        <b className="lg-bunker">벙커는 갈색</b> · <b className="lg-penalty">OB·해저드는 빨간색</b> · GIR ● 정규
-        온
+        {/* 항목 사이에서만 줄이 바뀌게 */}
+        <span className="nw">
+          티샷 <Icon name="hook" size={12} /> 훅 <Icon name="ring" size={11} /> 적중{" "}
+          <Icon name="short" size={11} /> 짧음 <Icon name="slice" size={12} /> 슬라이스
+        </span>{" "}
+        · <b className="lg-bunker nw">벙커는 갈색</b> · <b className="lg-penalty nw">OB·해저드는 빨간색</b> ·{" "}
+        <span className="nw">GIR ● 정규 온</span>
       </p>
     </div>
   );

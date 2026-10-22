@@ -4,6 +4,7 @@ import { useBack } from "../back";
 import { Avatar, Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import PaneHead, { LogoHead } from "./PaneHead";
+import Highlights, { computeHighlights } from "./Highlights";
 import { useUnfolded } from "../rail";
 import {
   cachedRanking,
@@ -50,7 +51,7 @@ const VISIBILITY: [Visibility, string, string][] = [
     "전체 공개",
     "전체 공개한 사람끼리 서로 봐요. 내 랭킹에 함께 친 사람과 전체 공개한 사람이 나와요. 함께 친 사람만 고른 사람은 함께 친 적이 없으면 안 보여요.",
   ],
-  ["hidden", "숨기기", "내 기록이 랭킹에 보이지 않고, 다른 사람 랭킹도 볼 수 없어요."],
+  ["hidden", "숨기기", "내 기록이 안 보이고, 다른 사람 랭킹도 못 봐요."],
 ];
 
 /** 랭킹 위 한 줄: 지금 보고 있는 범위 (내 공개 범위를 따른다) */
@@ -143,7 +144,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const setVisibility = async (v: Visibility) => {
     if (busy || !data || data.visibility === v) return;
-    if (v === "hidden" && !window.confirm("랭킹에서 숨길까요? 숨기면 다른 사람 랭킹도 볼 수 없어요.")) return;
+    if (v === "hidden" && !window.confirm("랭킹에서 숨길까요?\n숨기면 다른 사람 랭킹도 못 봐요.")) return;
     setBusy(true);
     try {
       await setRankingVisibility(v);
@@ -158,7 +159,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
   // 모르는 사람 제외 / 다시 넣기 (내 랭킹에서만)
   const exclude = async (uid: string, name: string) => {
     if (busy) return;
-    if (!window.confirm(`${name || "이 사람"}님을 빼고 순위를 매길까요? 내 랭킹에서만 빠지고, 랭킹 관리에서 다시 넣을 수 있어요.`))
+    if (!window.confirm(`${name || "이 사람"}님을 빼고 순위를 매길까요?\n내 랭킹에서만 빠져요.\n랭킹 관리에서 다시 넣을 수 있어요.`))
       return;
     setBusy(true);
     try {
@@ -238,6 +239,13 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
   const personRow = focus ? rows.find((r) => r.uid === focus) : undefined;
   const all = data && focus ? overall(data, focus) : null;
   const rec = profile && profile.uid === focus ? digestRecords(profile.rounds) : null;
+  const highlights = useMemo(
+    () =>
+      profile && profile.uid === focus
+        ? computeHighlights(profile.rounds, all ? { gross: all.best.gross, date: all.best.date } : null)
+        : [],
+    [profile, focus, all]
+  );
 
   // 시상대: 2위 · 1위 · 3위 순으로 놓는다
   const podium = [rows[1], rows[0], rows[2]].filter((r): r is RankRow => !!r);
@@ -268,9 +276,9 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
             <div>
               <b>랭킹 화면은 내 공개 범위를 따라가요</b>
               <span>
-                함께 친 사람만이면 함께 친 사람 순위, 전체 공개면 전체 순위가 보여요. 전체 순위에도 '함께 친
-                사람만'을 고른 사람은 나와 함께 친 적이 없으면 나오지 않아요. 랭킹은 18홀을 끝까지 친 라운드의
-                평균 타수로 매기고, 모르는 사람은 이름을 누르고 '제외'를 누르면 내 랭킹에서만 빠져요.
+                함께 친 사람만이면 그 사람들 순위만 보여요. 전체 공개면 전체 순위가 보여요. '함께 친 사람만'인
+                사람은 나와 친 적이 있어야 보여요. 순위는 18홀을 끝까지 친 라운드의 평균 타수예요. 모르는 사람은
+                이름을 눌러 '제외'할 수 있어요.
               </span>
             </div>
           </div>
@@ -299,7 +307,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
           {data.excluded.size === 0 ? (
             <div className="card">
               <div className="empty-note">
-                제외한 사람이 없어요. 랭킹에서 이름을 누르고 '제외'를 누르면 그 사람을 빼고 순위를 매겨요.
+                제외한 사람이 없어요. 랭킹에서 이름을 눌러 '제외'할 수 있어요.
               </div>
             </div>
           ) : (
@@ -511,6 +519,20 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
+          {/* 하이라이트: 가장 좋았던 기록들 (명예의 전당) */}
+          {(highlights.length > 0 || !rec) && (
+            <>
+              <div className="section-title">하이라이트</div>
+              {highlights.length > 0 ? (
+                <Highlights items={highlights} />
+              ) : (
+                <div className="card">
+                  <div className="empty-note">불러오는 중…</div>
+                </div>
+              )}
+            </>
+          )}
+
           {all && (
             <>
               <div className="section-title">베스트 스코어</div>
@@ -590,7 +612,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
               <p className="hint" style={{ margin: "-4px 2px 0" }}>
-                기록 모드로 입력했거나 내기 중 퍼트·티샷 같은 상세 기록을 남긴 라운드를 모두 합친 값이에요.
+                기록 모드나 내기 중 남긴 상세 기록을 모두 합친 값이에요.
               </p>
             </>
           )}

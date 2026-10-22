@@ -8,6 +8,7 @@ import { startUpdateCheck } from "./update";
 import { captureInvite } from "./invite";
 import { watchSideRail } from "./rail";
 import { watchSentences } from "./sentences";
+import { isNativeApp } from "./native";
 
 // 초대 링크(?join=1234)로 열었으면 코드를 기기에 옮겨 둔다 (로그인을 거쳐도 남게)
 captureInvite();
@@ -16,6 +17,8 @@ startUpdateCheck();
 watchSideRail();
 // 문장이 둘 이상인 글자·팝업은 마침표 뒤에서 줄을 바꾼다
 watchSentences();
+// iOS 앱: 길게 눌러도 웹페이지처럼 글자가 선택되거나 복사 메뉴가 뜨지 않게 (index.css)
+if (isNativeApp()) document.documentElement.dataset.native = "";
 
 // 신호가 없어도 앱 화면이 열리게 (배포판만: 개발 서버에서는 수정이 바로 보이도록 쓰지 않는다)
 if (import.meta.env.PROD && "serviceWorker" in navigator) {

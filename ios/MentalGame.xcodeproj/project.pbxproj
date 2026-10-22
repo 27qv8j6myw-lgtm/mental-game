@@ -205,7 +205,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MentalGame.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 9UK5E72T2X;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -214,7 +214,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "스코어카드 사진을 찍어 기록을 추가할 때 카메라를 사용해요.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "정산 결과 이미지를 사진 보관함에 저장할 때 사용해요.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "스코어카드·정산 결과 이미지를 사진 보관함에 저장할 때 사용해요.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "스코어카드 사진을 골라 기록을 추가할 때 사진 보관함을 사용해요.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -246,7 +246,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MentalGame.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 9UK5E72T2X;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -255,7 +255,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSCameraUsageDescription = "스코어카드 사진을 찍어 기록을 추가할 때 카메라를 사용해요.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "정산 결과 이미지를 사진 보관함에 저장할 때 사용해요.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "스코어카드·정산 결과 이미지를 사진 보관함에 저장할 때 사용해요.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "스코어카드 사진을 골라 기록을 추가할 때 사진 보관함을 사용해요.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

@@ -110,11 +110,25 @@ export async function canUseAi(): Promise<boolean> {
   return data === true;
 }
 
+/** 라운드 중 AI 홀 코칭을 쓸 수 있나 (관리자 또는 AI 고급). 단계가 생긴 insight.sql 을 아직 실행하지 않았으면 관리자만 */
+export async function canUseAiCoach(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc("can_use_ai_coach");
+  if (error) return isAdmin();
+  return data === true;
+}
+
+/** AI 허용 단계: 기본(기록 AI 분석) · 고급(+ 라운드 중 홀 코칭). 관리자는 늘 모두 */
+export type AiLevel = "basic" | "advanced";
+export const AI_LEVEL_LABEL: Record<AiLevel, string> = { basic: "AI 기본", advanced: "AI 고급" };
+
 export interface AiGrant {
   user_id: string;
   name: string;
   email_masked: string | null;
   created_at: string;
+  /** 단계가 없는 예전 DB 면 기본 */
+  level?: AiLevel;
 }
 
 /** 관리자: AI 분석을 허용한 사람들 */
@@ -124,10 +138,17 @@ export async function fetchAiGrants(): Promise<AiGrant[]> {
   return (data ?? []) as AiGrant[];
 }
 
-/** 관리자: AI 분석 허용 / 해제 */
-export async function setAiGrant(userId: string, on: boolean): Promise<void> {
-  const { error } = await requireDb().rpc("admin_set_ai_grant", { p_user_id: userId, p_on: on });
-  if (error) throw error;
+/** 관리자: AI 단계 정하기 (none 이면 해제). 단계가 생긴 insight.sql 을 아직 실행하지 않았으면 예전처럼 허용/해제만 */
+export async function setAiLevel(userId: string, level: AiLevel | "none"): Promise<void> {
+  const { error } = await requireDb().rpc("admin_set_ai_level", { p_user_id: userId, p_level: level });
+  if (!error) return;
+  if (error.code === "PGRST202" || error.code === "42883") {
+    if (level === "advanced") throw new Error("NEED_SQL");
+    const { error: e2 } = await requireDb().rpc("admin_set_ai_grant", { p_user_id: userId, p_on: level !== "none" });
+    if (e2) throw e2;
+    return;
+  }
+  throw error;
 }
 
 /** 관리자 홈 '사용자' 보기: 라운드 한 줄 + 사람별 타수 */

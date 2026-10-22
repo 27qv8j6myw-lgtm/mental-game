@@ -7,7 +7,7 @@ import { Avatar, Icon } from "../icons";
 import { differential, ratingFor } from "../kga";
 import type { CourseRating, Session } from "../types";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
-import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
+import { RatingLines } from "./CourseDifficulty";
 import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderScorecard } from "../shareImage";
 import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./Insight";
@@ -34,15 +34,8 @@ function AdjustedScore({
         <span>보정타수</span>
         <b>{gross == null ? "–" : differential(gross, r.cr, r.slope).toFixed(1)}</b>
       </div>
-      <div className="rr-adj-sub">
-        {rating.club} {rating.course} · {rating.tee} 티 {r.sex === "M" ? "남자" : "여자"}
-        {!r.exact && " 레이팅"} · 코스레이팅 {r.cr} · 슬로프 {r.slope}
-        {gross == null && <> · 18홀을 다 치면 계산돼요</>}
-      </div>
-      <div className="rr-adj-diff">
-        <DifficultyChip slope={r.slope} />
-        <BogeyExpect cr={r.cr} slope={r.slope} par={r.par} />
-      </div>
+      {gross == null && <div className="rr-adj-sub">18홀을 다 치면 계산돼요</div>}
+      <RatingLines rating={rating} sex={sex} />
     </div>
   );
 }

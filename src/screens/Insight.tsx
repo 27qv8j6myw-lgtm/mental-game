@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../icons";
-import { canUseAi, isAdmin } from "../admin";
+import { canUseAi, canUseAiCoach, isAdmin } from "../admin";
 import {
   loadInsight,
   readCachedInsight,
@@ -10,15 +10,17 @@ import {
 } from "../insight";
 
 /**
- * AI 분석 권한: admin(관리자 — 누구 기록이든) · ai(관리자 또는 관리자가 허용한 사람 — 내 기록).
+ * AI 권한: admin(관리자 — 누구 기록이든, 모두) · ai(AI 기본 이상 — 내 기록 AI 분석) · coach(AI 고급 — 라운드 중 홀 코칭).
  * 화면을 열 때마다 묻는다 (관리자가 방금 허용·해제한 것이 바로 반영되게)
  */
 export function useAiAccess(uid: string | null | undefined) {
-  const [access, setAccess] = useState({ admin: false, ai: false });
+  const [access, setAccess] = useState({ admin: false, ai: false, coach: false });
   useEffect(() => {
     if (!uid) return;
     let alive = true;
-    void Promise.all([isAdmin(), canUseAi()]).then(([admin, ai]) => alive && setAccess({ admin, ai: admin || ai }));
+    void Promise.all([isAdmin(), canUseAi(), canUseAiCoach()]).then(
+      ([admin, ai, coach]) => alive && setAccess({ admin, ai: admin || ai, coach: admin || coach })
+    );
     return () => {
       alive = false;
     };

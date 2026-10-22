@@ -345,7 +345,8 @@ $$;
 -- ============ 사용자 실명·성별 고치기 (관리자만) ============
 -- 앱에서 쓰는 이름(user_metadata.mg_name)을 바꾼다. 빈 값이면 지워서 다음 로그인 때 다시 묻는다.
 -- p_gender: male/female 이면 성별(mg_gender)도 바꾼다. null 이면 그대로 둔다
--- 그 사람 앱에는 로그인이 갱신될 때(길어야 1시간) 반영되고, 랭킹은 바로 이 이름을 쓴다
+-- 그 사람 앱에는 로그인이 갱신될 때(길어야 1시간) 반영되고, 랭킹은 바로 이 이름을 쓴다.
+-- 라운드마다 참여할 때의 이름을 따로 적어 두므로(전적·라운드 화면은 그 이름을 쓴다) 그 사람의 라운드 이름도 함께 바꾼다
 -- (성별 인자를 더해 예전 2개 인자 함수를 지운다. 예전 앱이 이름만 보내도 그대로 동작한다)
 drop function if exists public.admin_set_user_name(uuid, text);
 create or replace function public.admin_set_user_name(p_user_id uuid, p_name text, p_gender text default null)
@@ -374,6 +375,9 @@ begin
     where id = p_user_id;
   if not found then
     raise exception 'NO_USER' using errcode = 'P0002';
+  end if;
+  if v <> '' then
+    update public.round_players set name = v where user_uid = p_user_id and name is distinct from v;
   end if;
 end $$;
 

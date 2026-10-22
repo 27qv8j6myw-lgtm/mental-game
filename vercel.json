@@ -17,6 +17,9 @@
     "api/insight.ts": {
       "maxDuration": 60
     },
+    "api/coach.ts": {
+      "maxDuration": 30
+    },
     "api/keepalive.ts": {
       "maxDuration": 10
     }

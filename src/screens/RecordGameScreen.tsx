@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useRound } from "../round";
-import { useUnfolded } from "../rail";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import { relLabel, scoreLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
@@ -8,6 +7,9 @@ import PlayBar, { DockButton } from "./PlayBar";
 import type { HoleStat, ParValue, Session } from "../types";
 import { SCORE_OPTS } from "./GameScreen";
 import HoleStatFields from "./HoleStatFields";
+import CoachCard from "./CoachCard";
+import { useHoleCoach } from "../coach";
+import { useAiAccess } from "./Insight";
 import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
 
 const scoreClass = (rel: number) => (rel < 0 ? "under" : rel > 0 ? "over" : "even");
@@ -30,22 +32,18 @@ interface Draft {
 
 /**
  * 기록 모드 홀 진행: 내 스코어·퍼트·티샷·벌타를 입력하고, 함께 친 사람은 스코어만 본다.
- * 입력은 초안이고 아래 바의 [저장]을 눌러야 올라간다 ([취소]면 원래대로). 초안이 있는 동안은 홀을 옮길 수 없다
+ * 입력은 초안이고 아래 바의 [저장]을 눌러야 올라간다 ([취소]면 원래대로). 초안이 있는 동안은 홀을 옮길 수 없다.
+ * 라운드 종료는 아래 줄 왼쪽 빨간 종료 (App)
  */
 export default function RecordGameScreen({
   session,
-  onFinish,
   onBusyChange,
 }: {
   session: Session;
-  /** 방장: 라운드 종료 (마지막 홀 아래 바) */
-  onFinish: () => void;
   /** 저장 안 한 초안이 있는 동안 true (상단 버튼을 잠근다) */
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { myUid, activeRoundId } = useRound();
-  /** 펼친 iPhone Duo: 기록 분석 칸 아래 종료가 없으니 어느 홀에서든 종료 */
-  const split = useUnfolded();
   const { config, holes, holeStats, currentHole: idx, goHole, setPar, setScore, setStat } = session;
   const hole = holes[idx];
   const me = config.players.find((p) => p.id === myUid) ?? null;
@@ -56,13 +54,6 @@ export default function RecordGameScreen({
   const savedRel = me ? hole.scores[me.id] ?? null : null;
   const savedStat = (me && holeStats[idx]?.[me.id]) || EMPTY_STAT;
   const [draft, setDraft] = useState<Draft | null>(null);
-  // 저장 직후 1초는 같은 자리의 '라운드 종료'를 보이지 않는다 (저장을 두 번 눌러 종료되지 않게)
-  const [justSaved, setJustSaved] = useState(false);
-  useEffect(() => {
-    if (!justSaved) return;
-    const t = setTimeout(() => setJustSaved(false), 1000);
-    return () => clearTimeout(t);
-  }, [justSaved]);
   const d: Draft =
     draft && draft.hole === idx ? draft : { hole: idx, par: hole.par, rel: savedRel, stat: savedStat };
   const dirty = d.par !== hole.par || d.rel !== savedRel || !sameStat(d.stat, savedStat);
@@ -113,13 +104,21 @@ export default function RecordGameScreen({
   // PAR 를 낮추면 더블파를 넘는 스코어는 더블파로 맞춘다
   const onPar = (p: ParValue) => setDraft({ ...d, par: p, rel: rel == null ? null : Math.min(rel, p) });
 
+  // AI 홀 코칭 (관리자·AI 고급): 내 기록을 저장할 때마다 두 줄 코칭을 홀 상태 칸에 띄운다
+  const aiAccess = useAiAccess(myUid);
+  const { coaching, coach, close: closeCoach } = useHoleCoach(
+    session,
+    myUid,
+    activeRoundId,
+    aiAccess.coach && !!me && session.status === "playing"
+  );
   const save = () => {
     if (!me || !dirty) return;
+    if (d.rel != null) coach(idx, d.stat, d.rel);
     if (d.par !== hole.par && !parLocked) setPar(idx, d.par);
     if (d.rel !== savedRel) setScore(idx, me.id, d.rel);
     if (!sameStat(d.stat, savedStat)) setStat(idx, me.id, d.stat);
     setDraft(null);
-    setJustSaved(true);
     // 이 홀 스코어를 처음 저장하면 다음 홀로
     if (savedRel == null && d.rel != null && idx < holes.length - 1) goHole(idx + 1);
   };
@@ -161,6 +160,7 @@ export default function RecordGameScreen({
               {session.status === "done" && !dirty && "끝난 라운드 · "}
               {dirty ? "저장 전 · 저장해야 기록돼요" : savedRel != null ? "✓ 저장됨" : "입력 전"}
             </div>
+            {coaching && <CoachCard coaching={coaching} onClose={closeCoach} />}
             {session.notice && (
               <div className="notice-bar" role="alert">
                 <span>{session.notice}</span>
@@ -259,21 +259,14 @@ export default function RecordGameScreen({
       </div>
 
       {/* 아래 바: 저장/취소 (마지막 홀은 방장의 라운드 종료) */}
-      {me &&
-        (dirty ? (
-          <PlayBar unsaved action={<DockButton label="저장" onClick={save} />}>
-            <button className="pb-link" onClick={() => setDraft(null)}>
-              취소
-            </button>
-            <span className="pb-hint">{idx + 1}번 홀 저장</span>
-          </PlayBar>
-        ) : session.isHost && session.status === "playing" && (idx === holes.length - 1 || split) && !justSaved ? (
-          <PlayBar action={<DockButton label="종료" onClick={onFinish} />}>
-            <span className="pb-hint">마지막 홀 · 라운드 종료</span>
-          </PlayBar>
-        ) : (
-          <PlayBar action={<DockButton label="저장" disabled />} />
-        ))}
+      {/* 아래 줄 오른쪽: 취소 + 저장 (왼쪽 홈·종료는 App) */}
+      {me && (
+        <PlayBar
+          unsaved={dirty}
+          secondary={<DockButton tone="plain" label="취소" disabled={!dirty} onClick={() => setDraft(null)} />}
+          action={<DockButton label="저장" disabled={!dirty} onClick={save} />}
+        />
+      )}
     </>
   );
 }
