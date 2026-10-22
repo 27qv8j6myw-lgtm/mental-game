@@ -1367,6 +1367,26 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .btn-google:active {
   background: var(--paper-2);
 }
+/* Apple 로그인: Apple 가이드의 검은 버튼 (다른 로그인 버튼과 같은 크기) */
+.btn-apple {
+  width: 100%;
+  margin-top: 10px;
+  padding: 15px;
+  border-radius: 14px;
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+.btn-apple:active {
+  opacity: 0.85;
+}
 .btn-kakao {
   width: 100%;
   padding: 15px;
@@ -1400,6 +1420,18 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 12px;
   color: var(--ink-faint);
   line-height: 1.6;
+  position: relative;
+  z-index: 1;
+}
+/* 로그인 화면 안내 (탈퇴 완료 등) */
+.auth-ok {
+  margin-top: 16px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 12.5px;
+  font-weight: 600;
   position: relative;
   z-index: 1;
 }
@@ -1574,6 +1606,49 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   position: fixed;
   inset: 0;
   z-index: 40;
+}
+/* 프로필 메뉴 맨 아래 회원 탈퇴: 작고 옅게 */
+.menu-item.menu-leave {
+  margin-top: 2px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.ml-ic.apple {
+  background: #000;
+  color: #fff;
+}
+/* 회원 탈퇴 확인 */
+.alert-box.leave-box {
+  max-width: 340px;
+  text-align: left;
+}
+.leave-box h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
+}
+.leave-box ul {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.leave-box li + li {
+  margin-top: 6px;
+}
+.leave-err {
+  margin: -6px 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--loss);
+}
+.leave-actions {
+  display: flex;
+  gap: 8px;
 }
 .menu-links {
   padding: 4px 4px 8px;

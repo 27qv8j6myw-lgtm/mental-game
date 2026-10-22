@@ -51,7 +51,13 @@ function NamePrompt() {
   const { user } = useAuth();
   // 이름이나 성별을 아직 안 정했으면 (예전에 이름만 정한 사람도 성별을 한 번 묻는다)
   if (!user || user.isAnonymous || (user.nameSet && user.gender)) return null;
-  return <NameDialog initial={user.nameSet ? user.displayName ?? "" : user.providerName ?? ""} />;
+  // Apple 로그인은 이름을 로그인 직후에 따로 저장해서, 이름이 들어오면 다시 그려 미리 채운다
+  return (
+    <NameDialog
+      key={user.providerName ?? ""}
+      initial={user.nameSet ? user.displayName ?? "" : user.providerName ?? ""}
+    />
+  );
 }
 
 /* ============================ 로그인 사용자: 멀티플레이어 ============================ */

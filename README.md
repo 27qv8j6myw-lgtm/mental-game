@@ -92,6 +92,8 @@ npm run build    # 타입체크 + 프로덕션 빌드
 4. (선택) 관리자 대시보드: `supabase/admin.sql` 을 실행한 뒤, 파일 맨 위 안내대로
    내 계정 id 를 `public.admins` 에 등록
    - 예전 게스트(로그인 없이 참여)로 친 라운드를 계정으로 옮기려면 그다음 `supabase/guest.sql` 도 실행
+   - 회원 탈퇴(프로필 메뉴 맨 아래): `supabase/account.sql` 실행. 함께 친 라운드는 '탈퇴한 사용자'로 남고,
+     방장인 라운드는 함께 친 사람에게 넘어가요
 5. **Project Settings → API** 의 값을 `.env` 에 입력 (`.env.example` 참고)
 
 ```bash

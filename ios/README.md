@@ -7,6 +7,7 @@
 | 하는 일 | 왜 |
 |---|---|
 | 카카오·구글 로그인을 **시스템 로그인 창**(ASWebAuthenticationSession)에서 연다 | 구글은 앱 안 웹뷰에서의 로그인을 막아요 (403 disallowed_useragent) |
+| **Apple 로 로그인**: 아이폰의 Apple 로그인 창 → 신원 토큰을 웹에 넘겨 Supabase 로그인 | 앱스토어 심사 4.8 (카카오·구글 로그인이 있으면 함께 있어야 해요) |
 | 다른 사이트 링크·전화·카카오톡 주소는 **Safari·해당 앱**으로 연다 | 앱 안에서 다른 사이트를 돌아다니지 않게 |
 | 웹의 `alert`·`confirm` 을 **iOS 알림 창**으로 | 웹뷰는 그냥 두면 확인 창이 안 떠요 (삭제 확인 등) |
 | 내려받은 파일(정산 이미지)을 **공유 시트**로 | 사진에 저장·카톡 보내기 |
@@ -19,7 +20,12 @@
 1. **Supabase → Authentication → URL Configuration → Redirect URLs** 에
    `kr.mentalgame.golf://login-callback` 을 추가해요. 로그인 창이 끝나고 앱으로 돌아오는 주소예요.
    (안 하면 로그인 창이 웹 첫 화면으로 가 버리고 앱으로 돌아오지 않아요)
-2. 웹을 배포해요. 앱 안 로그인은 웹의 `src/native.ts`·`src/auth.tsx` 가 배포돼 있어야 동작해요.
+2. **Apple 로그인**: Supabase → Authentication → Sign In / Providers → **Apple** 을 켜고
+   **Client IDs** 에 `kr.mentalgame.golf` 를 넣어요 (앱의 Apple 로그인만 쓰므로 Secret Key 는 비워도 돼요).
+   Xcode 에서 Team 을 고르면 Apple 개발자 사이트에 Sign in with Apple 이 켜진 App ID 가 저절로 만들어져요
+   (`Config/MentalGame.entitlements`).
+3. **회원 탈퇴**: Supabase SQL Editor 에서 `supabase/account.sql` 을 실행해요.
+4. 웹을 배포해요. 앱 안 로그인·Apple 로그인·회원 탈퇴는 웹의 `src/native.ts`·`src/auth.tsx` 가 배포돼 있어야 동작해요.
 
 ## 열고 실행하기
 
@@ -54,7 +60,6 @@ xcrun simctl launch --terminate-running-process booted kr.mentalgame.golf
 
 ## 앱스토어 출시 전에 남은 일
 
-- **Apple로 로그인** (심사 가이드라인 4.8: 카카오·구글 로그인이 있으면 함께 있어야 해요)
-- **앱 안에서 회원 탈퇴** (5.1.1)
+- Apple 로그인 사용자가 탈퇴할 때 Apple 토큰 취소(REST API revoke): Apple 키(.p8)와 서버 함수가 필요해요
 - **개인정보처리방침** 웹 주소, 지원 주소
 - 아이콘·스크린샷(6.9인치·6.5인치), 앱 설명('골프 스코어 기록·정산 계산기'), TestFlight

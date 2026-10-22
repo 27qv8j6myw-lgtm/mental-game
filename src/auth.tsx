@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { isSupabaseConfigured, supabase } from "./supabase";
-import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin } from "./native";
+import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin, requestAppleLogin } from "./native";
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
@@ -35,6 +35,12 @@ interface AuthCtx {
   configured: boolean;
   signIn: (provider: OAuthProvider) => Promise<void>;
   signOutUser: () => Promise<void>;
+  /** iOS 앱에서만: Apple 로 로그인 (아이폰의 Apple 로그인 창) */
+  signInWithApple: () => Promise<void>;
+  /** 회원 탈퇴 (supabase/account.sql). 성공하면 true (로그인 화면으로) */
+  deleteAccount: () => Promise<boolean>;
+  /** 로그인 화면에 띄울 안내 (탈퇴 완료 등) */
+  notice: string | null;
   linkProvider: (provider: OAuthProvider) => Promise<void>;
   unlinkProvider: (provider: OAuthProvider) => Promise<void>;
   /** 내 계정(user_metadata)에 계좌를 저장해 다음 라운드에서도 쓴다 */
@@ -94,6 +100,18 @@ function claimGuest(): Promise<GuestMoved | null> {
     return data as GuestMoved;
   })();
   return claiming;
+}
+
+/** Apple 로그인 nonce: 추측할 수 없는 값 */
+function randomNonce(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function oauthOptions(provider: OAuthProvider) {
@@ -166,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [guestMoved, setGuestMoved] = useState<GuestMoved | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -312,8 +331,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setMode("signed-out");
       },
+      signInWithApple: async () => {
+        setError(null);
+        setNotice(null);
+        if (!supabase || !isNativeApp()) return;
+        // 토큰을 다른 곳에서 다시 쓰지 못하게: 원래 값은 Supabase 에, SHA-256 은 Apple 에 준다
+        const raw = randomNonce();
+        const result = await requestAppleLogin(await sha256(raw));
+        if (result.cancelled) return;
+        if (!result.idToken) {
+          console.error("Apple 로그인 실패", result.error);
+          setError("Apple 로그인에 실패했어요. 다시 시도해 주세요.");
+          return;
+        }
+        const { data, error: e } = await supabase.auth.signInWithIdToken({
+          provider: "apple",
+          token: result.idToken,
+          nonce: raw,
+        });
+        if (e) {
+          console.error(e);
+          setError("Apple 로그인에 실패했어요. 다시 시도해 주세요.");
+          return;
+        }
+        // Apple 은 이름을 처음 한 번만 알려 준다: 이름을 정할 때 미리 채우도록 계정에 적어 둔다
+        const meta = data.user?.user_metadata ?? {};
+        if (result.fullName && !meta.full_name && !meta.name) {
+          const { data: up } = await supabase.auth.updateUser({ data: { full_name: result.fullName } });
+          if (up.user) setUser(mapUser(up.user));
+        }
+      },
+      deleteAccount: async () => {
+        if (!supabase) return false;
+        const { error: rpcErr } = await supabase.rpc("delete_my_account");
+        if (rpcErr) {
+          console.error("회원 탈퇴 실패", rpcErr);
+          return false;
+        }
+        // 계정이 없어졌으니 이 기기의 로그인과 보관해 둔 화면·목록도 지운다
+        await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+        try {
+          for (const k of Object.keys(localStorage)) if (k.startsWith("mentalgame")) localStorage.removeItem(k);
+        } catch {
+          /* 저장소를 못 쓰면 그대로 */
+        }
+        setUser(null);
+        setMode("signed-out");
+        setNotice("탈퇴했어요. 그동안 멘탈게임을 써 주셔서 고마워요.");
+        return true;
+      },
+      notice,
     }),
-    [mode, user, error, guestMoved]
+    [mode, user, error, guestMoved, notice]
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

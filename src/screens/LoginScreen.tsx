@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "../auth";
-import { GoogleLogo, Icon, KakaoLogo, Wordmark } from "../icons";
+import { AppleLogo, GoogleLogo, Icon, KakaoLogo, Wordmark } from "../icons";
+import { isNativeApp } from "../native";
 import { detectInApp, openExternal } from "../inapp";
 
 export default function LoginScreen() {
-  const { signIn, configured, error, user } = useAuth();
+  const { signIn, signInWithApple, configured, error, notice, user } = useAuth();
+  // Apple 로그인은 iOS 앱에서만 (아이폰의 Apple 로그인 창)
+  const [native] = useState(() => isNativeApp());
   const guest = !!user?.isAnonymous;
   const [inApp] = useState(() => detectInApp());
   const [openMsg, setOpenMsg] = useState<string | null>(null);
@@ -73,6 +76,13 @@ export default function LoginScreen() {
           {inApp ? "Google은 외부 브라우저에서 시작" : "Google 계정으로 시작"}
         </button>
 
+        {native && (
+          <button className="btn-apple" onClick={() => void signInWithApple()}>
+            <AppleLogo />
+            Apple로 계속하기
+          </button>
+        )}
+
         <p className="auth-note">
           로그인하면 <b>프로필 사진과 이름</b>이 자동으로 적용돼요.
           <br />
@@ -85,6 +95,7 @@ export default function LoginScreen() {
           </div>
         )}
         {error && <div className="auth-err">{error}</div>}
+        {notice && <div className="auth-ok">{notice}</div>}
       </div>
     </div>
   );

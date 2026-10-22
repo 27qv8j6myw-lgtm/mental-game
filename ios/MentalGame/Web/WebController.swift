@@ -18,6 +18,8 @@ final class WebController: NSObject {
     /// 통신이 안 돼서 기기에 남은 화면으로 열어 봤는지
     @ObservationIgnored private var triedCache = false
     @ObservationIgnored private var downloadURL: URL?
+    /// 진행 중인 Apple 로그인 요청 번호 (웹에 답할 때 쓴다)
+    @ObservationIgnored fileprivate var appleRequestID: Int?
 
     override init() {
         let contents = WKUserContentController()
@@ -159,6 +161,11 @@ extension WebController: WKScriptMessageHandler {
                   let s = body["url"] as? String, let url = URL(string: s), isLoginURL(url)
             else { return }
             startLogin(url)
+        case "apple":
+            guard let page = message.frameInfo.request.url, isAppPage(page),
+                  let id = body["id"] as? Int, let nonce = body["nonce"] as? String
+            else { return }
+            startAppleLogin(requestID: id, nonce: nonce)
         default:
             break
         }
@@ -316,6 +323,60 @@ extension WebController: WKDownloadDelegate {
 
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
         downloadURL = nil
+    }
+}
+
+// MARK: - Apple 로 로그인: 아이폰의 Apple 로그인 창 → 신원 토큰을 웹에 넘겨 Supabase 로그인
+
+extension WebController: ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    /// 웹이 준 nonce(SHA-256)를 Apple 에 넘기면 신원 토큰에 그대로 담겨 온다 (웹이 원래 값으로 확인)
+    fileprivate func startAppleLogin(requestID: Int, nonce: String) {
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = nonce
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        appleRequestID = requestID
+        controller.performRequests()
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken, let token = String(data: tokenData, encoding: .utf8)
+        else {
+            replyApple(["error": "신원 토큰이 없어요"])
+            return
+        }
+        var result: [String: Any] = ["idToken": token]
+        // 이름은 처음 로그인할 때만 온다 (한국식: 성 + 이름)
+        if let name = credential.fullName {
+            let full = [name.familyName, name.givenName].compactMap { $0 }.joined()
+            if !full.isEmpty { result["fullName"] = full }
+        }
+        replyApple(result)
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        if (error as? ASAuthorizationError)?.code == .canceled {
+            replyApple(["cancelled": true])
+        } else {
+            replyApple(["error": error.localizedDescription])
+        }
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        webView.window ?? ASPresentationAnchor()
+    }
+
+    /// 웹의 window.mgNative.reply(id, 결과) 로 돌려준다 (src/native.ts)
+    private func replyApple(_ payload: [String: Any]) {
+        guard let id = appleRequestID else { return }
+        appleRequestID = nil
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        webView.evaluateJavaScript("window.mgNative && window.mgNative.reply(\(id), \(json))")
     }
 }
 
