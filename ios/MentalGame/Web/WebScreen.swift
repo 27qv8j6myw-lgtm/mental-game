@@ -37,12 +37,23 @@ private struct WebViewHost: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
-/// 시작 화면(UILaunchScreen)과 같은 모양: 바탕색에 글자 로고
+/// 시작 화면(UILaunchScreen)과 같은 모양: 바탕색에 글자 로고.
+/// 로고를 시작 화면과 같은 자리에 둬야 넘어갈 때 움찔 옮겨 가지 않는다. 시작 화면은
+/// - 일반 아이폰: 안전 영역(위 상태 표시줄 ~ 아래 홈 표시줄) 가운데
+/// - 옆에 카메라 막대가 있는 폰(iPhone Duo): 가로는 화면 전체 가운데, 세로는 그 막대 폭을 위쪽 여백처럼 센 가운데
 private struct SplashView: View {
     var body: some View {
-        ZStack {
-            Color("LaunchBackground").ignoresSafeArea()
-            Image("LaunchLogo")
+        GeometryReader { geo in
+            let inset = geo.safeAreaInsets
+            let width = inset.leading + geo.size.width + inset.trailing
+            let height = inset.top + geo.size.height + inset.bottom
+            let top = max(inset.top, inset.leading, inset.trailing)
+            ZStack {
+                Color("LaunchBackground")
+                Image("LaunchLogo")
+                    .position(x: width / 2, y: top + (height - top - inset.bottom) / 2)
+            }
+            .ignoresSafeArea()
         }
     }
 }
