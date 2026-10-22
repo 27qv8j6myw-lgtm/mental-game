@@ -7029,17 +7029,23 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   border: 1px solid var(--line-strong);
   color: var(--ink);
 }
-/* 홈: 새 라운드 만들기 위 소개 문구 (로그인 화면과 같은 말) */
+/* 홈: 새 라운드 만들기 위 소개 문구 = 앱 메인 타이틀 (로그인 화면과 같은 말) */
 .home-tagline {
-  margin: 2px 4px 14px;
-  font-size: 15px;
-  line-height: 1.55;
+  margin: 6px 4px 18px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
   color: var(--ink-soft);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
 }
 .home-tagline b {
-  font-weight: 800;
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.25;
   color: var(--ink);
+  letter-spacing: -0.04em;
 }
 /* 관리자: 게스트로 친 기록 · 옮길 계정 고르기 */
 .ri-sub.gm-rounds {
