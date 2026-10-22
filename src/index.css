@@ -49,6 +49,9 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* 좌우 안전 영역: 옆에 카메라·시스템 막대가 있는 폰(예: iPhone Duo 홈 화면 앱) */
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
   --font: "Pretendard Variable", "Pretendard", -apple-system,
     BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", Roboto,
     sans-serif;
@@ -100,6 +103,9 @@ body {
   margin: 0 auto;
   position: relative;
   background: var(--sand);
+  /* 카메라·시스템 막대 밑으로 들어가지 않게 (그 칸은 바탕색만) */
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 button {
   font-family: inherit;
@@ -628,8 +634,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* ============ Bottom action bar ============ */
 .actionbar {
   position: fixed;
-  left: 0;
-  right: 0;
+  left: var(--safe-left);
+  right: var(--safe-right);
   bottom: 0;
   max-width: 480px;
   margin: 0 auto;
@@ -1146,6 +1152,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  padding: 0 var(--safe-right) 0 var(--safe-left);
   background: rgba(31, 31, 31, 0.4);
   z-index: 50;
   display: flex;
@@ -1211,8 +1218,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .tabbar {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: var(--safe-left);
+  right: var(--safe-right);
   max-width: 480px;
   margin: 0 auto;
   display: flex;
@@ -2019,8 +2026,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 
 .floating-finish {
   position: fixed;
-  left: 0;
-  right: 0;
+  left: var(--safe-left);
+  right: var(--safe-right);
   /* 정산 결과 화면 맨 아래 (하단 안전 영역 위) */
   bottom: calc(16px + var(--safe-bottom));
   padding: 0 16px;
@@ -2666,8 +2673,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* 스코어 수정 중 하단: 취소 | 수정 완료 (탭바 대신) */
 .edit-bar {
   position: fixed;
-  left: 0;
-  right: 0;
+  left: var(--safe-left);
+  right: var(--safe-right);
   bottom: 0;
   max-width: 480px;
   margin: 0 auto;
@@ -4567,8 +4574,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* 홀 진행 아래 바: 이 홀 상태 한 줄 + 버튼 (탭바 대신 화면 맨 아래) */
 .play-bar {
   position: fixed;
-  left: 0;
-  right: 0;
+  left: var(--safe-left);
+  right: var(--safe-right);
   bottom: 0;
   max-width: 480px;
   margin: 0 auto;
@@ -4929,7 +4936,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 24px calc(24px + var(--safe-right)) 24px calc(24px + var(--safe-left));
   background: rgba(31, 31, 31, 0.45);
 }
 .alert-box {
@@ -5405,6 +5412,7 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .share-sheet {
   position: fixed;
   inset: 0;
+  padding: 0 var(--safe-right) 0 var(--safe-left);
   z-index: 70;
   display: flex;
   flex-direction: column;
@@ -6491,6 +6499,7 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .guide-layer {
   position: fixed;
   inset: 0;
+  padding: 0 var(--safe-right) 0 var(--safe-left);
   z-index: 65;
   overflow-y: auto;
   overscroll-behavior: contain;
