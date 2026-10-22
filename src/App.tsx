@@ -42,11 +42,12 @@ export default function App() {
   );
 }
 
-/** 처음 로그인했을 때: 앱에서 쓸 이름(실명)을 정하기 전까지 띄운다 (게스트는 묻지 않는다) */
+/** 처음 로그인했을 때: 앱에서 쓸 이름(실명)·성별을 정하기 전까지 띄운다 (게스트는 묻지 않는다) */
 function NamePrompt() {
   const { user } = useAuth();
-  if (!user || user.isAnonymous || user.nameSet) return null;
-  return <NameDialog initial={user.providerName ?? ""} />;
+  // 이름이나 성별을 아직 안 정했으면 (예전에 이름만 정한 사람도 성별을 한 번 묻는다)
+  if (!user || user.isAnonymous || (user.nameSet && user.gender)) return null;
+  return <NameDialog initial={user.nameSet ? user.displayName ?? "" : user.providerName ?? ""} />;
 }
 
 /* ============================ 로그인 사용자: 멀티플레이어 ============================ */

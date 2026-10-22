@@ -183,7 +183,10 @@ security definer
 set search_path = public, auth
 as $$
   with mine as (
-    select r.id, r.date, r.created_at, r.course_name, r.course_tee, r.hole_count, r.rules, rp.gender
+    select
+      r.id, r.date, r.created_at, r.course_name, r.course_tee, r.hole_count, r.rules, rp.gender,
+      -- 사람별 티 (lobby.sql 의 tee 칸. 칸이 없는 DB 에서도 돌게 행 전체에서 꺼낸다)
+      to_jsonb(rp) ->> 'tee' as ptee
     from public.rounds r
     join public.round_players rp
       on rp.round_id = r.id and rp.user_uid = p_uid and not rp.offline_player
@@ -202,10 +205,11 @@ as $$
         'id', id,
         'date', coalesce(nullif(date, ''), to_char(created_at at time zone 'Asia/Seoul', 'YYYY-MM-DD')),
         'course_name', course_name,
-        'course_tee', course_tee,
+        'course_tee', coalesce(ptee, course_tee),
         'hole_count', hole_count,
         'game_mode', coalesce(rules ->> 'gameMode', 'stroke'),
-        'rating', rules -> 'rating',
+        -- 그 사람이 다른 티를 쳤으면 그 티의 레이팅
+        'rating', coalesce(rules -> 'teeRatings' -> ptee, rules -> 'rating'),
         'gender', gender))
       from mine), '[]'::jsonb),
     'holes', coalesce((

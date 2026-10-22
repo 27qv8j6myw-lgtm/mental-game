@@ -57,9 +57,10 @@ type PlayerPatch = Partial<
     | "is_guest"
     | "bank_name"
     | "bank_account"
+    | "tee"
   >
 >;
-type OfflinePatch = Partial<Pick<RoundPlayerRow, "name" | "gender" | "avg_score" | "handicap">>;
+type OfflinePatch = Partial<Pick<RoundPlayerRow, "name" | "gender" | "avg_score" | "handicap" | "tee">>;
 type RoundPatch = Partial<Pick<RoundRow, "rules" | "handicap_settle" | "unit" | "hole_count">>;
 
 interface RoundCtx {
@@ -380,6 +381,18 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       if (user.photoURL && me.photo_url !== user.photoURL) patch.photo_url = user.photoURL;
       if (user.displayName && (!me.name || me.name === "나")) patch.name = user.displayName;
     }
+    // 여성으로 들어온 사람은 대기 중이면 레드 티로 (라운드 티가 레드가 아니고, 아직 티를 고르지 않았을 때).
+    // 티 칸이 없는 DB(lobby.sql 실행 전)면 보내지 않는다
+    const r = bundle.round;
+    if (
+      r.status === "lobby" &&
+      "tee" in me &&
+      me.tee == null &&
+      me.gender === "female" &&
+      r.course_tee &&
+      r.course_tee !== "red"
+    )
+      patch.tee = "red";
     if (Object.keys(patch).length > 0) {
       updateMe(patch).catch((e) => console.error("프로필 동기화 실패", e));
     }

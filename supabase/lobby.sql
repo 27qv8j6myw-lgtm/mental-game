@@ -85,8 +85,18 @@ end $$;
 revoke all on function public.add_offline_player(uuid, text, text, int, int) from public, anon;
 grant execute on function public.add_offline_player(uuid, text, text, int, int) to authenticated;
 
+-- ---- 사람별 티 박스 ----
+-- 남녀 혼성이면 티가 다르다 (여성은 레드 티 등). 비어 있으면 라운드 티 박스.
+-- 각자 대기실에서 자기 행을 고치고(rp_update), 폰 없는 동반자는 방장이 아래 함수로 고친다
+alter table public.round_players add column if not exists tee text;
+alter table public.round_players drop constraint if exists round_players_tee_check;
+alter table public.round_players add constraint round_players_tee_check
+  check (tee is null or tee in ('red', 'senior', 'white', 'blue', 'black'));
+
 -- ---- 폰 없는 동반자 정보 고치기 (방장, 대기 중) ----
--- 값이 null 이면 그 칸은 그대로 둔다 (평균 타수를 지우려면 p_clear_avg)
+-- 값이 null 이면 그 칸은 그대로 둔다 (평균 타수를 지우려면 p_clear_avg, 티를 라운드 티로 되돌리려면 p_clear_tee)
+-- 티 칸을 더하면서 예전 함수(7칸)를 지운다 (둘 다 있으면 앱이 어느 쪽을 부를지 몰라 오류가 난다)
+drop function if exists public.update_offline_player(uuid, uuid, text, text, int, int, boolean);
 create or replace function public.update_offline_player(
   p_round_id uuid,
   p_user_uid uuid,
@@ -94,7 +104,9 @@ create or replace function public.update_offline_player(
   p_gender text default null,
   p_avg_score int default null,
   p_handicap int default null,
-  p_clear_avg boolean default false
+  p_clear_avg boolean default false,
+  p_tee text default null,
+  p_clear_tee boolean default false
 )
 returns void
 language plpgsql
@@ -116,8 +128,9 @@ begin
         gender = coalesce(p_gender, gender),
         avg_score = case when p_clear_avg then null else coalesce(p_avg_score, avg_score) end,
         -- (greatest 는 null 을 건너뛰어 0 이 되므로 null 이면 그대로)
-        handicap = case when p_handicap is null then handicap else greatest(0, p_handicap) end
+        handicap = case when p_handicap is null then handicap else greatest(0, p_handicap) end,
+        tee = case when p_clear_tee then null else coalesce(p_tee, tee) end
     where round_id = p_round_id and user_uid = p_user_uid and offline_player;
 end $$;
-revoke all on function public.update_offline_player(uuid, uuid, text, text, int, int, boolean) from public, anon;
-grant execute on function public.update_offline_player(uuid, uuid, text, text, int, int, boolean) to authenticated;
+revoke all on function public.update_offline_player(uuid, uuid, text, text, int, int, boolean, text, boolean) from public, anon;
+grant execute on function public.update_offline_player(uuid, uuid, text, text, int, int, boolean, text, boolean) to authenticated;

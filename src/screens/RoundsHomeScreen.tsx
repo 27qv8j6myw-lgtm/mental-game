@@ -533,7 +533,7 @@ export default function RoundsHomeScreen({
                   }}
                 >
                   <Icon name="user" size={17} className="inline-ic" />
-                  내 이름 바꾸기
+                  내 이름·성별 바꾸기
                 </button>
               )}
               {admin && (

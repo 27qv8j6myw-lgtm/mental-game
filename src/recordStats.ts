@@ -1,8 +1,8 @@
 import { differential, ratingFor } from "./kga";
-import { teeLie } from "./model";
+import { playerRating, teeLie } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
-import type { CourseRating, Fairway, GameMode, HoleStat, RoundListItem, TeeLie } from "./types";
+import type { CourseRating, Fairway, GameMode, HoleStat, RoundListItem, TeeBox, TeeLie } from "./types";
 
 /*
  * 기록 모드 라운드 분석.
@@ -271,31 +271,40 @@ export async function loadRecordRounds(
       "round_id,hole_index,player_uid,rel",
       ids
     ),
-    // 보정타수에 쓸 레이팅(남/여)을 고르려고 라운드마다 내 성별을 받는다
-    fetchRows<{ round_id: string; user_uid: string; gender: string }>(
+    // 보정타수에 쓸 레이팅을 고르려고 라운드마다 내 성별·티를 받는다 (티 칸이 없는 DB 면 성별만)
+    fetchRows<{ round_id: string; user_uid: string; gender: string; tee?: TeeBox | null }>(
       "round_players",
-      "round_id,user_uid,gender",
+      "round_id,user_uid,gender,tee",
       ids
-    ),
+    ).catch((e) => {
+      if (e?.code !== "42703") throw e;
+      return fetchRows<{ round_id: string; user_uid: string; gender: string; tee?: TeeBox | null }>(
+        "round_players",
+        "round_id,user_uid,gender",
+        ids
+      );
+    }),
   ]);
   return list
-    .map((r) =>
-      recordRound(
+    .map((r) => {
+      const me = players.find((p) => p.round_id === r.id && p.user_uid === myUid);
+      return recordRound(
         {
           id: r.id,
           date: r.date,
           courseName: r.course_name,
-          courseTee: r.course_tee ?? "",
+          // 내가 라운드 티와 다른 티를 쳤으면 그 티와 그 티의 레이팅
+          courseTee: me?.tee || r.course_tee || "",
           holeCount: r.hole_count,
           gameMode: r.rules.gameMode ?? "stroke",
-          rating: r.rules.rating ?? null,
+          rating: playerRating(r.rules.rating, r.rules.teeRatings, me?.tee),
         },
         pars.filter((h) => h.round_id === r.id),
         scores.filter((s) => s.round_id === r.id && s.player_uid === myUid),
         stats.filter((s) => s.round_id === r.id && s.player_uid === myUid),
-        players.some((p) => p.round_id === r.id && p.user_uid === myUid && p.gender === "female")
-      )
-    )
+        me?.gender === "female"
+      );
+    })
     .filter((r) => r.summary.holesPlayed > 0)
     .sort((a, b) => b.date.localeCompare(a.date));
 }

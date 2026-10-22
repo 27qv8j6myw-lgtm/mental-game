@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type {
   BetRules,
+  CourseRating,
   GameMode,
   HandicapMode,
   PaymentMethod,
@@ -39,6 +40,8 @@ import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import {
   CaddieFeeField,
   GameModeField,
+  HANDICAP_HINT,
+  HandicapModeField,
   MaxMultiplierField,
   RankMethodField,
   RankPrizeField,
@@ -48,20 +51,6 @@ import {
 } from "./RoundFields";
 
 const UNITS = [1000, 2000, 5000];
-
-const HANDICAP_MODES: [HandicapMode, string][] = [
-  ["avg", "평균 타수"],
-  ["stroke", "최저핸디 대비"],
-  ["adjust", "타수 보정"],
-];
-
-const HANDICAP_HINT: Record<HandicapMode, string> = {
-  avg: "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요.",
-  stroke:
-    "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 골라요. 최저핸디 인원을 정해야 시작할 수 있어요.",
-  adjust:
-    "방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요. 보기 이상일 때만 빼주고 파 아래로는 내려가지 않아요. 핸디캡 금액 정산은 없어요.",
-};
 
 /** 지난번에 만든 라운드 설정 (다음에 만들 때 그대로 시작) */
 interface LastSetup {
@@ -80,6 +69,8 @@ interface LastSetup {
   rankRules?: RankRules;
 }
 const SETUP_KEY = "mentalgame-last-setup";
+/** 라운드 기본 티 박스 (대기실에서 티를 고르지 않은 사람) */
+const DEFAULT_TEE: TeeBox = "white";
 const COURSES_KEY = "mentalgame-recent-courses";
 const readJson = <T,>(key: string): T | null => {
   try {
@@ -106,7 +97,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const [courseName, setCourseName] = useState("");
   const [date, setDate] = useState(() => localDate());
   const [teeTime, setTeeTime] = useState(() => localTime());
-  const [tee, setTee] = useState<TeeBox>(last?.tee ?? "white");
+  // 티 박스는 대기실에서 사람마다 고른다. 라운드 기본 티(고르지 않은 사람)는 화이트
+  const tee: TeeBox = DEFAULT_TEE;
   const [unit, setUnit] = useState(last?.unit ?? 1000);
   const [customUnit, setCustomUnit] = useState(() =>
     last && !UNITS.includes(last.unit) ? String(last.unit) : ""
@@ -159,8 +151,19 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
     kga && !club && suggestions.length === 0 ? similarClubs(kga, courseName) : [];
   const course = club && courseIdx >= 0 ? club.courses[courseIdx] : null;
   // 위에서 고른 티 박스에 맞는 이 코스의 KGA 티
-  const ratingTee = course ? matchTee(course, tee) : null;
+  // 난이도·라운드 레이팅은 화이트 티 기준 (화이트가 없는 코스는 첫 티)
+  const ratingTee = course ? matchTee(course, tee) ?? course.tees[0]?.[0] ?? null : null;
   const rating = kga && club && course && ratingTee ? courseRating(kga, club, course, ratingTee) : null;
+  // 같은 코스의 티 박스별 레이팅: 대기실에서 사람마다 티를 바꾸면(남녀 혼성) 그 사람 보정타수에 쓴다
+  const teeRatings = (() => {
+    if (!kga || !club || !course) return null;
+    const out: Partial<Record<TeeBox, CourseRating>> = {};
+    for (const [t] of TEE_BOXES) {
+      const kt = matchTee(course, t);
+      if (kt) out[t] = courseRating(kga, club, course, kt);
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  })();
 
   const isCustomUnit = !UNITS.includes(unit);
   // 기록 모드는 내기가 없어 금액·지불·핸디캡·배판 설정이 없다
@@ -200,8 +203,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                     gameMode,
                     // 주고받는 돈만 지불 방법을 고른다
                     payment: rankPays ? payment : ("cash" as const),
-                    // 핸디 타수는 평균 타수로 정한 핸디, 포인트·스킨스는 타수 보정 (기본 0타)
-                    handicapMode: rankRules.method === "net" ? ("avg" as const) : ("adjust" as const),
+                    // 핸디 타수는 고른 핸디 방식, 포인트·스킨스는 타수 보정 (기본 0타)
+                    handicapMode: rankRules.method === "net" ? handicapMode : ("adjust" as const),
                     rank: rankRules,
                     ...(rankRules.method === "skins" && { skins: skinsRules }),
                   }
@@ -213,6 +216,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                     ...(gameMode === "skins" && { skins: skinsRules }),
                   }),
           ...(rating && { rating }),
+          ...(teeRatings && { teeRatings }),
         },
         handicapSettle: isMoney ? handicapSettle : rankPays && payment === "transfer" ? "post" : "pre",
         holeCount,
@@ -365,22 +369,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
               ))}
             </div>
           </div>
-          <div className="field">
-            <label>티 박스</label>
-            <div className="segmented tee-seg">
-              {TEE_BOXES.map(([t, label]) => (
-                <button
-                  key={t}
-                  className={tee === t ? `active ${t}` : ""}
-                  onClick={() => setTee(t)}
-                >
-                  <span className={`tee-dot ${t}`} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* 난이도: 고른 코스·티의 KGA 레이팅과 보기 플레이어 예상 스코어 */}
+          {/* 난이도: 남자 화이트 티 기준 KGA 레이팅과 보기 플레이어 예상 스코어 */}
           {course && (
             <div className="field">
               <label>난이도</label>
@@ -388,13 +377,9 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                 <>
                   <div className="kga-rating">
                     <span>
-                      KGA 레이팅{" "}
-                      {[...rating.ratings]
-                        .sort((a, b) => (a.sex === b.sex ? 0 : a.sex === "M" ? -1 : 1))
-                        .map((r) => `${r.sex === "M" ? "남" : "여"} ${r.cr}/${r.slope}`)
-                        .join(" · ")}
+                      {ratingTee === matchTee(course, tee) ? "남자 화이트 티" : `남자 ${rating.tee} 티`} · KGA{" "}
+                      {ratingFor(rating, "M")!.cr}/{ratingFor(rating, "M")!.slope}
                     </span>
-                    {/* 난이도·보기 플레이어 예상은 남자 레이팅 기준 (없으면 있는 것) */}
                     <DifficultyChip slope={ratingFor(rating, "M")!.slope} />
                   </div>
                   <div className="kga-expect">
@@ -403,11 +388,15 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                 </>
               ) : (
                 <div className="kga-rating">
-                  <span className="kga-miss">이 코스에는 고른 티의 KGA 레이팅이 없어요.</span>
+                  <span className="kga-miss">이 코스에는 KGA 레이팅이 없어요.</span>
                 </div>
               )}
             </div>
           )}
+          <p className="hint tee-note">
+            티 박스는 대기실에서 사람마다 골라요 (기본 화이트, 여성은 레드). 보정타수·스코어카드는 각자 고른 티
+            기준이에요.
+          </p>
         </div>
 
         <div className="section-title">게임 방식</div>
@@ -461,6 +450,16 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
                 </p>
               )}
             </div>
+
+            {/* 핸디 타수: 타당과 같은 세 가지 핸디 방식 */}
+            {rankRules.method === "net" && (
+              <>
+                <div className="section-title">핸디캡 설정 방식</div>
+                <div className="card">
+                  <HandicapModeField value={handicapMode} onChange={setHandicapMode} />
+                </div>
+              </>
+            )}
 
             <div className="section-title">등수 금액</div>
             <div className="card">
@@ -556,20 +555,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         <div className="section-title">핸디캡 설정 방식</div>
         <div className="card">
-          <div className="segmented">
-            {HANDICAP_MODES.map(([m, label]) => (
-              <button
-                key={m}
-                className={handicapMode === m ? "active" : ""}
-                onClick={() => setHandicapMode(m)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="hint" style={{ marginTop: 10 }}>
-            {HANDICAP_HINT[handicapMode]}
-          </p>
+          <HandicapModeField value={handicapMode} onChange={setHandicapMode} />
         </div>
         </>
         )}

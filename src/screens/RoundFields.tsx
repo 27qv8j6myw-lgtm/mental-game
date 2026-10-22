@@ -2,6 +2,7 @@ import { useState } from "react";
 import type {
   BetRules,
   GameMode,
+  HandicapMode,
   PaymentMethod,
   RankMethod,
   RankPrize,
@@ -13,6 +14,7 @@ import {
   CADDIE_PER_HOLE,
   capLabel,
   GAME_MODE_LABEL,
+  HANDICAP_MODE_LABEL,
   RANK_METHOD_LABEL,
   settleNote,
   won,
@@ -122,6 +124,34 @@ export function SkinsRules() {
         <li>홀 최대 타수는 더블파까지만 반영</li>
       </ul>
     </div>
+  );
+}
+
+const HANDICAP_MODES: HandicapMode[] = ["avg", "stroke", "adjust"];
+
+export const HANDICAP_HINT: Record<HandicapMode, string> = {
+  avg: "각자 대기실에서 평균 타수를 입력하면 핸디(평균−72)가 자동 계산되고, ± 로 조정할 수 있어요.",
+  stroke:
+    "방장이 대기실에서 최저핸디 인원을 정하고, 나머지는 그보다 몇 타를 받을지(+5·+10·직접 입력) 골라요. 최저핸디 인원을 정해야 시작할 수 있어요.",
+  adjust:
+    "방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요. 보기 이상일 때만 빼주고 파 아래로는 내려가지 않아요. 핸디캡 금액 정산은 없어요.",
+};
+
+/** 핸디캡 설정 방식: 평균 타수 / 최저핸디 대비 / 타수 보정 */
+export function HandicapModeField({ value, onChange }: { value: HandicapMode; onChange: (v: HandicapMode) => void }) {
+  return (
+    <>
+      <div className="segmented">
+        {HANDICAP_MODES.map((m) => (
+          <button key={m} className={value === m ? "active" : ""} onClick={() => onChange(m)}>
+            {HANDICAP_MODE_LABEL[m]}
+          </button>
+        ))}
+      </div>
+      <p className="hint" style={{ marginTop: 10 }}>
+        {HANDICAP_HINT[value]}
+      </p>
+    </>
   );
 }
 
@@ -316,9 +346,8 @@ export function RuleToggles({
 
 /* ---------- 캐디피 내기 ---------- */
 
-/** 홀 수에 맞는 캐디피 칩 (9홀은 7·8·9만원) */
-const caddieFees = (holeCount: number) =>
-  holeCount <= 9 ? [70000, 80000, 90000] : [150000, 160000, 170000, 180000];
+/** 홀 수에 맞는 캐디피 칩 (18홀 15·16만원, 9홀 7·8만원). 나머지는 직접 입력 */
+const caddieFees = (holeCount: number) => (holeCount <= 9 ? [70000, 80000] : [150000, 160000]);
 
 /** 캐디피: 칩 또는 만원 단위 직접 입력 + "16홀 × 1만원 · 앞 2홀 연습" 요약 */
 export function CaddieFeeField({
@@ -337,7 +366,7 @@ export function CaddieFeeField({
   const practice = holeCount - counted;
   return (
     <>
-      <div className="unit-chips">
+      <div className="unit-chips caddie-chips">
         {fees.map((f) => (
           <button
             key={f}
@@ -394,7 +423,7 @@ export function CaddieFeeField({
 const RANK_METHODS: RankMethod[] = ["points", "net", "skins"];
 const RANK_METHOD_HINT: Record<RankMethod, string> = {
   points: "타당처럼 두 명씩 타수 차이를 포인트로 쌓아 포인트가 많은 순으로 정해요.",
-  net: "총 타수에서 핸디를 빼서 적은 순으로 정해요. 핸디는 각자 대기실에서 평균 타수로 정하고(±조정), 9홀이면 절반이에요.",
+  net: "핸디를 반영한 타수가 적은 순으로 정해요. 핸디 방식(평균 타수·최저핸디 대비·타수 보정)은 아래에서 골라요.",
   skins: "홀마다 단독 최저 타수가 스킨을 가져가고, 딴 스킨이 많은 순으로 정해요.",
 };
 

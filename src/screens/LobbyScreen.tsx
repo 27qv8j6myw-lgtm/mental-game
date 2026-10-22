@@ -4,13 +4,13 @@ import { inviteLink } from "../invite";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
-import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, teeLabel, won } from "../util";
+import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, TEE_BOXES, teeLabel, won } from "../util";
 import AccountField from "./AccountField";
 import { StrokeAdjField } from "./RoundFields";
 import { caddieSummary } from "../caddie";
 import { rankPrizeBalanced, rankRules, rankSummary } from "../rankGame";
 import RoundSettingsSheet from "./RoundSettingsSheet";
-import type { Gender } from "../types";
+import type { Gender, RoundPlayerRow, TeeBox } from "../types";
 
 const STROKE_PRESETS = [5, 10];
 
@@ -152,10 +152,24 @@ export default function LobbyScreen() {
    */
   const patchPlayer = (uid: string, patch: Parameters<typeof updateMe>[0]) =>
     uid === myUid ? void updateMe(patch) : void updateOffline(uid, patch);
-  // 성별은 내 것이면 계정에도 저장해 다음 라운드에서도 쓴다 (기록 분석의 남/여 레이팅)
-  const setGender = (uid: string, g: Gender) => {
-    patchPlayer(uid, { gender: g });
-    if (uid === myUid && iAmLoggedIn) void saveGender(g);
+  // 사람별 티 박스 (남녀 혼성): 라운드 티와 같으면 비워 둔다. 티 칸이 없는 DB(lobby.sql 실행 전)는 고르지 않는다
+  const roundTee = bundle.round.course_tee as TeeBox | "";
+  const hasTee = (p: RoundPlayerRow) => "tee" in p;
+  const teeOf = (p: RoundPlayerRow) => p.tee ?? roundTee;
+  const setTee = (p: RoundPlayerRow, t: TeeBox) => patchPlayer(p.user_uid, { tee: t === roundTee ? null : t });
+  // 성별은 내 것이면 계정에도 저장해 다음 라운드에서도 쓴다 (기록 분석의 남/여 레이팅).
+  // 여성으로 바꾸면 레드 티로, 남성으로 돌아가면 라운드 티로 (라운드 티가 레드가 아닐 때, 바꾼 뒤에 다시 고를 수 있다)
+  const setGender = (p: RoundPlayerRow, g: Gender) => {
+    const tee =
+      !hasTee(p) || !roundTee || roundTee === "red"
+        ? {}
+        : g === "female" && p.tee == null
+          ? { tee: "red" as const }
+          : g === "male" && p.tee === "red"
+            ? { tee: null }
+            : {};
+    patchPlayer(p.user_uid, { gender: g, ...tee });
+    if (p.user_uid === myUid && iAmLoggedIn) void saveGender(g);
   };
   const onAvgChange = (uid: string, val: string) => {
     if (val.trim() === "") {
@@ -267,7 +281,7 @@ export default function LobbyScreen() {
               caddieSummary(round.rules.caddie?.fee ?? 0, round.hole_count)
             ) : rank ? (
               <>
-                {rankSummary(rank)}
+                {rankSummary(rank, hm)}
                 {rank.prize === "exchange" && ` · ${PAYMENT_LABEL[pay]}`}
               </>
             ) : (
@@ -375,17 +389,35 @@ export default function LobbyScreen() {
                   <div className="segmented sm" style={{ marginTop: 10 }}>
                     <button
                       className={p.gender === "male" ? "active" : ""}
-                      onClick={() => setGender(p.user_uid, "male")}
+                      onClick={() => setGender(p, "male")}
                     >
                       <Icon name="male" size={15} className="inline-ic" /> 남성
                     </button>
                     <button
                       className={p.gender === "female" ? "active" : ""}
-                      onClick={() => setGender(p.user_uid, "female")}
+                      onClick={() => setGender(p, "female")}
                     >
                       <Icon name="female" size={15} className="inline-ic" /> 여성
                     </button>
                   </div>
+                  {/* 티 박스: 비워 두면 라운드 티. 남녀 혼성이면 여성은 레드 티 등으로 */}
+                  {hasTee(p) && (
+                    <div className="lp-tee">
+                      <span className="lp-tee-label">티 박스</span>
+                      <div className="segmented sm tee-seg">
+                        {TEE_BOXES.map(([t, label]) => (
+                          <button
+                            key={t}
+                            className={teeOf(p) === t ? `active ${t}` : ""}
+                            onClick={() => setTee(p, t)}
+                          >
+                            <span className={`tee-dot ${t}`} />
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {isAdjust || isRecord ? null : handicapMode === "avg" ? (
                     <div className="row2" style={{ marginTop: 10 }}>
                       <div className="stepper-field">
@@ -462,6 +494,8 @@ export default function LobbyScreen() {
                     : baseUid === p.user_uid
                     ? "최저핸디 인원"
                     : `최저핸디 대비 ${hcLabel(p.handicap)}타`}
+                  {/* 라운드 티와 다른 티를 친다 */}
+                  {p.tee && p.tee !== roundTee && ` · ${teeLabel(p.tee)}`}
                   {payment === "transfer" && !offline && (
                     <span className={`acct-state ${p.bank_account ? "ok" : ""}`}>
                       {p.bank_account ? "계좌 입력됨" : "계좌 미입력"}

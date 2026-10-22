@@ -339,7 +339,7 @@ export default function ResultsScreen({
             caddieSummary(config.rules.caddie?.fee ?? 0, holes.length)
           ) : config.gameMode === "rank" ? (
             <>
-              {rankSummary(rankRules(config))}
+              {rankSummary(rankRules(config), config.handicapMode)}
               {rankRules(config).prize === "exchange" && ` · ${PAYMENT_LABEL[config.payment]}`}
             </>
           ) : (

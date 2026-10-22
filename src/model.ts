@@ -1,5 +1,5 @@
 import type { RoundBundle } from "./rounds";
-import type { GameConfig, HoleScore, HoleStat, ParValue, Player, RoundRow, TeeLie } from "./types";
+import type { CourseRating, GameConfig, HoleScore, HoleStat, ParValue, Player, RoundRow, TeeBox, TeeLie } from "./types";
 
 /*
  * DB 라운드 묶음(RoundBundle) → 정산 계산에 쓰는 GameConfig·HoleScore.
@@ -25,6 +25,7 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
     handicap:
       r.rules.hcOverrides?.[p.user_uid] ?? (p.user_uid === baseUid ? 0 : p.handicap),
     photoUrl: p.photo_url,
+    tee: p.tee ?? null,
     bankName: p.bank_name ?? null,
     bankAccount: p.bank_account ?? null,
     strokeAdj: handicapMode === "adjust" ? r.rules.strokeAdj?.[p.user_uid] ?? 0 : 0,
@@ -44,6 +45,7 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
     rules: r.rules,
     editLog: r.rules.editLog ?? [],
     rating: r.rules.rating ?? null,
+    teeRatings: r.rules.teeRatings ?? {},
   };
 }
 
@@ -115,4 +117,16 @@ export function bundleHoleStats(bundle: RoundBundle): Record<string, HoleStat>[]
     };
   }
   return out;
+}
+
+/**
+ * 그 사람이 친 티의 레이팅: 사람마다 티를 고른 경우 그 티의 레이팅 (라운드 만들 때 저장해 둔 것),
+ * 없으면 라운드 레이팅
+ */
+export function playerRating(
+  rating: CourseRating | null | undefined,
+  teeRatings: Partial<Record<TeeBox, CourseRating>> | undefined,
+  tee: TeeBox | null | undefined
+): CourseRating | null {
+  return (tee && teeRatings?.[tee]) || rating || null;
 }

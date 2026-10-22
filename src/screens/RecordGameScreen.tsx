@@ -120,7 +120,8 @@ export default function RecordGameScreen({
     if (savedRel == null && d.rel != null && idx < holes.length - 1) goHole(idx + 1);
   };
 
-  const tee = teeLabel(config.courseTee);
+  // 내가 라운드 티와 다른 티를 치면(남녀 혼성) 내 티
+  const tee = teeLabel(config.players.find((p) => p.id === myUid)?.tee || config.courseTee);
 
   return (
     <>

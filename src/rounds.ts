@@ -6,6 +6,7 @@ import type {
   RoundPlayerRow,
   RoundRow,
   StoredRules,
+  TeeBox,
 } from "./types";
 
 export interface PlayerInfo {
@@ -216,6 +217,7 @@ export async function updateMyPlayer(
       | "is_guest"
       | "bank_name"
       | "bank_account"
+      | "tee"
     >
   >
 ): Promise<void> {
@@ -334,7 +336,7 @@ export async function addOfflinePlayer(roundId: string, name: string): Promise<v
 export async function updateOfflinePlayer(
   roundId: string,
   userUid: string,
-  patch: Partial<{ name: string; gender: Gender; avg_score: number | null; handicap: number }>
+  patch: Partial<{ name: string; gender: Gender; avg_score: number | null; handicap: number; tee: TeeBox | null }>
 ): Promise<void> {
   const db = requireDb();
   const { error } = await db.rpc("update_offline_player", {
@@ -345,6 +347,8 @@ export async function updateOfflinePlayer(
     p_avg_score: patch.avg_score ?? null,
     p_handicap: patch.handicap ?? null,
     p_clear_avg: "avg_score" in patch && patch.avg_score === null,
+    // 티는 바꿀 때만 보낸다 (lobby.sql 을 다시 실행하기 전 DB 에는 이 칸이 없다)
+    ...("tee" in patch && { p_tee: patch.tee ?? null, p_clear_tee: patch.tee == null }),
   });
   if (error) throw error;
 }

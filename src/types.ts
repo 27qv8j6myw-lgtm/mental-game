@@ -14,6 +14,8 @@ export interface Player {
   bankAccount?: string | null;
   /** 타수 보정 방식에서 파4·파5 홀마다 잡아주는 타수 (0·1·2). 다른 방식이면 0 */
   strokeAdj?: number;
+  /** 이 사람이 친 티 박스 (남녀 혼성 등). 없으면 라운드 티 */
+  tee?: TeeBox | null;
 }
 
 export type SettleTiming = "pre" | "post";
@@ -136,6 +138,8 @@ export interface StoredRules extends BetRules {
   holeSave?: boolean;
   /** KGA 코스레이팅 (골프장을 목록에서 골랐을 때만) */
   rating?: CourseRating;
+  /** 같은 코스의 티 박스별 레이팅 (사람마다 티가 다를 때 그 사람 보정타수에 쓴다). 예전 라운드엔 없음 */
+  teeRatings?: Partial<Record<TeeBox, CourseRating>>;
   /** 값이 없는 예전 라운드는 타당 */
   gameMode?: GameMode;
   payment?: PaymentMethod;
@@ -181,6 +185,8 @@ export interface GameConfig {
   editLog: EditLogEntry[];
   /** KGA 코스레이팅 (골프장을 목록에서 고른 라운드만) */
   rating: CourseRating | null;
+  /** 티 박스별 레이팅 (사람마다 티가 다를 때) */
+  teeRatings: Partial<Record<TeeBox, CourseRating>>;
 }
 
 export type ParValue = 3 | 4 | 5;
@@ -251,6 +257,8 @@ export interface RoundPlayerRow {
   offline_player?: boolean;
   bank_name: string | null;
   bank_account: string | null;
+  /** 이 사람 티 박스 (supabase/lobby.sql). 비어 있으면 라운드 티. 칸이 없는 DB 에서는 없음 */
+  tee?: TeeBox | null;
 }
 
 /**

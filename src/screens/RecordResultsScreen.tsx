@@ -1,3 +1,4 @@
+import { playerRating } from "../model";
 import { useMemo, useState } from "react";
 import { useRound } from "../round";
 import { EMPTY_STAT, loadRecordRounds, summarize, type HoleRecord } from "../recordStats";
@@ -82,10 +83,14 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
         (a.s.holesPlayed === 0 ? 1 : 0) - (b.s.holesPlayed === 0 ? 1 : 0) ||
         a.s.toPar - b.s.toPar
     );
-  const tee = teeLabel(config.courseTee);
+  // 고른 사람이 라운드 티와 다른 티를 쳤으면(남녀 혼성) 그 티와 그 티의 레이팅
+  const tee = teeLabel(selected?.tee || config.courseTee);
   const played = Math.max(0, ...[...byPlayer.values()].map((v) => v.s.holesPlayed));
   const [sharing, setSharing] = useState(false);
-  const rSel = ratingFor(config.rating, selected?.gender === "female" ? "F" : "M");
+  const rSel = ratingFor(
+    playerRating(config.rating, config.teeRatings, selected?.tee),
+    selected?.gender === "female" ? "F" : "M"
+  );
   const diffSel =
     rSel && mine && holes.length === 18 && mine.s.holesPlayed === 18
       ? differential(mine.s.strokes, rSel.cr, rSel.slope)
@@ -224,7 +229,7 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
                 </span>
               </div>
               <AdjustedScore
-                rating={config.rating}
+                rating={playerRating(config.rating, config.teeRatings, selected.tee)}
                 sex={selected.gender === "female" ? "F" : "M"}
                 gross={holes.length === 18 && mine.s.holesPlayed === 18 ? mine.s.strokes : null}
               />

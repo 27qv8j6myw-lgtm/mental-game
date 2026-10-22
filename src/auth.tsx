@@ -40,8 +40,8 @@ interface AuthCtx {
   saveBankAccount: (name: string, account: string) => Promise<void>;
   /** 내 계정(user_metadata)에 성별을 저장해 다음 라운드에서도 쓴다 */
   saveGender: (gender: "male" | "female") => Promise<void>;
-  /** 앱에서 쓸 이름(실명)을 저장한다. 성공하면 true */
-  saveName: (name: string) => Promise<boolean>;
+  /** 앱에서 쓸 이름(실명)을 저장한다 (성별도 고르면 함께). 성공하면 true */
+  saveName: (name: string, gender?: "male" | "female") => Promise<boolean>;
   error: string | null;
   clearError: () => void;
 }
@@ -223,9 +223,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (data.user) setUser(mapUser(data.user));
       },
-      saveName: async (name) => {
+      saveName: async (name, gender) => {
         if (!supabase) return false;
-        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_name: name.trim() } });
+        const { data, error: e } = await supabase.auth.updateUser({
+          data: { mg_name: name.trim(), ...(gender && { mg_gender: gender }) },
+        });
         if (e) {
           console.error(e);
           return false;

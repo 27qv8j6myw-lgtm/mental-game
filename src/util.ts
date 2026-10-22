@@ -1,6 +1,7 @@
 import type {
   GameMode,
   Gender,
+  HandicapMode,
   HoleScore,
   PaymentMethod,
   RankMethod,
@@ -22,6 +23,12 @@ export const GAME_MODE_LABEL: Record<GameMode, string> = {
 
 /** 캐디피 내기: 홀마다 꼴찌가 내는 금액 (고정) */
 export const CADDIE_PER_HOLE = 10000;
+
+export const HANDICAP_MODE_LABEL: Record<HandicapMode, string> = {
+  avg: "평균 타수",
+  stroke: "최저핸디 대비",
+  adjust: "타수 보정",
+};
 
 export const RANK_METHOD_LABEL: Record<RankMethod, string> = {
   points: "타당 포인트",

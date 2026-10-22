@@ -22,6 +22,7 @@ import { CLASSIC_SKINS } from "../betting";
 import type {
   BetRules,
   GameMode,
+  HandicapMode,
   PaymentMethod,
   RankRules,
   Session,
@@ -32,6 +33,7 @@ import type {
 import {
   CaddieFeeField,
   GameModeField,
+  HandicapModeField,
   MaxMultiplierField,
   PaymentFields,
   RankMethodField,
@@ -72,6 +74,10 @@ export default function RoundSettingsSheet({
   const [caddieFee, setCaddieFee] = useState(cfg.rules.caddie?.fee ?? 0);
   const rankInit = rankRules(cfg);
   const [rank, setRank] = useState<RankRules>(rankInit);
+  /** 등수 내기 핸디 타수의 핸디 방식 (포인트·스킨스는 늘 타수 보정). 대기실에서만 바꾼다 */
+  const [rankHm, setRankHm] = useState<HandicapMode>(
+    isRank && rankInit.method === "net" ? cfg.handicapMode : "avg"
+  );
   const [payment, setPayment] = useState<PaymentMethod>(cfg.payment);
   const [settle, setSettle] = useState<SettleTiming>(cfg.handicapSettle);
   const [rules, setRules] = useState<BetRules>({
@@ -205,7 +211,7 @@ export default function RoundSettingsSheet({
         : isRank
           ? {
               rank,
-              handicapMode: rank.method === "net" ? "avg" : "adjust",
+              handicapMode: rank.method === "net" ? rankHm : "adjust",
               payment: rank.prize === "exchange" ? payment : "cash",
             }
           : { gameMode, payment };
@@ -376,6 +382,14 @@ export default function RoundSettingsSheet({
                 </div>
               )}
             </div>
+            {inLobby && rank.method === "net" && (
+              <>
+                <div className="section-title">핸디캡 설정 방식</div>
+                <div className="card">
+                  <HandicapModeField value={rankHm} onChange={setRankHm} />
+                </div>
+              </>
+            )}
             <div className="section-title">등수 금액</div>
             <div className="card">
               <RankPrizeField rules={rank} onChange={setRank} count={Math.max(2, bundle.players.length)} />

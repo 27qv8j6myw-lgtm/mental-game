@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { caddieRanks, caddieResult, caddieSummary, type CaddieResult } from "../caddie";
 import { pointsConfig, rankResult, rankScoreText, rankSummary, type RankResult } from "../rankGame";
 import { holeBreakdowns, skinsResult } from "../betting";
-import { PAYMENT_LABEL, relLabel, won, wonSigned } from "../util";
+import { adjLabel, HANDICAP_MODE_LABEL, PAYMENT_LABEL, relLabel, won, wonSigned } from "../util";
 import { Avatar } from "../icons";
 import type { GameConfig, HoleScore, Player, Transfer } from "../types";
 import type { SettlementData } from "../shareImage";
@@ -207,7 +207,10 @@ export default function SideGameResults({
                 {/* 금액이 없으면 점수는 오른쪽에만 */}
                 <small className="sg-sub">
                   {r.rules.prize !== "none" && rankScoreText(method, row.score)}
-                  {method === "net" && `${r.rules.prize !== "none" ? " · " : ""}핸디 ${p.handicap}`}
+                  {method === "net" &&
+                    `${r.rules.prize !== "none" ? " · " : ""}${
+                      config.handicapMode === "adjust" ? adjLabel(p.strokeAdj ?? 0) : `핸디 ${p.handicap}`
+                    }`}
                   {r.rules.prize === "none" && method !== "net"
                     ? grossText(holes, row.id).replace(/^ · /, "")
                     : grossText(holes, row.id)}
@@ -230,7 +233,9 @@ export default function SideGameResults({
             ? "두 명씩 타수 차이를 포인트로 쌓았어요 (배판·이월·버디 추가 포함)."
             : "두 명씩 타수 차이만 포인트로 쌓았어요 (배판 없음)."
           : method === "net"
-          ? "친 홀 타수(파 대비)에서 핸디를 뺀 값이에요. 9홀이면 핸디 절반, 다 치기 전에는 친 홀 비율만큼 빼요."
+          ? config.handicapMode === "adjust"
+            ? "파4·파5 홀마다 잡아준 타수를 빼고(파까지만) 더한 타수예요 (파 대비)."
+            : `친 홀 타수(파 대비)에서 핸디(${HANDICAP_MODE_LABEL[config.handicapMode]})를 뺀 값이에요. 9홀이면 핸디 절반, 다 치기 전에는 친 홀 비율만큼 빼요.`
           : "홀마다 단독 최저 타수가 스킨을 가져갔어요. 마지막 홀 최저 동타는 나눠 가졌어요."}{" "}
         같은 점수는 같은 등수예요.
       </p>
@@ -391,7 +396,11 @@ export function sideSettlement(
   const name = (id: string) => config.players.find((p) => p.id === id)?.name || "?";
   return {
     title: savingNow ? "중간 등수" : "최종 등수",
-    chips: [savedLabel, rankSummary(r.rules), ...(r.rules.prize === "exchange" ? [PAYMENT_LABEL[config.payment]] : [])],
+    chips: [
+      savedLabel,
+      rankSummary(r.rules, config.handicapMode),
+      ...(r.rules.prize === "exchange" ? [PAYMENT_LABEL[config.payment]] : []),
+    ],
     listTitle: r.rules.prize === "none" ? "등수" : "등수와 금액",
     transfersTitle: r.rules.prize === "pay" ? "등수별로 낸 돈" : "송금",
     hideTransfers: r.rules.prize === "none",

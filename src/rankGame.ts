@@ -1,11 +1,13 @@
-import { birdieNet, gameNet, settleNet, skinsResult, splitThousands } from "./betting";
-import { DEFAULT_RANK_RULES, RANK_METHOD_LABEL } from "./util";
-import type { GameConfig, HoleScore, RankRules, Transfer } from "./types";
+import { birdieNet, gameNet, judgedScore, settleNet, skinsResult, splitThousands } from "./betting";
+import { DEFAULT_RANK_RULES, HANDICAP_MODE_LABEL, RANK_METHOD_LABEL } from "./util";
+import type { GameConfig, HandicapMode, HoleScore, RankRules, Transfer } from "./types";
 
 /*
  * 등수 내기: 홀마다 돈이 오가지 않고 점수로 등수만 정한다. 같은 점수는 같은 등수.
  * - points: 타당처럼 두 명씩 타수 차를 포인트로 (unit 1). 배판을 끄면 조건·이월·버디 추가 없이 타수 차만
- * - net: 친 홀 타수(파 대비) − 핸디. 18홀 기준 핸디이고 9홀이면 절반, 진행 중에는 친 홀 비율만큼
+ * - net: 핸디를 반영한 타수 (파 대비). 핸디 방식은 셋 중 하나
+ *   · 평균 타수 / 최저핸디 대비: 친 홀 타수 − 핸디 (18홀 기준, 9홀이면 절반, 진행 중에는 친 홀 비율만큼)
+ *   · 타수 보정: 파4·파5 홀마다 잡아준 타수를 빼고(파까지만) 더한 타수
  * - skins: 딴 스킨 수 (스킨스 배수 조건 적용, 마지막 홀 나눠 가지면 나눈 만큼)
  * 등수별 금액: 공동 등수는 그 자리들 금액의 합을 천 원 단위로 나눈다. 정하지 않은 등수는 0원.
  * - pay: 각자 내는 돈 (모아서 쓴다, 송금 없음)
@@ -36,9 +38,12 @@ export interface RankResult {
 
 export const rankRules = (config: GameConfig): RankRules => config.rules.rank ?? DEFAULT_RANK_RULES;
 
-/** "등수 · 타당 포인트(배판 없음) · 내는 돈" */
-export function rankSummary(r: RankRules) {
-  const method = RANK_METHOD_LABEL[r.method] + (r.method === "points" && !r.multipliers ? "(배판 없음)" : "");
+/** "등수 · 타당 포인트(배판 없음) · 내는 돈" / "등수 · 핸디 타수(최저핸디 대비)". hm: 그 라운드의 핸디 방식 */
+export function rankSummary(r: RankRules, hm?: HandicapMode) {
+  const method =
+    RANK_METHOD_LABEL[r.method] +
+    (r.method === "points" && !r.multipliers ? "(배판 없음)" : "") +
+    (r.method === "net" && hm ? `(${HANDICAP_MODE_LABEL[hm]})` : "");
   const prize = r.prize === "pay" ? " · 내는 돈" : r.prize === "exchange" ? " · 주고받는 돈" : "";
   return `등수 · ${method}${prize}`;
 }
@@ -84,6 +89,10 @@ export function rankScores(config: GameConfig, holes: HoleScore[]) {
     // 배판을 끄면 버디 추가 포인트도 없다
     const b = r.multipliers ? birdieNet(cfg, holes).net : {};
     for (const p of config.players) score[p.id] = (g[p.id] ?? 0) + (b[p.id] ?? 0);
+  } else if (r.method === "net" && config.handicapMode === "adjust") {
+    // 타수 보정: 홀마다 잡아준 타수를 뺀 판정 타수를 더한다
+    for (const p of config.players)
+      score[p.id] = holes.reduce((s, h) => s + (judgedScore(h, p) ?? 0), 0);
   } else if (r.method === "net") {
     for (const p of config.players) {
       const rel = holes.reduce((s, h) => s + (h.scores[p.id] ?? 0), 0);

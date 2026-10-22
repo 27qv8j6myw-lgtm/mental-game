@@ -6444,3 +6444,50 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .standing.sg-standing {
   grid-template-columns: 28px 26px minmax(0, 1fr) auto;
 }
+/* 캐디피 칩: 두 금액 + 직접입력 */
+.unit-chips.caddie-chips {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 대기실: 사람별 티 박스 */
+.lp-tee {
+  margin-top: 10px;
+}
+.lp-tee-label {
+  display: block;
+  margin: 0 2px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+/* 대기실 티: 카드 안이라 좁아서 글자를 한 줄로 */
+.lp-tee .segmented.tee-seg button {
+  white-space: nowrap;
+  font-size: 12.5px;
+  gap: 3px;
+}
+.hint.tee-note {
+  margin-top: 4px;
+  word-break: keep-all;
+}
+
+/* 이름 입력 옆 성별 */
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.name-row .input {
+  flex: 1;
+  min-width: 0;
+}
+.segmented.sm.name-gender {
+  flex: none;
+}
+.segmented.sm.name-gender button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
