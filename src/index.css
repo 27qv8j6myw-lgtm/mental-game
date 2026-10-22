@@ -3689,6 +3689,12 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 800;
   color: var(--ink-soft);
 }
+/* 가입자: 18홀 평균 타수 (라운드 수 앞) */
+.ad-avg {
+  margin-right: 6px;
+  color: var(--ink);
+  font-weight: 800;
+}
 /* 가입자 줄 오른쪽: 라운드 수 + AI 분석 허용 버튼 */
 .ad-row-side {
   flex: none;
@@ -6054,7 +6060,6 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .segmented.mode-seg button {
   padding: 10px 2px;
 }
-/* 캐디피 직접 입력 (만원 단위) */
 /* 캐디피: 금액 칩 · 직접입력 · [__]만원 한 줄 (카드 폭 끝까지 나눠 채운다) */
 .caddie-fees {
   display: flex;

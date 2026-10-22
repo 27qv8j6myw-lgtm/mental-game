@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { scoreLine, type RoundScoreLine } from "./roundScores";
-import type { RoundListItem } from "./types";
+import type { Gender, RoundListItem } from "./types";
 
 /** admin_stats() 결과 (supabase/admin.sql) */
 export interface AdminStats {
@@ -59,12 +59,16 @@ export interface AdminUser {
   name: string;
   /** 앱에서 정한 이름(실명). 아직 안 정했으면 null */
   real_name: string | null;
+  /** 앱에서 고른 성별. 아직 안 골랐으면 null (admin.sql 을 다시 실행하기 전에는 없다) */
+  gender?: Gender | null;
   /** 앞 두 글자만 보이는 이메일. 카카오만 쓰는 사람은 없음 */
   email_masked: string | null;
   providers: string[];
   created_at: string;
   last_sign_in_at: string | null;
   round_count: number;
+  /** 끝까지 친 18홀 라운드의 평균 타수. 없으면 null (admin.sql 을 다시 실행하기 전에는 없다) */
+  avg_score?: number | null;
 }
 
 /** 관리자 여부. admin.sql 을 아직 실행하지 않았거나 오류가 나면 false */
@@ -146,8 +150,15 @@ export async function fetchUserRounds(recent = 10): Promise<{ active: UserRound[
   return { active: v.active.map(toItem), recent: v.recent.map(toItem) };
 }
 
-/** 사용자의 앱 이름(실명)을 고친다 (관리자만). 빈 값이면 지워서 다음 로그인 때 다시 묻는다 */
-export async function setUserName(userId: string, name: string): Promise<void> {
-  const { error } = await requireDb().rpc("admin_set_user_name", { p_user_id: userId, p_name: name.trim() });
+/**
+ * 사용자의 앱 이름(실명)과 성별을 고친다 (관리자만). 빈 이름이면 지워서 다음 로그인 때 다시 묻는다.
+ * gender 를 안 넘기면 성별은 그대로 둔다
+ */
+export async function setUserName(userId: string, name: string, gender?: Gender): Promise<void> {
+  const { error } = await requireDb().rpc("admin_set_user_name", {
+    p_user_id: userId,
+    p_name: name.trim(),
+    ...(gender && { p_gender: gender }),
+  });
   if (error) throw error;
 }

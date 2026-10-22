@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../auth";
 import { Icon } from "../icons";
+import type { Gender } from "../types";
 
 /** 이름 길이 (실명 기준으로 넉넉하게) */
 const MAX_NAME = 20;
@@ -8,10 +9,11 @@ const MAX_NAME = 20;
 /**
  * 앱에서 쓸 이름(실명) 정하기. 카카오 닉네임이 별명인 경우가 많아 처음 로그인할 때 묻는다.
  * onClose 가 없으면 닫을 수 없다 (처음 정할 때). 프로필 메뉴의 '내 이름 바꾸기'에서는 닫을 수 있다.
- * 관리자가 다른 사람 이름을 고칠 때는 title·desc·onSave 를 넘긴다
+ * 관리자가 다른 사람 이름·성별을 고칠 때는 title·desc·initialGender·onSave 를 넘긴다
  */
 export default function NameDialog({
   initial,
+  initialGender,
   onClose,
   title,
   desc,
@@ -19,19 +21,21 @@ export default function NameDialog({
   allowEmpty = false,
 }: {
   initial: string;
+  /** 관리자가 고칠 때 그 사람의 지금 성별 */
+  initialGender?: Gender | null;
   onClose?: () => void;
   title?: string;
   desc?: string;
   /** 저장. 성공하면 true (없으면 내 이름으로 저장) */
-  onSave?: (name: string) => Promise<boolean>;
+  onSave?: (name: string, gender: Gender | null) => Promise<boolean>;
   /** 빈 값도 저장 (관리자: 실명을 지워 다음 로그인 때 다시 묻게) */
   allowEmpty?: boolean;
 }) {
   const { saveName, user } = useAuth();
-  // 내 이름이면 성별도 함께 고른다 (대기실 기본 성별·여성은 레드 티). 관리자가 남의 이름을 고칠 때는 이름만
+  // 이름과 성별을 함께 고른다 (대기실 기본 성별·여성은 레드 티). 내 이름이면 성별은 꼭 고른다
   const self = !onSave;
-  const [gender, setGender] = useState<"male" | "female" | null>(user?.gender ?? null);
-  const save = onSave ?? ((n: string) => saveName(n, gender ?? undefined));
+  const [gender, setGender] = useState<Gender | null>(self ? user?.gender ?? null : initialGender ?? null);
+  const save = onSave ? (n: string) => onSave(n, gender) : (n: string) => saveName(n, gender ?? undefined);
   const [name, setName] = useState(initial.slice(0, MAX_NAME));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -69,16 +73,14 @@ export default function NameDialog({
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void submit()}
           />
-          {self && (
-            <div className="segmented sm name-gender" role="group" aria-label="성별">
-              <button className={gender === "male" ? "active" : ""} onClick={() => setGender("male")}>
-                <Icon name="male" size={14} /> 남
-              </button>
-              <button className={gender === "female" ? "active" : ""} onClick={() => setGender("female")}>
-                <Icon name="female" size={14} /> 여
-              </button>
-            </div>
-          )}
+          <div className="segmented sm name-gender" role="group" aria-label="성별">
+            <button className={gender === "male" ? "active" : ""} onClick={() => setGender("male")}>
+              <Icon name="male" size={14} /> 남
+            </button>
+            <button className={gender === "female" ? "active" : ""} onClick={() => setGender("female")}>
+              <Icon name="female" size={14} /> 여
+            </button>
+          </div>
         </div>
         {err && <div className="name-err">{err}</div>}
         <button className="btn-primary" disabled={!canSave || busy} onClick={() => void submit()}>

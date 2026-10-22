@@ -13,7 +13,7 @@ import {
 } from "../admin";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { GAME_MODE_LABEL } from "../util";
-import type { GameMode } from "../types";
+import type { GameMode, Gender } from "../types";
 import RatioBar from "./RatioBar";
 import ScorecardImportScreen from "./ScorecardImportScreen";
 import NameDialog from "./NameDialog";
@@ -137,14 +137,19 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
     }
   };
 
-  // 사용자 실명 고치기 (고르는 중인 사람)
+  // 사용자 실명·성별 고치기 (고르는 중인 사람)
   const [naming, setNaming] = useState<AdminUser | null>(null);
   useBack(!!naming, () => setNaming(null));
-  const saveUserName = async (name: string) => {
+  const saveUserName = async (name: string, gender: Gender | null) => {
     if (!naming) return false;
     try {
-      await setUserName(naming.user_id, name);
-      setUsers((us) => us.map((u) => (u.user_id === naming.user_id ? { ...u, real_name: name.trim() || null } : u)));
+      // 성별은 바꿨을 때만 보낸다
+      await setUserName(naming.user_id, name, gender && gender !== naming.gender ? gender : undefined);
+      setUsers((us) =>
+        us.map((u) =>
+          u.user_id === naming.user_id ? { ...u, real_name: name.trim() || null, gender: gender ?? u.gender } : u
+        )
+      );
       return true;
     } catch (e) {
       console.error(e);
@@ -457,8 +462,9 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                         <button
                           className={`ad-real ${u.real_name ? "" : "none"}`}
                           onClick={() => setNaming(u)}
-                          aria-label={`${u.name || "이름 없음"} 실명 고치기`}
+                          aria-label={`${u.name || "이름 없음"} 실명·성별 고치기`}
                         >
+                          {u.gender && <Icon name={u.gender} size={11} />}
                           {u.real_name ?? "실명 없음"}
                           <Icon name="edit" size={11} />
                         </button>
@@ -486,7 +492,10 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                       </div>
                     </div>
                     <div className="ad-row-side">
-                      <span className="ad-count">라운드 {num(u.round_count)}</span>
+                      <span className="ad-count">
+                        {u.avg_score != null && <b className="ad-avg">평균 {Number(u.avg_score).toFixed(1)}</b>}
+                        라운드 {num(u.round_count)}
+                      </span>
                       {grants && (
                         <button
                           className={`ad-ai ${grants.some((g) => g.user_id === u.user_id) ? "on" : ""}`}
@@ -504,7 +513,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
               </div>
             )}
             <p className="hint" style={{ margin: "6px 2px 0" }}>
-              닉네임 옆은 처음 로그인할 때 적은 실명이에요. 눌러서 고칠 수 있어요.
+              닉네임 옆은 처음 로그인할 때 적은 실명·성별이에요. 눌러서 고칠 수 있어요.
             </p>
           </>
         )}
@@ -512,8 +521,9 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
       {naming && (
         <NameDialog
           initial={naming.real_name ?? naming.name}
-          title="실명 고치기"
-          desc={`${naming.name || "이름 없음"}님의 앱 이름(실명)이에요. 비우고 저장하면 다음 로그인 때 다시 물어요. 랭킹에는 바로, 그 사람 앱에는 길어야 1시간 안에 반영돼요.`}
+          initialGender={naming.gender}
+          title="실명·성별 고치기"
+          desc={`${naming.name || "이름 없음"}님의 앱 이름(실명)과 성별이에요. 이름을 비우고 저장하면 다음 로그인 때 다시 물어요. 랭킹에는 바로, 그 사람 앱에는 길어야 1시간 안에 반영돼요.`}
           onSave={saveUserName}
           onClose={() => setNaming(null)}
           allowEmpty

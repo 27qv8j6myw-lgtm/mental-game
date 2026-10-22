@@ -203,6 +203,8 @@ $$;
 
 -- ============ 최근 가입자 (관리자만, 이메일은 앞 2글자만) ============
 -- name: 카카오·구글 이름(닉네임), real_name: 앱에서 정한 이름(실명, 처음 로그인할 때 입력. 없으면 null)
+-- gender: 앱에서 고른 성별 male/female (아직 안 골랐으면 null)
+-- avg_score: 끝까지 친 18홀 라운드의 평균 타수 (랭킹과 같은 계산, 공개 범위와 상관없이. 없으면 null)
 -- (돌려주는 칸이 바뀌어 예전 함수를 지우고 다시 만든다)
 drop function if exists public.admin_recent_users(int);
 create or replace function public.admin_recent_users(p_limit int default 30)
@@ -210,21 +212,55 @@ returns table (
   user_id uuid,
   name text,
   real_name text,
+  gender text,
   email_masked text,
   providers text[],
   created_at timestamptz,
   last_sign_in_at timestamptz,
-  round_count int
+  round_count int,
+  avg_score numeric
 )
 language sql
 stable
 security definer
 set search_path = public, auth
 as $$
+  with done as (
+    select
+      r.id,
+      r.hole_count,
+      -- 홀 저장 라운드는 저장된 홀만 센다 (랭킹·앱 정산과 같다)
+      (coalesce(r.rules ->> 'gameMode', 'stroke') <> 'record'
+        and coalesce(r.rules ->> 'holeSave', '') = 'true') as hole_save
+    from public.rounds r
+    where public.is_admin() and r.status = 'done' and r.hole_count = 18
+  ),
+  per as (
+    -- 홀마다: 파가 없으면 4, 타수는 더블파까지 (랭킹과 같다)
+    -- 저장 칸(saved_at)은 holesave.sql 을 실행한 DB 에만 있어서 행 전체(to_jsonb)에서 꺼낸다
+    select
+      rp.user_uid,
+      count(s.rel) filter (where not d.hole_save or to_jsonb(h) ->> 'saved_at' is not null) as n,
+      sum(coalesce(h.par, 4) + least(s.rel, coalesce(h.par, 4)))
+        filter (where not d.hole_save or to_jsonb(h) ->> 'saved_at' is not null) as gross
+    from done d
+    join public.round_players rp on rp.round_id = d.id
+    cross join lateral generate_series(0, d.hole_count - 1) as g(i)
+    left join public.round_holes h on h.round_id = d.id and h.hole_index = g.i
+    left join public.round_scores s
+      on s.round_id = d.id and s.hole_index = g.i and s.player_uid = rp.user_uid
+    group by rp.user_uid, d.id, d.hole_count
+    having count(s.rel) filter (where not d.hole_save or to_jsonb(h) ->> 'saved_at' is not null) = d.hole_count
+  ),
+  avgs as (
+    select user_uid, round(avg(gross), 1) as avg_score from per group by user_uid
+  )
   select
     u.id,
     coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name', ''),
     nullif(trim(u.raw_user_meta_data ->> 'mg_name'), ''),
+    case when u.raw_user_meta_data ->> 'mg_gender' in ('male', 'female')
+      then u.raw_user_meta_data ->> 'mg_gender' end,
     case
       when coalesce(u.email, '') = '' then null
       else left(split_part(u.email, '@', 1), 2) || '***@' || split_part(u.email, '@', 2)
@@ -232,8 +268,10 @@ as $$
     array(select jsonb_array_elements_text(coalesce(u.raw_app_meta_data -> 'providers', '[]'::jsonb))),
     u.created_at,
     u.last_sign_in_at,
-    (select count(*)::int from public.round_players rp where rp.user_uid = u.id)
+    (select count(*)::int from public.round_players rp where rp.user_uid = u.id),
+    a.avg_score
   from auth.users u
+  left join avgs a on a.user_uid = u.id
   where public.is_admin() and not coalesce(u.is_anonymous, false)
   order by u.created_at desc
   limit least(greatest(coalesce(p_limit, 30), 1), 100);
@@ -304,10 +342,13 @@ as $$
   );
 $$;
 
--- ============ 사용자 실명 고치기 (관리자만) ============
+-- ============ 사용자 실명·성별 고치기 (관리자만) ============
 -- 앱에서 쓰는 이름(user_metadata.mg_name)을 바꾼다. 빈 값이면 지워서 다음 로그인 때 다시 묻는다.
+-- p_gender: male/female 이면 성별(mg_gender)도 바꾼다. null 이면 그대로 둔다
 -- 그 사람 앱에는 로그인이 갱신될 때(길어야 1시간) 반영되고, 랭킹은 바로 이 이름을 쓴다
-create or replace function public.admin_set_user_name(p_user_id uuid, p_name text)
+-- (성별 인자를 더해 예전 2개 인자 함수를 지운다. 예전 앱이 이름만 보내도 그대로 동작한다)
+drop function if exists public.admin_set_user_name(uuid, text);
+create or replace function public.admin_set_user_name(p_user_id uuid, p_name text, p_gender text default null)
 returns void
 language plpgsql
 security definer
@@ -322,11 +363,14 @@ begin
   if char_length(v) > 20 then
     raise exception 'NAME_TOO_LONG' using errcode = '22023';
   end if;
+  if p_gender is not null and p_gender not in ('male', 'female') then
+    raise exception 'BAD_GENDER' using errcode = '22023';
+  end if;
   update auth.users
-    set raw_user_meta_data = case
+    set raw_user_meta_data = (case
       when v = '' then coalesce(raw_user_meta_data, '{}'::jsonb) - 'mg_name'
       else coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('mg_name', v)
-    end
+    end) || case when p_gender is null then '{}'::jsonb else jsonb_build_object('mg_gender', p_gender) end
     where id = p_user_id;
   if not found then
     raise exception 'NO_USER' using errcode = 'P0002';
@@ -339,10 +383,10 @@ revoke all on function public.admin_stats() from public, anon;
 revoke all on function public.admin_recent_rounds(int) from public, anon;
 revoke all on function public.admin_recent_users(int) from public, anon;
 revoke all on function public.admin_user_rounds(int) from public, anon;
-revoke all on function public.admin_set_user_name(uuid, text) from public, anon;
+revoke all on function public.admin_set_user_name(uuid, text, text) from public, anon;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.admin_stats() to authenticated;
 grant execute on function public.admin_recent_rounds(int) to authenticated;
 grant execute on function public.admin_recent_users(int) to authenticated;
 grant execute on function public.admin_user_rounds(int) to authenticated;
-grant execute on function public.admin_set_user_name(uuid, text) to authenticated;
+grant execute on function public.admin_set_user_name(uuid, text, text) to authenticated;
