@@ -13,6 +13,7 @@ import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { fetchUserRounds, isAdmin, type UserRound } from "../admin";
 import { loadStats } from "../stats";
 import Guide from "../guide/Guide";
+import { RulesButton } from "../rules/Rules";
 import { cachedScoreLines, fetchScoreLines, storeScoreLines, type RoundScoreLine } from "../roundScores";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -461,7 +462,10 @@ export default function RoundsHomeScreen({
     <p className="home-tagline">
       골프 내기, 계산은 앱이 할게요
       <br />
-      <b>멘탈만 챙기세요</b>
+      <span className="tl-row">
+        <b>멘탈만 챙기세요</b>
+        <RulesButton />
+      </span>
     </p>
   );
   const joinCard = (

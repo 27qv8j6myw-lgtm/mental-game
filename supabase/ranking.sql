@@ -6,6 +6,7 @@
 -- 순위에는 로그인 계정만 들어간다 (폰 없는 동반자·로그인 없이 참여한 게스트는 빠진다).
 -- 공개 범위(ranking_settings): 함께 친 사람만(기본, 끝난 라운드를 같이 친 사람) / 전체 공개 / 숨기기.
 --   내 공개 범위가 곧 내가 보는 범위다: 함께 친 사람만이면 함께 친 사람끼리, 전체 공개면 전체 공개한 사람까지.
+--   관리자가 전체 공개를 고르면 가입자 전체를 본다 (숨긴 사람까지).
 --   (전체 공개여도 함께 친 사람만 고른 사람은 함께 친 적이 없으면 보이지 않는다)
 --   숨긴 사람은 순위·이용자 기록에서 빠지고, 다른 사람 랭킹도 볼 수 없다 (내 기록만 받는다).
 -- 모르는 사람 제외(ranking_excludes)는 내 랭킹에서만 그 사람을 빼고 순위를 매긴다 (앱이 계산할 때 뺀다).
@@ -55,31 +56,42 @@ begin
 end $$;
 
 -- 보는 사람(p_viewer)에게 그 사람(p_uid)의 랭킹 기록이 보이는지.
--- 나 자신은 늘. 아니면 둘 다 숨기지 않았고, 끝난 라운드를 함께 쳤거나 둘 다 전체 공개일 때
+-- 나 자신은 늘. 관리자가 전체 공개를 고르면 가입자 전체(숨긴 사람까지).
+-- 아니면 둘 다 숨기지 않았고, 끝난 라운드를 함께 쳤거나 둘 다 전체 공개일 때
 -- (서로 같은 규칙이라 내가 보이는 사람만 나를 본다. 아래 함수들 안에서만 쓴다. 앱에서 바로 부를 수 없다)
+-- 관리자 표(admins)는 admin.sql 이 만든다: 그 전에 이 파일을 실행해도 되게 표가 있을 때만 본다
 create or replace function public.ranking_visible(p_viewer uuid, p_uid uuid)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select p_uid = p_viewer or (
-    coalesce((select visibility from public.ranking_settings where user_id = p_viewer), 'played') <> 'hidden'
-    and coalesce((select visibility from public.ranking_settings where user_id = p_uid), 'played') <> 'hidden'
-    and (
-      (coalesce((select visibility from public.ranking_settings where user_id = p_viewer), 'played') = 'all'
-        and coalesce((select visibility from public.ranking_settings where user_id = p_uid), 'played') = 'all')
-      or exists (
-        select 1
-        from public.round_players a
-        join public.rounds r on r.id = a.round_id and r.status = 'done'
-        join public.round_players b on b.round_id = a.round_id
-        where a.user_uid = p_viewer and not a.offline_player
-          and b.user_uid = p_uid and not b.offline_player)
-    )
-  );
-$$;
+declare
+  v_viewer text := coalesce((select visibility from public.ranking_settings where user_id = p_viewer), 'played');
+  v_uid text;
+begin
+  if p_uid = p_viewer then
+    return true;
+  end if;
+  if v_viewer = 'all' and to_regclass('public.admins') is not null then
+    if exists (select 1 from public.admins where user_id = p_viewer) then
+      return true;
+    end if;
+  end if;
+  v_uid := coalesce((select visibility from public.ranking_settings where user_id = p_uid), 'played');
+  if v_viewer = 'hidden' or v_uid = 'hidden' then
+    return false;
+  end if;
+  return (v_viewer = 'all' and v_uid = 'all')
+    or exists (
+      select 1
+      from public.round_players a
+      join public.rounds r on r.id = a.round_id and r.status = 'done'
+      join public.round_players b on b.round_id = a.round_id
+      where a.user_uid = p_viewer and not a.offline_player
+        and b.user_uid = p_uid and not b.offline_player);
+end $$;
 
 -- ---- 모르는 사람 제외하기 (내 랭킹에서만, 그 사람에게는 영향 없음) ----
 -- 이름은 랭킹 관리 화면에 보이려고 뺄 때 적어 둔다 (그 사람이 나중에 랭킹에서 숨어도 보이게)

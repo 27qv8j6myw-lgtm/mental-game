@@ -25,6 +25,7 @@ import {
   type Visibility,
 } from "../ranking";
 import type { RecordRound } from "../recordStats";
+import { isAdmin } from "../admin";
 
 /** 오늘 (한국 시간) YYYY-MM-DD */
 const todaySeoul = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
@@ -49,12 +50,16 @@ const VISIBILITY: [Visibility, string, string][] = [
   ["hidden", "숨기기", "내 기록이 안 보이고, 다른 사람 랭킹도 못 봐요."],
 ];
 
+/** 관리자가 전체 공개를 고르면 가입자 전체를 본다 (ranking.sql ranking_visible) */
+const ADMIN_ALL_DESC = "관리자는 가입자 전체 순위와 기록을 봐요. 랭킹에서 숨긴 사람도 나와요.";
+
 /** 랭킹 위 한 줄: 지금 보고 있는 범위 (내 공개 범위를 따른다) */
 const SCOPE_CAPTION: Record<Visibility, string> = {
   played: "함께 친 사람 순위",
   all: "전체 순위 (함께 친 사람 + 전체 공개한 사람)",
   hidden: "",
 };
+const scopeCaption = (v: Visibility, admin: boolean) => (admin && v === "all" ? "가입자 전체 순위 (관리자)" : SCOPE_CAPTION[v]);
 
 /** 순위 변화: ▲2 / ▼1 / – / NEW (비교할 순위가 없으면 비움) */
 function Change({ c }: { c: RankRow["change"] }) {
@@ -133,6 +138,10 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
       });
   useEffect(() => {
     void load();
+  }, []);
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    void isAdmin().then(setAdmin);
   }, []);
 
   // 내 공개 범위 (숨기면 다른 사람 랭킹도 볼 수 없다)
@@ -289,7 +298,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
                 <span className="rk-radio" aria-hidden="true" />
                 <span className="tinfo">
                   <span className="t">{title}</span>
-                  <span className="s">{desc}</span>
+                  <span className="s">{admin && v === "all" ? ADMIN_ALL_DESC : desc}</span>
                 </span>
               </button>
             ))}
@@ -346,7 +355,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
         <>
           {/* 범위는 제목 줄 '랭킹 관리'에서 바꾼다 */}
           <div className="rk-scope">
-            <span>{SCOPE_CAPTION[data.visibility]}</span>
+            <span>{scopeCaption(data.visibility, admin)}</span>
           </div>
 
           <div className="segmented" style={{ marginBottom: 12 }}>
