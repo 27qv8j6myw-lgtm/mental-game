@@ -3,7 +3,7 @@ import type { RecordRound } from "../recordStats";
 
 /*
  * 랭킹에서 사람을 누르면 보이는 하이라이트 (명예의 전당): 그 사람의 라운드 가운데 가장 좋았던 기록들 (날짜·골프장과 함께).
- * 연속 파·연속 버디·이글은 늘 보이고, 아직 없으면 회색 카드에 - 로.
+ * 연속 파·연속 버디·이글·최다 버디는 늘 보이고, 아직 없으면 회색 카드에 - 로.
  * 기록(퍼트·티샷)은 기록 모드나 내기 중 '내 기록'을 남긴 라운드에서, 베스트 스코어는 18홀을 끝까지 친 모든 라운드에서
  */
 
@@ -60,6 +60,22 @@ const ICONS = {
     <>
       <circle cx="15.5" cy="8.5" r="4" />
       <path d="M12.5 11.5 5 19M10.5 9.5 4 16M14.5 13.5 8 20" />
+    </>
+  ),
+  // 갈매기 (버디) 와 공
+  birdie: svg(
+    <>
+      <path d="M3 9.5c2.5-2.5 5.5-2.5 9 1.5 3.5-4 6.5-4 9-1.5" />
+      <circle cx="12" cy="17" r="2.5" />
+    </>
+  ),
+  // 동그라미 안 9
+  nine: svg(
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <text x="12" y="16.3" textAnchor="middle" fontSize="12" fontWeight="800" fill="currentColor" stroke="none">
+        9
+      </text>
     </>
   ),
   // 퍼터
@@ -154,6 +170,31 @@ export function computeHighlights(
         }
       : none),
   });
+  // 최다 버디 (한 라운드의 버디 이하 홀 수)
+  const birdies = bestBy(rounds, (r) => r.summary.dist.birdie + r.summary.dist.eagle || null, (a, b) => a > b);
+  out.push({
+    key: "birdies",
+    title: "최다 버디",
+    icon: ICONS.birdie,
+    ...(birdies ? { ...at(birdies.item), value: `${birdies.value}개`, color: "#2ba3dc" } : none),
+  });
+  // 베스트 9홀 (전반·후반 9홀을 다 친 것 가운데 가장 적은 타수)
+  const nine = bestBy(
+    rounds.flatMap((r) => [r.summary.out, r.summary.in].map((v) => ({ r, v }))),
+    (x) => x.v,
+    (a, b) => a < b
+  );
+  if (nine) {
+    out.push({ key: "nine", title: "베스트 9홀", ...at(nine.item.r), value: `${nine.value}타`, color: "#5b5bd6", icon: ICONS.nine });
+  }
+  // 베스트 스코어 (랭킹 자료가 없으면 기록 라운드에서)
+  const gross = best ?? (() => {
+    const b = bestBy(full, (r) => r.summary.strokes, (a, c) => a < c);
+    return b ? { gross: b.value, ...at(b.item) } : null;
+  })();
+  if (gross) {
+    out.push({ key: "gross", title: "베스트 스코어", date: gross.date, course: gross.course, value: `${gross.gross}타`, color: "#d9534f", icon: ICONS.down });
+  }
   // 최저 퍼트 (18홀을 다 치고 퍼트를 다 적은 라운드)
   const putts = bestBy(full, (r) => r.summary.putts, (a, b) => a < b);
   if (putts) {
@@ -175,14 +216,6 @@ export function computeHighlights(
       color: "#e8663d",
       icon: ICONS.down,
     });
-  }
-  // 베스트 스코어 (랭킹 자료가 없으면 기록 라운드에서)
-  const gross = best ?? (() => {
-    const b = bestBy(full, (r) => r.summary.strokes, (a, c) => a < c);
-    return b ? { gross: b.value, ...at(b.item) } : null;
-  })();
-  if (gross) {
-    out.push({ key: "gross", title: "베스트 스코어", date: gross.date, course: gross.course, value: gross.gross, color: "#d9534f", icon: ICONS.down });
   }
   // 스크램블 (그린 놓친 홀 3번 이상) · 샌드 세이브 (벙커 2번 이상)
   const scr = bestBy(rounds, (r) => (r.summary.scrambling.d >= 3 ? r.summary.scrambling.rate : null), (a, b) => a > b);
