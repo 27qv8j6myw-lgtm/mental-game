@@ -12,12 +12,10 @@ import type {
 } from "../types";
 import {
   CADDIE_PER_HOLE,
-  capLabel,
   DEFAULT_RANK_RULES,
   DEFAULT_SKINS_RULES,
   localDate,
   localTime,
-  RULE_LABELS,
   TEE_BOXES,
   won,
 } from "../util";
@@ -119,8 +117,6 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   );
   const [caddieFee, setCaddieFee] = useState(last?.caddieFee ?? 160000);
   const [rankRules, setRankRules] = useState<RankRules>(last?.rankRules ?? DEFAULT_RANK_RULES);
-  /** 배수 상한·배판 규칙 펼침 (처음엔 한 줄 요약만) */
-  const [rulesOpen, setRulesOpen] = useState(false);
 
   const [holeCount, setHoleCount] = useState(last?.holeCount ?? 18);
   const [busy, setBusy] = useState(false);
@@ -571,29 +567,15 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
 
         {showStrokeRules && (
           <>
-            {/* 배수 상한·배판 규칙은 한 줄 요약으로 접어 두고, 바꿀 때만 펼친다 */}
             <div className="section-title">배판 규칙</div>
             <div className="card">
-              <button className="rules-summary" aria-expanded={rulesOpen} onClick={() => setRulesOpen(!rulesOpen)}>
-                <span>
-                  {[
-                    ...RULE_LABELS.filter(([k]) => rules[k]).map(([, label]) => label),
-                    `배수 상한 ${capLabel(rules.maxMultiplier)}`,
-                  ].join(" · ")}
-                </span>
-                <em>{rulesOpen ? "접기 ▴" : "바꾸기 ▾"}</em>
-              </button>
-              {rulesOpen && (
-                <div className="rules-body">
-                  <RuleToggles rules={rules} onChange={setRules} />
-                  <div className="rules-cap">
-                    <MaxMultiplierField
-                      value={rules.maxMultiplier ?? null}
-                      onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
-                    />
-                  </div>
-                </div>
-              )}
+              <RuleToggles rules={rules} onChange={setRules} />
+              <div className="rules-cap">
+                <MaxMultiplierField
+                  value={rules.maxMultiplier ?? null}
+                  onChange={(v) => setRules((r) => ({ ...r, maxMultiplier: v }))}
+                />
+              </div>
             </div>
           </>
         )}

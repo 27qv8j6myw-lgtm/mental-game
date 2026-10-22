@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type {
   BetRules,
   GameMode,
@@ -360,18 +360,29 @@ export function CaddieFeeField({
   onChange: (fee: number) => void;
 }) {
   const fees = caddieFees(holeCount);
-  const custom = !fees.includes(fee);
+  // 직접입력을 눌렀는지는 따로 기억한다 (입력한 값이 칩 금액과 같아도 직접입력을 그대로 둔다)
+  const [custom, setCustom] = useState(() => !fees.includes(fee));
   const [text, setText] = useState(custom && fee > 0 ? String(fee / CADDIE_PER_HOLE) : "");
+  const inputRef = useRef<HTMLInputElement>(null);
   const counted = caddieCounted(fee, holeCount);
   const practice = holeCount - counted;
+  // 지금 금액에서 시작해 고친다 (칸 전체를 골라 두어 바로 새로 쓸 수 있게)
+  const startCustom = () => {
+    if (!custom) {
+      setCustom(true);
+      setText(String(Math.round(fee / CADDIE_PER_HOLE) || ""));
+    }
+    requestAnimationFrame(() => inputRef.current?.select());
+  };
   return (
     <>
-      <div className="unit-chips caddie-chips">
+      <div className="caddie-fees">
         {fees.map((f) => (
           <button
             key={f}
-            className={`chip ${fee === f ? "active" : ""}`}
+            className={`chip ${!custom && fee === f ? "active" : ""}`}
             onClick={() => {
+              setCustom(false);
               onChange(f);
               setText("");
             }}
@@ -382,22 +393,21 @@ export function CaddieFeeField({
         <button
           className={`chip ${custom ? "active" : ""}`}
           onClick={() => {
-            const v = Number(text) || fees[0] / CADDIE_PER_HOLE;
-            setText(String(v));
-            onChange(v * CADDIE_PER_HOLE);
+            inputRef.current?.focus();
+            startCustom();
           }}
         >
           직접입력
         </button>
-      </div>
-      {custom && (
-        <div className="field caddie-custom" style={{ marginTop: 12 }}>
+        <label className="caddie-custom">
           <input
+            ref={inputRef}
             className="input"
             type="text"
             inputMode="numeric"
-            placeholder="캐디피 (만원)"
-            value={text}
+            aria-label="캐디피 직접입력 (만원)"
+            value={custom ? text : ""}
+            onFocus={startCustom}
             onChange={(e) => {
               const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
               setText(digits);
@@ -405,8 +415,8 @@ export function CaddieFeeField({
             }}
           />
           <span>만원</span>
-        </div>
-      )}
+        </label>
+      </div>
       <p className="hint caddie-sum" style={{ marginTop: 10 }}>
         {counted > 0
           ? `${counted}홀 × 1만원${practice > 0 ? ` · 앞 ${practice}홀은 연습` : ""}`
