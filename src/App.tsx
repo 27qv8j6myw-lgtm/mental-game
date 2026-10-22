@@ -21,7 +21,7 @@ import { useOnline } from "./online";
 import type { Session } from "./types";
 
 export default function App() {
-  const { mode } = useAuth();
+  const { mode, user } = useAuth();
 
   if (mode === "loading") {
     return (
@@ -33,7 +33,8 @@ export default function App() {
     );
   }
 
-  if (mode === "signed-out") return <LoginScreen />;
+  // 예전 게스트(로그인 없이 참여) 세션이 남은 폰도 로그인하게 한다 (로그인하면 게스트 기록이 옮겨진다)
+  if (mode === "signed-out" || user?.isAnonymous) return <LoginScreen />;
   return (
     <>
       <MemberFlow />

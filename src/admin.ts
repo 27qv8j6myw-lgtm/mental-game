@@ -162,3 +162,46 @@ export async function setUserName(userId: string, name: string, gender?: Gender)
   });
   if (error) throw error;
 }
+
+/* ---------- 게스트 기록 옮기기 (supabase/guest.sql) ---------- */
+
+export interface GuestRound {
+  round_id: string;
+  /** YYYY-MM-DD */
+  date: string;
+  course: string;
+  status: string;
+  hole_count: number;
+  /** 그 라운드에서 쓴 이름 */
+  name: string;
+}
+
+/** 예전 '로그인 없이 참여하기'(익명 계정)로 라운드에 참여한 사람 */
+export interface GuestPlayer {
+  guest_uid: string;
+  created_at: string;
+  names: string[];
+  rounds: GuestRound[];
+}
+
+export interface MoveResult {
+  moved: number;
+  skipped: number;
+}
+
+/** 게스트로 친 기록 (최근 순). guest.sql 을 아직 실행하지 않았으면 null */
+export async function fetchGuestPlayers(): Promise<GuestPlayer[] | null> {
+  const { data, error } = await requireDb().rpc("admin_guest_players");
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw error;
+  }
+  return (data ?? []) as GuestPlayer[];
+}
+
+/** 게스트의 라운드를 진짜 계정으로 옮긴다. 그 계정이 이미 들어간 라운드는 건너뛴다 */
+export async function moveGuest(guestUid: string, userId: string): Promise<MoveResult> {
+  const { data, error } = await requireDb().rpc("admin_move_guest", { p_guest: guestUid, p_user: userId });
+  if (error) throw error;
+  return data as MoveResult;
+}

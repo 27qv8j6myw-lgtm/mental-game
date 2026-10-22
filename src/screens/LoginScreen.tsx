@@ -4,7 +4,8 @@ import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { detectInApp, openExternal } from "../inapp";
 
 export default function LoginScreen() {
-  const { signIn, configured, error } = useAuth();
+  const { signIn, configured, error, user } = useAuth();
+  const guest = !!user?.isAnonymous;
   const [inApp] = useState(() => detectInApp());
   const [openMsg, setOpenMsg] = useState<string | null>(null);
 
@@ -32,6 +33,16 @@ export default function LoginScreen() {
       </div>
 
       <div className="auth-actions">
+        {/* 예전 '로그인 없이 참여하기' 세션: 로그인하면 게스트로 친 라운드가 새 계정으로 옮겨진다 */}
+        {guest && (
+          <div className="guest-note">
+            <b>이제 로그인해야 쓸 수 있어요</b>
+            <p>
+              로그인 없이 참여하기가 끝났어요. 카카오나 구글로 로그인하면 지금까지 게스트로 친 라운드도 내 계정으로
+              옮겨져요.
+            </p>
+          </div>
+        )}
         {inApp && (
           <div className="inapp-note">
             <b>{inApp.name} 안에서 열렸어요</b>

@@ -7041,3 +7041,71 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   font-weight: 800;
   color: var(--ink);
 }
+/* 관리자: 게스트로 친 기록 · 옮길 계정 고르기 */
+.ri-sub.gm-rounds {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.gm-search {
+  margin-top: 12px;
+}
+.ad-row.gm-row {
+  width: 100%;
+  text-align: left;
+  color: var(--ink);
+}
+.ad-row.gm-row > svg {
+  flex: none;
+  color: var(--ink-faint);
+}
+.gm-same {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  font-size: 11px;
+  font-weight: 800;
+}
+/* 홈: 잘 됐다는 알림 (게스트 기록 옮김 등) */
+.notice-ok {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.notice-ok span {
+  flex: 1;
+}
+.notice-ok button {
+  display: flex;
+  padding: 2px;
+  color: inherit;
+}
+/* 로그인: 예전 게스트 세션 안내 */
+.guest-note {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  text-align: left;
+}
+.guest-note b {
+  font-size: 14px;
+  font-weight: 800;
+}
+.guest-note p {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}

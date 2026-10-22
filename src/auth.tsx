@@ -44,9 +44,56 @@ interface AuthCtx {
   saveName: (name: string, gender?: "male" | "female") => Promise<boolean>;
   error: string | null;
   clearError: () => void;
+  /** 게스트 세션에서 로그인해 게스트로 친 라운드를 이 계정으로 옮겼으면 그 결과 (홈에 알린다) */
+  guestMoved: GuestMoved | null;
+  clearGuestMoved: () => void;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
+
+/* ---- 게스트 기록 옮기기 (supabase/guest.sql) ----
+ * 예전 '로그인 없이 참여하기'(익명 계정) 세션이 남은 폰은 로그인 화면을 띄운다.
+ * 로그인 버튼을 누르면 먼저 게스트로 표를 받아 두고, 로그인한 뒤 그 표를 내서 게스트로 친 라운드를 새 계정으로 옮긴다. */
+export interface GuestMoved {
+  moved: number;
+  skipped: number;
+}
+const CLAIM_KEY = "mentalgame-guest-claim";
+const readClaim = () => {
+  try {
+    return localStorage.getItem(CLAIM_KEY);
+  } catch {
+    return null;
+  }
+};
+const dropClaim = () => {
+  try {
+    localStorage.removeItem(CLAIM_KEY);
+  } catch {
+    /* 저장소를 못 쓰면 그대로 */
+  }
+};
+let claiming: Promise<GuestMoved | null> | null = null;
+/** 받아 둔 표를 낸다 (여러 번 불러도 한 번만). 통신이 안 되면 표를 두고 다음에 다시 낸다 */
+function claimGuest(): Promise<GuestMoved | null> {
+  if (claiming) return claiming;
+  const token = readClaim();
+  const db = supabase;
+  if (!token || !db) return Promise.resolve(null);
+  claiming = (async () => {
+    const { data, error } = await db.rpc("claim_guest_rounds", { p_token: token });
+    if (error) {
+      console.error("게스트 기록 옮기기 실패", error);
+      // 서버가 거절했으면(guest.sql 실행 전 등) 표를 버린다. 통신 오류(코드 없음)면 다음에 다시
+      if (error.code) dropClaim();
+      claiming = null;
+      return null;
+    }
+    dropClaim();
+    return data as GuestMoved;
+  })();
+  return claiming;
+}
 
 function oauthOptions(provider: OAuthProvider) {
   return {
@@ -114,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSupabaseConfigured ? "loading" : "signed-out"
   );
   const [error, setError] = useState<string | null>(null);
+  const [guestMoved, setGuestMoved] = useState<GuestMoved | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -121,26 +169,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const redirectError = takeRedirectError();
     if (redirectError) setError(redirectError);
 
-    supabase.auth.getSession().then(({ data }) => {
-      const sUser = data.session?.user;
-      if (sUser) {
-        setUser(mapUser(sUser));
-        setMode("signed-in");
-      } else {
-        setMode("signed-out");
-      }
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const sUser = session?.user;
-      if (sUser) {
-        setUser(mapUser(sUser));
-        setMode("signed-in");
-      } else {
+    const apply = (sUser: Parameters<typeof mapUser>[0] | undefined) => {
+      if (!sUser) {
         setUser(null);
         setMode("signed-out");
+        return;
       }
-    });
+      const u = mapUser(sUser);
+      // 게스트 세션에서 로그인했다: 게스트 기록을 이 계정으로 옮긴 뒤에 화면을 연다
+      // (라운드 목록·열려 있던 라운드가 옮긴 기록을 보도록, 그동안은 불러오는 중)
+      if (!u.isAnonymous && readClaim()) {
+        void claimGuest().then((r) => {
+          if (r && (r.moved > 0 || r.skipped > 0)) setGuestMoved(r);
+          setUser(u);
+          setMode("signed-in");
+        });
+        return;
+      }
+      setUser(u);
+      setMode("signed-in");
+    };
+
+    supabase.auth.getSession().then(({ data }) => apply(data.session?.user));
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(session?.user));
 
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -158,6 +210,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             "백엔드(Supabase)가 아직 설정되지 않았어요. .env 설정 후 이용할 수 있어요."
           );
           return;
+        }
+        // 게스트 세션이면: 로그인한 뒤 게스트로 친 라운드를 새 계정으로 옮길 표를 먼저 받아 둔다
+        if (user?.isAnonymous) {
+          const { data, error: ce } = await supabase.rpc("create_guest_claim");
+          if (ce) console.error("게스트 표 받기 실패", ce);
+          else if (data)
+            try {
+              localStorage.setItem(CLAIM_KEY, String(data));
+            } catch {
+              /* 저장소를 못 쓰면 옮기지 못한다 (관리자가 옮길 수 있다) */
+            }
         }
         const { error: e } = await supabase.auth.signInWithOAuth({
           provider,
@@ -236,13 +299,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       },
       clearError: () => setError(null),
+      guestMoved,
+      clearGuestMoved: () => setGuestMoved(null),
       signOutUser: async () => {
         if (supabase) await supabase.auth.signOut();
         setUser(null);
         setMode("signed-out");
       },
     }),
-    [mode, user, error]
+    [mode, user, error, guestMoved]
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

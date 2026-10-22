@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   fetchAdminStats,
   fetchAiGrants,
+  fetchGuestPlayers,
   fetchRecentRounds,
   fetchRecentUsers,
   setAiGrant,
@@ -10,6 +11,7 @@ import {
   type AdminStats,
   type AdminUser,
   type AiGrant,
+  type GuestPlayer,
 } from "../admin";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { GAME_MODE_LABEL } from "../util";
@@ -17,6 +19,7 @@ import type { GameMode, Gender } from "../types";
 import RatioBar from "./RatioBar";
 import ScorecardImportScreen from "./ScorecardImportScreen";
 import NameDialog from "./NameDialog";
+import GuestMoveSheet from "./GuestMoveSheet";
 import { useBack } from "../back";
 
 const STATUS_LABEL: Record<string, string> = { lobby: "대기중", playing: "진행중", done: "완료" };
@@ -124,6 +127,17 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
   const loadGrants = useCallback(async () => {
     setGrants(await fetchAiGrants().catch(() => null));
   }, []);
+  // 게스트로 친 기록 (undefined: 불러오는 중, null: guest.sql 실행 전)
+  const [guests, setGuests] = useState<GuestPlayer[] | null | undefined>(undefined);
+  const [moving, setMoving] = useState<GuestPlayer | null>(null);
+  const loadGuests = useCallback(async () => {
+    setGuests(
+      await fetchGuestPlayers().catch((e) => {
+        console.error(e);
+        return [];
+      })
+    );
+  }, []);
   const toggleGrant = async (userId: string, on: boolean) => {
     setGrantBusy(userId);
     try {
@@ -161,6 +175,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setErr(null);
     void loadGrants();
+    void loadGuests();
     try {
       const [s, r, u] = await Promise.all([
         fetchAdminStats(),
@@ -176,7 +191,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, [loadGrants]);
+  }, [loadGrants, loadGuests]);
 
   useEffect(() => {
     void load();
@@ -446,6 +461,46 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
               관리자는 늘 쓸 수 있어요. 허용한 사람은 자기 기록에서만 AI 분석을 만들고 볼 수 있어요.
             </p>
 
+            {/* 예전 '로그인 없이 참여하기'(게스트)로 친 라운드: 진짜 계정으로 옮긴다 (있을 때만) */}
+            {guests !== undefined && (guests === null || guests.length > 0) && (
+              <>
+                <div className="section-title">게스트로 친 기록 {guests ? `${guests.length}명` : ""}</div>
+                <div className="card ad-list">
+                  {guests === null ? (
+                    <div className="empty-note">Supabase 에서 guest.sql 을 실행하면 보여요.</div>
+                  ) : (
+                    guests.map((g) => (
+                      <div className="ad-row" key={g.guest_uid}>
+                        <div className="ad-row-main">
+                          <div className="ri-name">
+                            <span className="ri-title">{g.names.join(", ") || "이름 없음"}</span>
+                            <span className="guest-tag">게스트</span>
+                          </div>
+                          <div className="ri-sub gm-rounds">
+                            {g.rounds.map((r) => (
+                              <span key={r.round_id}>
+                                {md(r.date)} {r.course || "이름 없는 라운드"} · {STATUS_LABEL[r.status] ?? r.status}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="ad-row-side">
+                          <span className="ad-count">라운드 {g.rounds.length}</span>
+                          <button className="ad-ai" onClick={() => setMoving(g)}>
+                            계정으로 옮기기
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <p className="hint" style={{ margin: "6px 2px 0" }}>
+                  예전 '로그인 없이 참여하기'로 친 라운드예요. 계정으로 옮기면 랭킹·전적·기록에 그 사람 라운드로 들어가요.
+                  게스트가 그 폰에서 로그인해도 저절로 옮겨져요.
+                </p>
+              </>
+            )}
+
             <div className="section-title">최근 가입자 {users.length}명</div>
             {users.length === 0 ? (
               <div className="card">
@@ -518,6 +573,21 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
+      {moving && (
+        <GuestMoveSheet
+          guest={moving}
+          onClose={() => setMoving(null)}
+          onMoved={(r, to) => {
+            setMoving(null);
+            setNotice(
+              `${to.real_name ?? to.name} 계정으로 라운드 ${r.moved}개를 옮겼어요.` +
+                (r.skipped > 0 ? ` 이미 그 계정이 들어간 라운드 ${r.skipped}개는 그대로 두었어요.` : "")
+            );
+            window.scrollTo(0, 0);
+            void load();
+          }}
+        />
+      )}
       {naming && (
         <NameDialog
           initial={naming.real_name ?? naming.name}

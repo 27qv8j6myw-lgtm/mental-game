@@ -189,7 +189,7 @@ export default function RoundsHomeScreen({
   onCreate: () => void;
   onAdmin: () => void;
 }) {
-  const { user, signOutUser, linkProvider, unlinkProvider, error, clearError } =
+  const { user, signOutUser, linkProvider, unlinkProvider, error, clearError, guestMoved, clearGuestMoved } =
     useAuth();
   const { openRound, exitNotice, clearExitNotice } = useRound();
   // 마지막으로 받은 목록을 먼저 보여준다 (통신이 없어도 라운드를 다시 열 수 있게)
@@ -583,6 +583,20 @@ export default function RoundsHomeScreen({
 
       <div className="sheet">
 
+        {/* 게스트 세션에서 로그인해 게스트로 친 라운드를 이 계정으로 옮겼을 때 */}
+        {guestMoved && (
+          <div className="notice-ok" role="status">
+            <span>
+              {guestMoved.moved > 0
+                ? `게스트로 친 라운드 ${guestMoved.moved}개를 내 계정으로 옮겼어요.`
+                : "게스트로 친 라운드를 옮기지 못했어요."}
+              {guestMoved.skipped > 0 && ` 이미 내 계정으로 들어가 있는 라운드 ${guestMoved.skipped}개는 그대로 두었어요.`}
+            </span>
+            <button aria-label="닫기" onClick={clearGuestMoved}>
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        )}
         {error && (
           <div className="notice-err" role="alert">
             <span>{error}</span>
