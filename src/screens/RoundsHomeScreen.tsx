@@ -592,6 +592,12 @@ export default function RoundsHomeScreen({
           </div>
         )}
 
+        {/* 로그인 화면과 같은 한 줄 소개 */}
+        <p className="home-tagline">
+          골프 내기, 계산은 앱이 할게요
+          <br />
+          <b>멘탈만 챙기세요</b>
+        </p>
         <button className="big-cta" onClick={onCreate}>
           <span className="ic">
             <Icon name="plus" size={24} />

@@ -7029,3 +7029,15 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   border: 1px solid var(--line-strong);
   color: var(--ink);
 }
+/* 홈: 새 라운드 만들기 위 소개 문구 (로그인 화면과 같은 말) */
+.home-tagline {
+  margin: 2px 4px 14px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  letter-spacing: -0.01em;
+}
+.home-tagline b {
+  font-weight: 800;
+  color: var(--ink);
+}
