@@ -5,6 +5,8 @@ import { useBack } from "../back";
 import { loadStats, type PersonStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
+import PaneHead from "./PaneHead";
+import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
 import { GAME_MODE_LABEL, wonSigned } from "../util";
 import { cachedRanking, loadRanking, overall, type RankingData } from "../ranking";
@@ -247,6 +249,13 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   };
   // 기기 뒤로가기: 사람 상세 → 전체 보기
   useBack(!!selected, () => setSelected(null));
+  // 펼친 iPhone Duo: 왼쪽 금액 · 오른쪽 타수. 칸마다 사람을 따로 고른다
+  const split = useUnfolded();
+  const [splitSel, setSplitSel] = useState<Record<RankBy, string | null>>({ money: null, strokes: null });
+  const pick = (k: RankBy, uid: string | null) => {
+    setSplitSel((v) => ({ ...v, [k]: uid }));
+    document.querySelector(`.split-pane.st-${k}`)?.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     if (!myUid) return;
@@ -259,6 +268,10 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   }, [myUid]);
 
   const person = selected ? stats?.people.find((p) => p.uid === selected) ?? null : null;
+  const splitPerson: Record<RankBy, PersonStats | null> = {
+    money: splitSel.money ? stats?.people.find((p) => p.uid === splitSel.money) ?? null : null,
+    strokes: splitSel.strokes ? stats?.people.find((p) => p.uid === splitSel.strokes) ?? null : null,
+  };
   // 함께한 사람들 목록에는 나를 넣지 않는다 (나는 맨 위 카드)
   const others = stats?.people.filter((p) => p.uid !== myUid) ?? [];
   // 타수 순위: 나와 함께 끝까지 친 라운드에서 나와의 평균 타수 차이가 작은(나보다 잘 친) 순.
@@ -277,15 +290,266 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   // 전체 라운드 평균 (나와 치지 않은 라운드 포함): 랭킹 자료로. 랭킹에서 숨긴 사람·폰 없는 동반자는 없음
   const [rank, setRank] = useState<RankingData | null>(cachedRanking);
   useEffect(() => {
-    if (by !== "strokes" || !selected) return;
+    if (!(split ? splitSel.strokes : by === "strokes" && selected)) return;
     loadRanking()
       .then(setRank)
       .catch((e) => console.warn("전체 평균(랭킹)을 불러오지 못함", e));
-  }, [by, selected]);
+  }, [by, selected, split, splitSel.strokes]);
   const open = (uid: string) => {
     setSelected(uid);
     window.scrollTo(0, 0);
   };
+
+  const status = (
+    <>
+      {err && (
+        <div className="card">
+          <div className="empty-note" style={{ color: "var(--loss)" }}>
+            {err}
+          </div>
+        </div>
+      )}
+      {!stats && !err && (
+        <div className="card">
+          <div className="empty-note">불러오는 중…</div>
+        </div>
+      )}
+
+      {stats && stats.roundCount === 0 && (
+        <div className="card">
+          <div className="empty-note">
+            아직 최종 확정한 라운드가 없어요. 라운드를 끝내고 최종 확정하면 전적이 쌓여요.
+          </div>
+        </div>
+      )}
+    </>
+  );
+  /** 금액·타수 한쪽 화면 (펼친 화면에서는 두 칸에 하나씩) */
+  const body = (by: RankBy, person: PersonStats | null, open: (uid: string) => void) => (
+    <>
+      {stats && stats.roundCount > 0 && !person && by === "strokes" && (
+        <>
+          {stats.me && <StrokeHero p={stats.me} label="내 평균 타수 (18홀)" onOpen={() => open(myUid)} />}
+
+          <div className="section-title">함께한 사람들 {others.length}명</div>
+          <div className="card st-list">
+            {strokeRows.map((p, i) => {
+              const vs = p.strokesVsMe;
+              const me = p.uid === myUid;
+              return (
+                <button className={`st-row ${me ? "st-row-me" : ""}`} key={p.uid} onClick={() => open(p.uid)}>
+                  <span className={`rank ${i === 0 && vs && vs.diff < 0 ? "top" : ""}`}>
+                    {me || vs ? i + 1 : "–"}
+                  </span>
+                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
+                  <span className="st-row-main">
+                    <span className="st-row-name">
+                      {p.name || "?"}
+                      {me && <span className="me-tag">나</span>}
+                    </span>
+                    <span className="st-row-sub">
+                      {me
+                        ? `평균 ${p.avg18 ?? "–"}${p.avg18 != null ? "타" : ""}`
+                        : vs
+                          ? `나와 ${vs.rounds}라운드 · ${vs.win}승 ${vs.loss}패${vs.draw > 0 ? ` ${vs.draw}무` : ""}`
+                          : "함께 끝까지 친 라운드 없음"}
+                    </span>
+                  </span>
+                  <span className="st-row-amt">{me ? "기준" : vs ? diffLabel(vs.diff) : "–"}</span>
+                  <Icon name="chevronRight" size={16} className="st-row-go" />
+                </button>
+              );
+            })}
+          </div>
+          <p className="hint" style={{ margin: "8px 2px 0" }}>
+            나와 함께 끝까지 친 라운드에서 나와의 평균 타수 차이예요. −는 나보다 적게 친 거예요.
+          </p>
+        </>
+      )}
+
+      {stats && stats.roundCount > 0 && !person && by === "money" && (
+        <>
+          {stats.me && (
+            <PersonHero p={stats.me} label="내 누적 금액" onOpen={() => open(myUid)} />
+          )}
+
+          <div className="section-title">함께한 사람들 {others.length}명</div>
+          <div className="card st-list">
+            {others.map((p, i) => (
+              <button className="st-row" key={p.uid} onClick={() => open(p.uid)}>
+                <span className={`rank ${i === 0 && p.total > 0 ? "top" : ""}`}>{i + 1}</span>
+                <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
+                <span className="st-row-main">
+                  <span className="st-row-name">{p.name || "?"}</span>
+                  {/* 누르면 나오는 '나와 맞대결'과 같은 기준: 내 승수 먼저 */}
+                  <span className="st-row-sub">
+                    {p.vsMe
+                      ? `나와 ${p.vsMe.win + p.vsMe.loss + p.vsMe.draw}라운드 · ${p.vsMe.win}승 ${p.vsMe.loss}패${p.vsMe.draw > 0 ? ` ${p.vsMe.draw}무` : ""}`
+                      : `${p.rounds}라운드 · ${record(p)}`}
+                  </span>
+                </span>
+                <span className={`st-row-amt ${tone(p.total)}`}>{money(p.total)}</span>
+                <Icon name="chevronRight" size={16} className="st-row-go" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {person && by === "strokes" && (
+        <>
+          <StrokeHero
+            p={person}
+            label={person.uid === myUid ? "내 평균 타수 (18홀)" : "나와 함께한 라운드 평균 (18홀)"}
+          />
+
+          {person.strokesVsMe && (
+            <>
+              <div className="section-title">나와 타수 맞대결</div>
+              <WinLossBar
+                win={person.strokesVsMe.win}
+                draw={person.strokesVsMe.draw}
+                loss={person.strokesVsMe.loss}
+                winLabel="나"
+                middle={`${person.strokesVsMe.draw}무`}
+                lossLabel={person.name || "?"}
+                footer={
+                  <AvgCompare
+                    name={person.name || "?"}
+                    together={[person.strokesVsMe.myAvg18, person.strokesVsMe.theirAvg18]}
+                    all={[
+                      rank ? overall(rank, myUid)?.avg : undefined,
+                      rank ? overall(rank, person.uid)?.avg : undefined,
+                    ]}
+                  />
+                }
+              />
+              <p className="hint" style={{ margin: "8px 2px 0" }}>
+                둘 다 끝까지 친 {person.strokesVsMe.rounds}라운드에서 타수가 적은 쪽이 이겨요. 평균은 18홀
+                라운드이고, 전체 라운드는 나와 치지 않은 라운드까지 모두예요. 함께 칠 때 +면 나와 칠 때 더 많이
+                쳐요.
+              </p>
+            </>
+          )}
+
+          <div className="section-title">라운드별 타수 {person.history.length}개</div>
+          <div className="card st-list">
+            {person.history.map((r) => {
+              const m = person.uid === myUid ? null : myRec.get(r.roundId);
+              // 내 기준 승패 (둘 다 끝까지 친 라운드만)
+              const res =
+                m?.gross != null && r.gross != null
+                  ? m.gross < r.gross
+                    ? "win"
+                    : m.gross > r.gross
+                      ? "loss"
+                      : "draw"
+                  : null;
+              return (
+                <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
+                  <RecDate date={r.date} />
+                  <span className="st-row-main">
+                    <span className="st-row-name">
+                      <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
+                      <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+                    </span>
+                    {/* 다른 사람: 그 라운드 내 타수와 비교 / 나: 인원·버디 */}
+                    <span className="st-row-sub">
+                      {m ? (
+                        `나 ${m.gross ?? "–"}${m.gross != null ? "타" : ""}`
+                      ) : (
+                        <>
+                          {r.playerCount}명{r.birdies > 0 && ` · 버디 ${r.birdies}`}
+                          {r.eagles > 0 && ` · 이글 ${r.eagles}`}
+                        </>
+                      )}
+                      {r.holeCount !== 18 && ` · ${r.holeCount}홀`}
+                    </span>
+                  </span>
+                  <span className="st-row-amt">
+                    {r.gross ?? "–"}
+                    {r.gross != null && "타"}
+                  </span>
+                  {res && (
+                    <span className={`st-res ${res}`}>{res === "win" ? "승" : res === "loss" ? "패" : "무"}</span>
+                  )}
+                  <Icon name="chevronRight" size={16} className="st-row-go" />
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {person && by === "money" && (
+        <>
+          <PersonHero
+            p={person}
+            label={person.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"}
+          />
+
+          {person.vsMe ? (
+            <>
+              <div className="section-title">나와 맞대결</div>
+              <WinLossBar
+                win={person.vsMe.win}
+                draw={person.vsMe.draw}
+                loss={person.vsMe.loss}
+                winLabel="나"
+                middle={`${person.vsMe.draw}무`}
+                lossLabel={person.name || "?"}
+                left={<Amt v={person.vsMe.myTotal} />}
+                right={<Amt v={person.vsMe.theirTotal} />}
+              />
+            </>
+          ) : (
+            <>
+              <div className="section-title">내 승패</div>
+              <WinLossBar
+                win={person.wins}
+                draw={person.draws}
+                loss={person.losses}
+                winLabel=""
+                middle={`${person.draws}무 · 승률 ${Math.round((person.wins / Math.max(1, person.rounds)) * 100)}%`}
+                lossLabel=""
+                left={<Amt v={person.history.reduce((t, r) => t + Math.max(0, r.net), 0)} />}
+                right={<Amt v={person.history.reduce((t, r) => t + Math.min(0, r.net), 0)} />}
+              />
+            </>
+          )}
+
+          <div className="section-title">라운드별 기록 {person.history.length}개</div>
+          <div className="card st-list">
+            {person.history.map((r) => (
+              // 누르면 그 라운드의 정산 결과 화면으로 (닫으면 다시 이 화면)
+              <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
+                <RecDate date={r.date} />
+                <span className="st-row-main">
+                  <span className="st-row-name">
+                    <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
+                    <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+                  </span>
+                  <span className="st-row-sub">
+                    {r.playerCount}명 중 {r.rank}위
+                    {r.gross != null && ` · ${r.gross}타`}
+                    {r.birdies > 0 && ` · 버디 ${r.birdies}`}
+                    {r.eagles > 0 && ` · 이글 ${r.eagles}`}
+                  </span>
+                </span>
+                {/* 캐디피·등수 내기(내는 돈·금액 없음)는 주고받은 돈 대신 낸 캐디피·점수 */}
+                {r.money ? (
+                  <span className={`st-row-amt ${tone(r.net)}`}>{money(r.net)}</span>
+                ) : (
+                  <span className="st-row-amt st-row-detail">{r.detail ?? "–"}</span>
+                )}
+                <Icon name="chevronRight" size={16} className="st-row-go" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
 
   return (
     <div className="app">
@@ -295,266 +559,54 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         right={<NoticeButton />}
       />
 
-      <div className="sheet">
-        <h2 className="page-title">{person ? person.name || "전적" : "전적"}</h2>
-        {err && (
-          <div className="card">
-            <div className="empty-note" style={{ color: "var(--loss)" }}>
-              {err}
-            </div>
-          </div>
-        )}
-        {!stats && !err && (
-          <div className="card">
-            <div className="empty-note">불러오는 중…</div>
-          </div>
-        )}
-
-        {stats && stats.roundCount === 0 && (
-          <div className="card">
-            <div className="empty-note">
-              아직 최종 확정한 라운드가 없어요. 라운드를 끝내고 최종 확정하면 전적이 쌓여요.
-            </div>
-          </div>
-        )}
-
-        {stats && stats.roundCount > 0 && !person && (
-          <div className="segmented st-by">
-            {(
-              [
-                ["money", "금액"],
-                ["strokes", "타수"],
-              ] as const
-            ).map(([k, label]) => (
-              <button key={k} className={by === k ? "active" : ""} onClick={() => setBy(k)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {stats && stats.roundCount > 0 && !person && by === "strokes" && (
-          <>
-            {stats.me && <StrokeHero p={stats.me} label="내 평균 타수 (18홀)" onOpen={() => open(myUid)} />}
-
-            <div className="section-title">함께한 사람들 {others.length}명</div>
-            <div className="card st-list">
-              {strokeRows.map((p, i) => {
-                const vs = p.strokesVsMe;
-                const me = p.uid === myUid;
-                return (
-                  <button className={`st-row ${me ? "st-row-me" : ""}`} key={p.uid} onClick={() => open(p.uid)}>
-                    <span className={`rank ${i === 0 && vs && vs.diff < 0 ? "top" : ""}`}>
-                      {me || vs ? i + 1 : "–"}
-                    </span>
-                    <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
-                    <span className="st-row-main">
-                      <span className="st-row-name">
-                        {p.name || "?"}
-                        {me && <span className="me-tag">나</span>}
-                      </span>
-                      <span className="st-row-sub">
-                        {me
-                          ? `평균 ${p.avg18 ?? "–"}${p.avg18 != null ? "타" : ""}`
-                          : vs
-                            ? `나와 ${vs.rounds}라운드 · ${vs.win}승 ${vs.loss}패${vs.draw > 0 ? ` ${vs.draw}무` : ""}`
-                            : "함께 끝까지 친 라운드 없음"}
-                      </span>
-                    </span>
-                    <span className="st-row-amt">{me ? "기준" : vs ? diffLabel(vs.diff) : "–"}</span>
-                    <Icon name="chevronRight" size={16} className="st-row-go" />
-                  </button>
-                );
-              })}
-            </div>
-            <p className="hint" style={{ margin: "8px 2px 0" }}>
-              나와 함께 끝까지 친 라운드에서 나와의 평균 타수 차이예요. −는 나보다 적게 친 거예요.
-            </p>
-          </>
-        )}
-
-        {stats && stats.roundCount > 0 && !person && by === "money" && (
-          <>
-            {stats.me && (
-              <PersonHero p={stats.me} label="내 누적 금액" onOpen={() => open(myUid)} />
-            )}
-
-            <div className="section-title">함께한 사람들 {others.length}명</div>
-            <div className="card st-list">
-              {others.map((p, i) => (
-                <button className="st-row" key={p.uid} onClick={() => open(p.uid)}>
-                  <span className={`rank ${i === 0 && p.total > 0 ? "top" : ""}`}>{i + 1}</span>
-                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
-                  <span className="st-row-main">
-                    <span className="st-row-name">{p.name || "?"}</span>
-                    {/* 누르면 나오는 '나와 맞대결'과 같은 기준: 내 승수 먼저 */}
-                    <span className="st-row-sub">
-                      {p.vsMe
-                        ? `나와 ${p.vsMe.win + p.vsMe.loss + p.vsMe.draw}라운드 · ${p.vsMe.win}승 ${p.vsMe.loss}패${p.vsMe.draw > 0 ? ` ${p.vsMe.draw}무` : ""}`
-                        : `${p.rounds}라운드 · ${record(p)}`}
-                    </span>
-                  </span>
-                  <span className={`st-row-amt ${tone(p.total)}`}>{money(p.total)}</span>
-                  <Icon name="chevronRight" size={16} className="st-row-go" />
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {person && by === "strokes" && (
-          <>
-            <StrokeHero
-              p={person}
-              label={person.uid === myUid ? "내 평균 타수 (18홀)" : "나와 함께한 라운드 평균 (18홀)"}
-            />
-
-            {person.strokesVsMe && (
-              <>
-                <div className="section-title">나와 타수 맞대결</div>
-                <WinLossBar
-                  win={person.strokesVsMe.win}
-                  draw={person.strokesVsMe.draw}
-                  loss={person.strokesVsMe.loss}
-                  winLabel="나"
-                  middle={`${person.strokesVsMe.draw}무`}
-                  lossLabel={person.name || "?"}
-                  footer={
-                    <AvgCompare
-                      name={person.name || "?"}
-                      together={[person.strokesVsMe.myAvg18, person.strokesVsMe.theirAvg18]}
-                      all={[
-                        rank ? overall(rank, myUid)?.avg : undefined,
-                        rank ? overall(rank, person.uid)?.avg : undefined,
-                      ]}
-                    />
+      {split ? (
+        <div className="split-view">
+          {(["money", "strokes"] as const).map((k) => {
+            const p = splitPerson[k];
+            return (
+              <div className={`split-pane st-${k}`} key={k}>
+                <PaneHead
+                  title={p ? p.name || "?" : k === "money" ? "금액" : "타수"}
+                  sub={
+                    p
+                      ? k === "money"
+                        ? p.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"
+                        : p.uid === myUid ? "내 평균 타수 (18홀)" : "나와 함께한 라운드 평균"
+                      : k === "money"
+                        ? "누적 금액 순"
+                        : "나와의 평균 타수 차이 순"
                   }
+                  onBack={p ? () => pick(k, null) : undefined}
                 />
-                <p className="hint" style={{ margin: "8px 2px 0" }}>
-                  둘 다 끝까지 친 {person.strokesVsMe.rounds}라운드에서 타수가 적은 쪽이 이겨요. 평균은 18홀
-                  라운드이고, 전체 라운드는 나와 치지 않은 라운드까지 모두예요. 함께 칠 때 +면 나와 칠 때 더 많이
-                  쳐요.
-                </p>
-              </>
-            )}
-
-            <div className="section-title">라운드별 타수 {person.history.length}개</div>
-            <div className="card st-list">
-              {person.history.map((r) => {
-                const m = person.uid === myUid ? null : myRec.get(r.roundId);
-                // 내 기준 승패 (둘 다 끝까지 친 라운드만)
-                const res =
-                  m?.gross != null && r.gross != null
-                    ? m.gross < r.gross
-                      ? "win"
-                      : m.gross > r.gross
-                        ? "loss"
-                        : "draw"
-                    : null;
-                return (
-                  <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
-                    <RecDate date={r.date} />
-                    <span className="st-row-main">
-                      <span className="st-row-name">
-                        <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
-                        <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
-                      </span>
-                      {/* 다른 사람: 그 라운드 내 타수와 비교 / 나: 인원·버디 */}
-                      <span className="st-row-sub">
-                        {m ? (
-                          `나 ${m.gross ?? "–"}${m.gross != null ? "타" : ""}`
-                        ) : (
-                          <>
-                            {r.playerCount}명{r.birdies > 0 && ` · 버디 ${r.birdies}`}
-                            {r.eagles > 0 && ` · 이글 ${r.eagles}`}
-                          </>
-                        )}
-                        {r.holeCount !== 18 && ` · ${r.holeCount}홀`}
-                      </span>
-                    </span>
-                    <span className="st-row-amt">
-                      {r.gross ?? "–"}
-                      {r.gross != null && "타"}
-                    </span>
-                    {res && (
-                      <span className={`st-res ${res}`}>{res === "win" ? "승" : res === "loss" ? "패" : "무"}</span>
-                    )}
-                    <Icon name="chevronRight" size={16} className="st-row-go" />
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {person && by === "money" && (
-          <>
-            <PersonHero
-              p={person}
-              label={person.uid === myUid ? "내 누적 금액" : "나와 함께한 라운드 누적"}
-            />
-
-            {person.vsMe ? (
-              <>
-                <div className="section-title">나와 맞대결</div>
-                <WinLossBar
-                  win={person.vsMe.win}
-                  draw={person.vsMe.draw}
-                  loss={person.vsMe.loss}
-                  winLabel="나"
-                  middle={`${person.vsMe.draw}무`}
-                  lossLabel={person.name || "?"}
-                  left={<Amt v={person.vsMe.myTotal} />}
-                  right={<Amt v={person.vsMe.theirTotal} />}
-                />
-              </>
-            ) : (
-              <>
-                <div className="section-title">내 승패</div>
-                <WinLossBar
-                  win={person.wins}
-                  draw={person.draws}
-                  loss={person.losses}
-                  winLabel=""
-                  middle={`${person.draws}무 · 승률 ${Math.round((person.wins / Math.max(1, person.rounds)) * 100)}%`}
-                  lossLabel=""
-                  left={<Amt v={person.history.reduce((t, r) => t + Math.max(0, r.net), 0)} />}
-                  right={<Amt v={person.history.reduce((t, r) => t + Math.min(0, r.net), 0)} />}
-                />
-              </>
-            )}
-
-            <div className="section-title">라운드별 기록 {person.history.length}개</div>
-            <div className="card st-list">
-              {person.history.map((r) => (
-                // 누르면 그 라운드의 정산 결과 화면으로 (닫으면 다시 이 화면)
-                <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
-                  <RecDate date={r.date} />
-                  <span className="st-row-main">
-                    <span className="st-row-name">
-                      <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
-                      <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
-                    </span>
-                    <span className="st-row-sub">
-                      {r.playerCount}명 중 {r.rank}위
-                      {r.gross != null && ` · ${r.gross}타`}
-                      {r.birdies > 0 && ` · 버디 ${r.birdies}`}
-                      {r.eagles > 0 && ` · 이글 ${r.eagles}`}
-                    </span>
-                  </span>
-                  {/* 캐디피·등수 내기(내는 돈·금액 없음)는 주고받은 돈 대신 낸 캐디피·점수 */}
-                  {r.money ? (
-                    <span className={`st-row-amt ${tone(r.net)}`}>{money(r.net)}</span>
-                  ) : (
-                    <span className="st-row-amt st-row-detail">{r.detail ?? "–"}</span>
-                  )}
-                  <Icon name="chevronRight" size={16} className="st-row-go" />
+                <div className="sheet">
+                  {status}
+                  {body(k, p, (uid) => pick(k, uid))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="sheet">
+          <h2 className="page-title">{person ? person.name || "전적" : "전적"}</h2>
+          {status}
+          {stats && stats.roundCount > 0 && !person && (
+            <div className="segmented st-by">
+              {(
+                [
+                  ["money", "금액"],
+                  ["strokes", "타수"],
+                ] as const
+              ).map(([k, label]) => (
+                <button key={k} className={by === k ? "active" : ""} onClick={() => setBy(k)}>
+                  {label}
                 </button>
               ))}
             </div>
-          </>
-        )}
-      </div>
+          )}
+          {body(by, person, open)}
+        </div>
+      )}
     </div>
   );
 }

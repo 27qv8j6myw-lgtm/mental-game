@@ -2,6 +2,8 @@ import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBack } from "../back";
 import { Icon, Wordmark } from "../icons";
+import { useUnfolded } from "../rail";
+import { LogoHead } from "./PaneHead";
 
 /**
  * 모든 화면의 상단 바: 가운데 mental game 글자 로고 (인스타그램처럼).
@@ -20,6 +22,19 @@ export default function TopBar({
   locked?: boolean;
   className?: string;
 }) {
+  // 펼친 iPhone Duo: 위 바 대신 맨 위 로고 머리(두 칸 화면은 왼쪽 칸이 따로 그려서 숨긴다),
+  // 양옆 버튼은 오른쪽 막대의 와이파이 아래에 세로로
+  const unfolded = useUnfolded();
+  if (unfolded)
+    return (
+      <>
+        <LogoHead className="page-logo" />
+        <div className={`rail-actions ${locked ? "locked" : ""}`}>
+          {left}
+          {right}
+        </div>
+      </>
+    );
   return (
     <div className={`topbar app-top ${className}`}>
       <div className={`tb-side tb-left ${locked ? "locked" : ""}`}>{left}</div>

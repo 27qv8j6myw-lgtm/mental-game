@@ -16,11 +16,13 @@ import NameDialog from "./screens/NameDialog";
 import RankingScreen from "./screens/RankingScreen";
 import ProfileMenu from "./screens/ProfileMenu";
 import TopBar, { BackButton } from "./screens/TopBar";
+import { LogoHead } from "./screens/PaneHead";
 import PlayBar, { DockButton } from "./screens/PlayBar";
 import { Avatar, Icon } from "./icons";
 import { firstUnsaved } from "./model";
 import { useBack } from "./back";
 import { useOnline } from "./online";
+import { useUnfolded } from "./rail";
 import type { Session } from "./types";
 
 export default function App() {
@@ -68,6 +70,8 @@ function MemberFlow() {
   const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking">("home");
   /** 하단 바 프로필 사진을 누르면 여는 메뉴 */
   const [profileOpen, setProfileOpen] = useState(false);
+  // 펼친 iPhone Duo: 라운드 만들기·대기실은 라운드 탭 왼쪽 칸에 (오른쪽은 진행 중 목록 그대로)
+  const split = useUnfolded();
 
   // 라운드를 만들어 들어갔으면, 라운드를 닫을 때 만들기 화면이 아니라 홈으로 돌아온다
   // (전적·라운드 기록에서 연 라운드는 닫으면 그 화면으로 돌아온다)
@@ -100,11 +104,24 @@ function MemberFlow() {
         </div>
       );
     }
-    if (round.status === "lobby") return <LobbyScreen />;
+    if (round.status === "lobby")
+      return split ? (
+        <RoundsHomeScreen onCreate={() => setView("create")} side={<LobbyScreen embedded />} />
+      ) : (
+        <LobbyScreen />
+      );
     return <RoundPlay session={round.session} />;
   }
 
-  if (view === "create") return <CreateRoundScreen onCancel={() => setView("home")} />;
+  if (view === "create")
+    return split ? (
+      <RoundsHomeScreen
+        onCreate={() => setView("create")}
+        side={<CreateRoundScreen embedded onCancel={() => setView("home")} />}
+      />
+    ) : (
+      <CreateRoundScreen onCancel={() => setView("home")} />
+    );
   if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
   // 홈·전적·기록·랭킹은 하단 탭으로 오간다 (아이콘만, 떠 있는 유리 바). 오른쪽 끝은 프로필
   const tabs = (
@@ -164,7 +181,14 @@ function RoundPlay({ session }: { session: Session }) {
   const round = useRound();
   const [firstTab] = useState<"game" | "result">(session.status === "done" ? "result" : "game");
   const [tab, setTab] = useState<"game" | "result">(firstTab);
+  /** 펼친 iPhone Duo: 왼쪽 정산 결과(기록 분석) · 오른쪽 홀 진행을 함께 보여 준다 */
+  const split = useUnfolded();
   const showTab = (t: "game" | "result") => {
+    // 두 칸이 다 보이면 탭을 바꾸지 않고 그 칸을 맨 위로
+    if (split) {
+      document.querySelector(`.split-pane.${t}`)?.scrollTo(0, 0);
+      return;
+    }
     setTab(t);
     window.scrollTo(0, 0);
   };
@@ -228,55 +252,70 @@ function RoundPlay({ session }: { session: Session }) {
 
   return (
     <div className="app">
-      {/* 왼쪽 홀 진행 ↔ 오른쪽 정산 결과(기록 분석). 라운드 목록으로는 아래 왼쪽 ‹ */}
-      <TopBar
-        className="round-top"
-        locked={busy}
-        left={
-          <button
-            className={`icon-btn ${tab === "game" ? "on" : ""}`}
-            aria-label="홀 진행"
-            aria-pressed={tab === "game"}
-            disabled={busy}
-            onClick={() => showTab("game")}
-          >
-            <Icon name="flag" size={24} />
-          </button>
-        }
-        right={
-          <button
-            className={`icon-btn ${tab === "result" ? "on" : ""}`}
-            aria-label={isRecord ? "기록 분석" : "정산 결과"}
-            aria-pressed={tab === "result"}
-            disabled={busy}
-            onClick={() => showTab("result")}
-          >
-            <Icon name={isRecord ? "graph" : "trophy"} size={24} />
-          </button>
-        }
-      />
-
-      {tab === "game" ? (
-        isRecord ? (
-          <RecordGameScreen session={session} onFinish={finalize} onBusyChange={onBusyChange} />
-        ) : (
-          <GameScreen
-            session={session}
-            onFinish={finalize}
-            onShowResult={() => showTab("result")}
-            onBusyChange={onBusyChange}
-          />
-        )
-      ) : isRecord ? (
-        <RecordResultsScreen session={session} />
-      ) : (
-        <ResultsScreen
-          session={session}
-          onEditScores={() => showTab("game")}
-          // 홀을 다 저장하기 전에 끝내기 (방장, 비·시간 문제로 일찍 마칠 때). 다 저장했으면 아래 '최종 확정'
-          onFinishEarly={round.isHost && session.status === "playing" && unsaved > 0 ? finalize : undefined}
+      {/* 왼쪽 정산 결과(기록 분석) ↔ 오른쪽 홀 진행 (펼친 화면의 두 칸과 같은 쪽). 라운드 목록으로는 아래 홈.
+          펼친 화면은 두 칸이 다 보여서 위 바 없이 왼쪽 칸 머리에 로고 */}
+      {!split && (
+        <TopBar
+          className="round-top"
+          locked={busy}
+          left={
+            <button
+              className={`icon-btn ${tab === "result" ? "on" : ""}`}
+              aria-label={isRecord ? "기록 분석" : "정산 결과"}
+              aria-pressed={tab === "result"}
+              disabled={busy}
+              onClick={() => showTab("result")}
+            >
+              <Icon name={isRecord ? "graph" : "trophy"} size={24} />
+            </button>
+          }
+          right={
+            <button
+              className={`icon-btn ${tab === "game" ? "on" : ""}`}
+              aria-label="홀 진행"
+              aria-pressed={tab === "game"}
+              disabled={busy}
+              onClick={() => showTab("game")}
+            >
+              <Icon name="flag" size={24} />
+            </button>
+          }
         />
       )}
+
+      {/* 홀 진행 칸은 접든 펴든 늘 같은 자리에 둬서, 입력하던 점수가 화면을 접고 펼 때 사라지지 않게 한다.
+          접힌 화면에서는 칸 상자가 없는 것처럼(display: contents) 지금 탭 하나만 보인다 */}
+      <div className={`round-panes ${split ? "split split-view" : ""}`}>
+        {(split || tab === "result") && (
+          <div className="split-pane result">
+            {split && <LogoHead />}
+            {isRecord ? (
+              <RecordResultsScreen session={session} />
+            ) : (
+              <ResultsScreen
+                session={session}
+                onEditScores={() => showTab("game")}
+                // 홀을 다 저장하기 전에 끝내기 (방장, 비·시간 문제로 일찍 마칠 때). 다 저장했으면 아래 '최종 확정'
+                onFinishEarly={round.isHost && session.status === "playing" && unsaved > 0 ? finalize : undefined}
+              />
+            )}
+          </div>
+        )}
+        {(split || tab === "game") && (
+          <div className="split-pane game">
+            {isRecord ? (
+              <RecordGameScreen session={session} onFinish={finalize} onBusyChange={onBusyChange} />
+            ) : (
+              <GameScreen
+                session={session}
+                onFinish={finalize}
+                onShowResult={() => showTab("result")}
+                onBusyChange={onBusyChange}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 정산 결과·기록 분석 화면의 라운드 종료 (홀 진행에서는 아래 버튼 줄에 있다).
           내기 라운드는 모든 홀을 저장한 뒤에만 */}
@@ -294,8 +333,10 @@ function RoundPlay({ session }: { session: Session }) {
         <span className="offline-pill round-net">{online ? "저장 대기" : "오프라인"}</span>
       )}
 
+      {/* 펼친 화면에서는 아래 줄이 홀 진행 것 하나뿐이라, 다 저장하면 거기에 확정이 나온다 (GameScreen) */}
       {round.isHost &&
         session.status === "playing" &&
+        !split &&
         tab === "result" &&
         (isRecord || allSaved || !session.holeSave) && (
           <PlayBar action={<DockButton label={isRecord ? "종료" : "확정"} onClick={finalize} />}>

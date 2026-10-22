@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
 import TopBar, { BackButton } from "./TopBar";
+import { LogoHead } from "./PaneHead";
 import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, TEE_BOXES, teeLabel, won } from "../util";
 import AccountField from "./AccountField";
 import { StrokeAdjField } from "./RoundFields";
@@ -73,7 +74,8 @@ function NameField({
   );
 }
 
-export default function LobbyScreen() {
+/** embedded: 펼친 iPhone Duo 라운드 탭 왼쪽 칸 안에 (위 바 대신 로고 머리, 아래 버튼은 칸 아래에) */
+export default function LobbyScreen({ embedded = false }: { embedded?: boolean }) {
   const {
     bundle,
     session,
@@ -243,8 +245,12 @@ export default function LobbyScreen() {
   };
 
   return (
-    <div className="app">
-      <TopBar left={<BackButton label="홈으로" onClick={() => closeRound()} />} />
+    <div className={embedded ? "pane-screen" : "app"}>
+      {embedded ? (
+        <LogoHead onBack={() => closeRound()} />
+      ) : (
+        <TopBar left={<BackButton label="홈으로" onClick={() => closeRound()} />} />
+      )}
 
       <div className="sheet with-actionbar">
         <h2 className="page-title">대기실</h2>

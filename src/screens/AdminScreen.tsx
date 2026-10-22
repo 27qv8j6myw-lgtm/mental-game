@@ -15,6 +15,8 @@ import {
 } from "../admin";
 import { GoogleLogo, Icon, KakaoLogo } from "../icons";
 import TopBar, { BackButton } from "./TopBar";
+import PaneHead, { LogoHead } from "./PaneHead";
+import { useUnfolded } from "../rail";
 import { GAME_MODE_LABEL } from "../util";
 import type { GameMode, Gender } from "../types";
 import RatioBar from "./RatioBar";
@@ -202,6 +204,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   useBack(importing, () => setImporting(false));
+  const split = useUnfolded();
   if (importing)
     return (
       <ScorecardImportScreen
@@ -215,6 +218,347 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
       />
     );
 
+  // 펼친 iPhone Duo: 왼쪽 가입자·라운드 통계까지 · 오른쪽 최근 라운드부터
+  const head = (
+    <>
+      <h2 className="page-title">관리자 대시보드</h2>
+      {notice && <div className="sc-notice">{notice}</div>}
+      <button
+        className="btn-line wide sc-add"
+        onClick={() => {
+          setNotice(null);
+          setImporting(true);
+        }}
+      >
+        <Icon name="camera" size={18} />
+        스코어카드 사진으로 기록 추가
+      </button>
+      {err && (
+        <div className="card">
+          <div className="empty-note" style={{ color: "var(--loss)" }}>
+            {err}
+          </div>
+        </div>
+      )}
+      {!stats && loading && (
+        <div className="card">
+          <div className="empty-note">불러오는 중…</div>
+        </div>
+      )}
+    </>
+  );
+  const statsTop = stats && (
+    <>
+      <p className="hint" style={{ margin: "0 2px 12px" }}>
+        {new Date(stats.generated_at).toLocaleString("ko-KR")} 기준 · 날짜는 한국 시간
+      </p>
+
+      <div className="ad-kpis">
+        <div className="ad-kpi">
+          <span>전체 가입자</span>
+          <b>{num(stats.users.total)}</b>
+          <small>오늘 +{num(stats.users.today)}</small>
+        </div>
+        <div className="ad-kpi">
+          <span>최근 7일 가입</span>
+          <b>{num(stats.users.last7)}</b>
+          <small>7일 내 로그인 {num(stats.users.active7)}</small>
+        </div>
+        <div className="ad-kpi">
+          <span>전체 라운드</span>
+          <b>{num(stats.rounds.total)}</b>
+          <small>오늘 +{num(stats.rounds.today)}</small>
+        </div>
+        <div className="ad-kpi">
+          <span>최근 7일 라운드</span>
+          <b>{num(stats.rounds.last7)}</b>
+          <small>참여자 {num(stats.activity.players7)}명</small>
+        </div>
+      </div>
+
+      <div className="section-title">가입자</div>
+      <div className="card">
+        <div className="ad-sub">일별 신규 가입 (최근 30일)</div>
+        <BarChart
+          data={stats.users.daily.map((d) => ({ label: md(d.day), count: d.count }))}
+          labelEvery={7}
+        />
+        <RatioBar
+          title="로그인 방식"
+          items={[
+            { label: "구글만", count: stats.users.providers.google },
+            { label: "카카오만", count: stats.users.providers.kakao },
+            { label: "둘 다", count: stats.users.providers.both },
+          ]}
+        />
+      </div>
+
+      <div className="section-title">라운드</div>
+      <div className="card">
+        <div className="ad-sub-row">
+          <div className="ad-sub">
+            {range === "daily" ? "일별 생성 (최근 30일)" : "주별 생성 (최근 12주)"}
+          </div>
+          <div className="segmented sm ad-range">
+            <button
+              className={range === "daily" ? "active" : ""}
+              onClick={() => setRange("daily")}
+            >
+              일별
+            </button>
+            <button
+              className={range === "weekly" ? "active" : ""}
+              onClick={() => setRange("weekly")}
+            >
+              주별
+            </button>
+          </div>
+        </div>
+        {range === "daily" ? (
+          <BarChart
+            data={stats.rounds.daily.map((d) => ({ label: md(d.day), count: d.count }))}
+            labelEvery={7}
+          />
+        ) : (
+          <BarChart
+            data={stats.rounds.weekly.map((w) => ({ label: md(w.week), count: w.count }))}
+            labelEvery={3}
+          />
+        )}
+      </div>
+
+      <div className="card">
+        <div className="ad-mini">
+          <div>
+            <span>평균 인원</span>
+            <b>{Number(stats.rounds.avg_players).toFixed(1)}명</b>
+          </div>
+          <div>
+            <span>스코어 수정된 라운드</span>
+            <b>{num(stats.activity.edited_rounds)}개</b>
+          </div>
+          <div>
+            <span>총 수정 횟수</span>
+            <b>{num(stats.activity.edits)}번</b>
+          </div>
+        </div>
+        <RatioBar title="진행 상태" items={pick(stats.rounds.by_status, STATUS_LABEL)} />
+        <RatioBar
+          title="게임 방식"
+          items={pick(stats.rounds.by_game, GAME_MODE_LABEL as Record<GameMode, string>)}
+        />
+        <RatioBar
+          title="핸디캡 방식"
+          items={pick(stats.rounds.by_handicap, HANDICAP_LABEL)}
+        />
+        <RatioBar title="지불 방법" items={pick(stats.rounds.by_payment, PAYMENT_LABEL)} />
+
+        <div className="ad-ratio-title" style={{ marginTop: 16 }}>
+          많이 쓰는 타당 금액
+        </div>
+        {stats.rounds.units.length === 0 ? (
+          <div className="empty-note">아직 라운드가 없어요.</div>
+        ) : (
+          stats.rounds.units.map((u) => (
+            <div className="ad-unit" key={u.unit}>
+              <span className="ad-unit-l">{num(u.unit)}원</span>
+              <div className="ad-unit-bar">
+                <div
+                  style={{
+                    width: `${(u.count / Math.max(1, stats.rounds.units[0].count)) * 100}%`,
+                  }}
+                />
+              </div>
+              <span className="ad-unit-n">{num(u.count)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+  const statsRest = stats && (
+    <>
+      {rounds.length === 0 ? (
+        <div className="card">
+          <div className="empty-note">아직 라운드가 없어요.</div>
+        </div>
+      ) : (
+        <div className="card ad-list">
+          {rounds.map((r) => (
+            <div className="ad-row" key={r.id}>
+              <div className="ad-row-main">
+                <div className="ri-name">
+                  <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
+                  <span className={`mode-tag ${r.game_mode}`}>
+                    {GAME_MODE_LABEL[r.game_mode as GameMode] ?? r.game_mode}
+                  </span>
+                </div>
+                <div className="ri-sub">
+                  <Segs
+                    items={[
+                      `${r.date ? md(r.date) : "-"} ${r.tee_time}`,
+                      `방장 ${r.host_name || "?"}`,
+                      `${r.player_count}명`,
+                      `${r.hole_count}홀`,
+                      r.game_mode !== "record" && r.game_mode !== "rank" && `${num(r.unit)}원`,
+                      r.edit_count > 0 && `수정 ${r.edit_count}번`,
+                    ]}
+                  />
+                </div>
+              </div>
+              <span className={`badge st-${r.status}`}>
+                {STATUS_LABEL[r.status] ?? r.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AI 분석 권한: 관리자는 늘 쓸 수 있고, 여기서 허용한 사람은 내 기록에서 쓸 수 있다 */}
+      <div className="section-title">AI 분석 권한 {grants ? `${grants.length}명` : ""}</div>
+      <div className="card ad-list">
+        {grants === null ? (
+          <div className="empty-note">Supabase 에서 insight.sql 을 실행하면 권한을 줄 수 있어요.</div>
+        ) : grants.length === 0 ? (
+          <div className="empty-note">아직 허용한 사람이 없어요. 아래 최근 가입자에서 'AI 허용'을 눌러 주세요.</div>
+        ) : (
+          grants.map((g) => (
+            <div className="ad-row" key={g.user_id}>
+              <div className="ad-row-main">
+                <div className="ri-name">
+                  <span className="ri-title">{g.name || "이름 없음"}</span>
+                </div>
+                <div className="ri-sub">
+                  <Segs items={[g.email_masked ?? "이메일 없음", `허용 ${mdLocal(g.created_at)}`]} />
+                </div>
+              </div>
+              <button
+                className="ad-ai on"
+                disabled={grantBusy === g.user_id}
+                onClick={() => void toggleGrant(g.user_id, false)}
+              >
+                해제
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <p className="hint" style={{ margin: "6px 2px 0" }}>
+        관리자는 늘 쓸 수 있어요. 허용한 사람은 자기 기록에서만 AI 분석을 만들고 볼 수 있어요.
+      </p>
+
+      {/* 예전 '로그인 없이 참여하기'(게스트)로 친 라운드: 진짜 계정으로 옮긴다 (있을 때만) */}
+      {guests !== undefined && (guests === null || guests.length > 0) && (
+        <>
+          <div className="section-title">게스트로 친 기록 {guests ? `${guests.length}명` : ""}</div>
+          <div className="card ad-list">
+            {guests === null ? (
+              <div className="empty-note">Supabase 에서 guest.sql 을 실행하면 보여요.</div>
+            ) : (
+              guests.map((g) => (
+                <div className="ad-row" key={g.guest_uid}>
+                  <div className="ad-row-main">
+                    <div className="ri-name">
+                      <span className="ri-title">{g.names.join(", ") || "이름 없음"}</span>
+                      <span className="guest-tag">게스트</span>
+                    </div>
+                    <div className="ri-sub gm-rounds">
+                      {g.rounds.map((r) => (
+                        <span key={r.round_id}>
+                          {md(r.date)} {r.course || "이름 없는 라운드"} · {STATUS_LABEL[r.status] ?? r.status}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="ad-row-side">
+                    <span className="ad-count">라운드 {g.rounds.length}</span>
+                    <button className="ad-ai" onClick={() => setMoving(g)}>
+                      계정으로 옮기기
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <p className="hint" style={{ margin: "6px 2px 0" }}>
+            예전 '로그인 없이 참여하기'로 친 라운드예요. 계정으로 옮기면 랭킹·전적·기록에 그 사람 라운드로 들어가요.
+            게스트가 그 폰에서 로그인해도 저절로 옮겨져요.
+          </p>
+        </>
+      )}
+
+      <div className="section-title">최근 가입자 {users.length}명</div>
+      {users.length === 0 ? (
+        <div className="card">
+          <div className="empty-note">아직 가입자가 없어요.</div>
+        </div>
+      ) : (
+        <div className="card ad-list">
+          {users.map((u) => (
+            <div className="ad-row" key={u.user_id}>
+              <div className="ad-row-main">
+                <div className="ri-name">
+                  <span className="ri-title">{u.name || "이름 없음"}</span>
+                  {/* 앱에서 정한 이름(실명). 누르면 관리자가 고친다 */}
+                  <button
+                    className={`ad-real ${u.real_name ? "" : "none"}`}
+                    onClick={() => setNaming(u)}
+                    aria-label={`${u.name || "이름 없음"} 실명·성별 고치기`}
+                  >
+                    {u.gender && <Icon name={u.gender} size={11} />}
+                    {u.real_name ?? "실명 없음"}
+                    <Icon name="edit" size={11} />
+                  </button>
+                  <span className="ad-prov">
+                    {u.providers.includes("kakao") && (
+                      <span className="ml-ic kakao">
+                        <KakaoLogo size={11} />
+                      </span>
+                    )}
+                    {u.providers.includes("google") && (
+                      <span className="ml-ic google">
+                        <GoogleLogo size={11} />
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="ri-sub">
+                  <Segs
+                    items={[
+                      u.email_masked ?? "이메일 없음",
+                      `가입 ${mdLocal(u.created_at)}`,
+                      `최근 로그인 ${ago(u.last_sign_in_at)}`,
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="ad-row-side">
+                <span className="ad-count">
+                  {u.avg_score != null && <b className="ad-avg">평균 {Number(u.avg_score).toFixed(1)}</b>}
+                  라운드 {num(u.round_count)}
+                </span>
+                {grants && (
+                  <button
+                    className={`ad-ai ${grants.some((g) => g.user_id === u.user_id) ? "on" : ""}`}
+                    disabled={grantBusy === u.user_id}
+                    onClick={() =>
+                      void toggleGrant(u.user_id, !grants.some((g) => g.user_id === u.user_id))
+                    }
+                  >
+                    {grants.some((g) => g.user_id === u.user_id) ? "AI 허용됨" : "AI 허용"}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="hint" style={{ margin: "6px 2px 0" }}>
+        닉네임 옆은 처음 로그인할 때 적은 실명·성별이에요. 눌러서 고칠 수 있어요.
+      </p>
+    </>
+  );
+
   return (
     <div className="app">
       <TopBar
@@ -226,342 +570,32 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
         }
       />
 
-      <div className="sheet">
-        <h2 className="page-title">관리자 대시보드</h2>
-        {notice && <div className="sc-notice">{notice}</div>}
-        <button
-          className="btn-line wide sc-add"
-          onClick={() => {
-            setNotice(null);
-            setImporting(true);
-          }}
-        >
-          <Icon name="camera" size={18} />
-          스코어카드 사진으로 기록 추가
-        </button>
-        {err && (
-          <div className="card">
-            <div className="empty-note" style={{ color: "var(--loss)" }}>
-              {err}
+      {split ? (
+        <div className="split-view">
+          <div className="split-pane">
+            <LogoHead />
+            <div className="sheet">
+              {head}
+              {statsTop}
             </div>
           </div>
-        )}
-        {!stats && loading && (
-          <div className="card">
-            <div className="empty-note">불러오는 중…</div>
+          <div className="split-pane">
+            <PaneHead title="라운드 및 사용자" />
+            <div className="sheet">{statsRest}</div>
           </div>
-        )}
-
-        {stats && (
-          <>
-            <p className="hint" style={{ margin: "0 2px 12px" }}>
-              {new Date(stats.generated_at).toLocaleString("ko-KR")} 기준 · 날짜는 한국 시간
-            </p>
-
-            <div className="ad-kpis">
-              <div className="ad-kpi">
-                <span>전체 가입자</span>
-                <b>{num(stats.users.total)}</b>
-                <small>오늘 +{num(stats.users.today)}</small>
-              </div>
-              <div className="ad-kpi">
-                <span>최근 7일 가입</span>
-                <b>{num(stats.users.last7)}</b>
-                <small>7일 내 로그인 {num(stats.users.active7)}</small>
-              </div>
-              <div className="ad-kpi">
-                <span>전체 라운드</span>
-                <b>{num(stats.rounds.total)}</b>
-                <small>오늘 +{num(stats.rounds.today)}</small>
-              </div>
-              <div className="ad-kpi">
-                <span>최근 7일 라운드</span>
-                <b>{num(stats.rounds.last7)}</b>
-                <small>참여자 {num(stats.activity.players7)}명</small>
-              </div>
-            </div>
-
-            <div className="section-title">가입자</div>
-            <div className="card">
-              <div className="ad-sub">일별 신규 가입 (최근 30일)</div>
-              <BarChart
-                data={stats.users.daily.map((d) => ({ label: md(d.day), count: d.count }))}
-                labelEvery={7}
-              />
-              <RatioBar
-                title="로그인 방식"
-                items={[
-                  { label: "구글만", count: stats.users.providers.google },
-                  { label: "카카오만", count: stats.users.providers.kakao },
-                  { label: "둘 다", count: stats.users.providers.both },
-                ]}
-              />
-            </div>
-
-            <div className="section-title">라운드</div>
-            <div className="card">
-              <div className="ad-sub-row">
-                <div className="ad-sub">
-                  {range === "daily" ? "일별 생성 (최근 30일)" : "주별 생성 (최근 12주)"}
-                </div>
-                <div className="segmented sm ad-range">
-                  <button
-                    className={range === "daily" ? "active" : ""}
-                    onClick={() => setRange("daily")}
-                  >
-                    일별
-                  </button>
-                  <button
-                    className={range === "weekly" ? "active" : ""}
-                    onClick={() => setRange("weekly")}
-                  >
-                    주별
-                  </button>
-                </div>
-              </div>
-              {range === "daily" ? (
-                <BarChart
-                  data={stats.rounds.daily.map((d) => ({ label: md(d.day), count: d.count }))}
-                  labelEvery={7}
-                />
-              ) : (
-                <BarChart
-                  data={stats.rounds.weekly.map((w) => ({ label: md(w.week), count: w.count }))}
-                  labelEvery={3}
-                />
-              )}
-            </div>
-
-            <div className="card">
-              <div className="ad-mini">
-                <div>
-                  <span>평균 인원</span>
-                  <b>{Number(stats.rounds.avg_players).toFixed(1)}명</b>
-                </div>
-                <div>
-                  <span>스코어 수정된 라운드</span>
-                  <b>{num(stats.activity.edited_rounds)}개</b>
-                </div>
-                <div>
-                  <span>총 수정 횟수</span>
-                  <b>{num(stats.activity.edits)}번</b>
-                </div>
-              </div>
-              <RatioBar title="진행 상태" items={pick(stats.rounds.by_status, STATUS_LABEL)} />
-              <RatioBar
-                title="게임 방식"
-                items={pick(stats.rounds.by_game, GAME_MODE_LABEL as Record<GameMode, string>)}
-              />
-              <RatioBar
-                title="핸디캡 방식"
-                items={pick(stats.rounds.by_handicap, HANDICAP_LABEL)}
-              />
-              <RatioBar title="지불 방법" items={pick(stats.rounds.by_payment, PAYMENT_LABEL)} />
-
-              <div className="ad-ratio-title" style={{ marginTop: 16 }}>
-                많이 쓰는 타당 금액
-              </div>
-              {stats.rounds.units.length === 0 ? (
-                <div className="empty-note">아직 라운드가 없어요.</div>
-              ) : (
-                stats.rounds.units.map((u) => (
-                  <div className="ad-unit" key={u.unit}>
-                    <span className="ad-unit-l">{num(u.unit)}원</span>
-                    <div className="ad-unit-bar">
-                      <div
-                        style={{
-                          width: `${(u.count / Math.max(1, stats.rounds.units[0].count)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="ad-unit-n">{num(u.count)}</span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="section-title">최근 라운드 {rounds.length}개</div>
-            {rounds.length === 0 ? (
-              <div className="card">
-                <div className="empty-note">아직 라운드가 없어요.</div>
-              </div>
-            ) : (
-              <div className="card ad-list">
-                {rounds.map((r) => (
-                  <div className="ad-row" key={r.id}>
-                    <div className="ad-row-main">
-                      <div className="ri-name">
-                        <span className="ri-title">{r.course_name || "이름 없는 라운드"}</span>
-                        <span className={`mode-tag ${r.game_mode}`}>
-                          {GAME_MODE_LABEL[r.game_mode as GameMode] ?? r.game_mode}
-                        </span>
-                      </div>
-                      <div className="ri-sub">
-                        <Segs
-                          items={[
-                            `${r.date ? md(r.date) : "-"} ${r.tee_time}`,
-                            `방장 ${r.host_name || "?"}`,
-                            `${r.player_count}명`,
-                            `${r.hole_count}홀`,
-                            r.game_mode !== "record" && r.game_mode !== "rank" && `${num(r.unit)}원`,
-                            r.edit_count > 0 && `수정 ${r.edit_count}번`,
-                          ]}
-                        />
-                      </div>
-                    </div>
-                    <span className={`badge st-${r.status}`}>
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* AI 분석 권한: 관리자는 늘 쓸 수 있고, 여기서 허용한 사람은 내 기록에서 쓸 수 있다 */}
-            <div className="section-title">AI 분석 권한 {grants ? `${grants.length}명` : ""}</div>
-            <div className="card ad-list">
-              {grants === null ? (
-                <div className="empty-note">Supabase 에서 insight.sql 을 실행하면 권한을 줄 수 있어요.</div>
-              ) : grants.length === 0 ? (
-                <div className="empty-note">아직 허용한 사람이 없어요. 아래 최근 가입자에서 'AI 허용'을 눌러 주세요.</div>
-              ) : (
-                grants.map((g) => (
-                  <div className="ad-row" key={g.user_id}>
-                    <div className="ad-row-main">
-                      <div className="ri-name">
-                        <span className="ri-title">{g.name || "이름 없음"}</span>
-                      </div>
-                      <div className="ri-sub">
-                        <Segs items={[g.email_masked ?? "이메일 없음", `허용 ${mdLocal(g.created_at)}`]} />
-                      </div>
-                    </div>
-                    <button
-                      className="ad-ai on"
-                      disabled={grantBusy === g.user_id}
-                      onClick={() => void toggleGrant(g.user_id, false)}
-                    >
-                      해제
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-            <p className="hint" style={{ margin: "6px 2px 0" }}>
-              관리자는 늘 쓸 수 있어요. 허용한 사람은 자기 기록에서만 AI 분석을 만들고 볼 수 있어요.
-            </p>
-
-            {/* 예전 '로그인 없이 참여하기'(게스트)로 친 라운드: 진짜 계정으로 옮긴다 (있을 때만) */}
-            {guests !== undefined && (guests === null || guests.length > 0) && (
-              <>
-                <div className="section-title">게스트로 친 기록 {guests ? `${guests.length}명` : ""}</div>
-                <div className="card ad-list">
-                  {guests === null ? (
-                    <div className="empty-note">Supabase 에서 guest.sql 을 실행하면 보여요.</div>
-                  ) : (
-                    guests.map((g) => (
-                      <div className="ad-row" key={g.guest_uid}>
-                        <div className="ad-row-main">
-                          <div className="ri-name">
-                            <span className="ri-title">{g.names.join(", ") || "이름 없음"}</span>
-                            <span className="guest-tag">게스트</span>
-                          </div>
-                          <div className="ri-sub gm-rounds">
-                            {g.rounds.map((r) => (
-                              <span key={r.round_id}>
-                                {md(r.date)} {r.course || "이름 없는 라운드"} · {STATUS_LABEL[r.status] ?? r.status}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="ad-row-side">
-                          <span className="ad-count">라운드 {g.rounds.length}</span>
-                          <button className="ad-ai" onClick={() => setMoving(g)}>
-                            계정으로 옮기기
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <p className="hint" style={{ margin: "6px 2px 0" }}>
-                  예전 '로그인 없이 참여하기'로 친 라운드예요. 계정으로 옮기면 랭킹·전적·기록에 그 사람 라운드로 들어가요.
-                  게스트가 그 폰에서 로그인해도 저절로 옮겨져요.
-                </p>
-              </>
-            )}
-
-            <div className="section-title">최근 가입자 {users.length}명</div>
-            {users.length === 0 ? (
-              <div className="card">
-                <div className="empty-note">아직 가입자가 없어요.</div>
-              </div>
-            ) : (
-              <div className="card ad-list">
-                {users.map((u) => (
-                  <div className="ad-row" key={u.user_id}>
-                    <div className="ad-row-main">
-                      <div className="ri-name">
-                        <span className="ri-title">{u.name || "이름 없음"}</span>
-                        {/* 앱에서 정한 이름(실명). 누르면 관리자가 고친다 */}
-                        <button
-                          className={`ad-real ${u.real_name ? "" : "none"}`}
-                          onClick={() => setNaming(u)}
-                          aria-label={`${u.name || "이름 없음"} 실명·성별 고치기`}
-                        >
-                          {u.gender && <Icon name={u.gender} size={11} />}
-                          {u.real_name ?? "실명 없음"}
-                          <Icon name="edit" size={11} />
-                        </button>
-                        <span className="ad-prov">
-                          {u.providers.includes("kakao") && (
-                            <span className="ml-ic kakao">
-                              <KakaoLogo size={11} />
-                            </span>
-                          )}
-                          {u.providers.includes("google") && (
-                            <span className="ml-ic google">
-                              <GoogleLogo size={11} />
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="ri-sub">
-                        <Segs
-                          items={[
-                            u.email_masked ?? "이메일 없음",
-                            `가입 ${mdLocal(u.created_at)}`,
-                            `최근 로그인 ${ago(u.last_sign_in_at)}`,
-                          ]}
-                        />
-                      </div>
-                    </div>
-                    <div className="ad-row-side">
-                      <span className="ad-count">
-                        {u.avg_score != null && <b className="ad-avg">평균 {Number(u.avg_score).toFixed(1)}</b>}
-                        라운드 {num(u.round_count)}
-                      </span>
-                      {grants && (
-                        <button
-                          className={`ad-ai ${grants.some((g) => g.user_id === u.user_id) ? "on" : ""}`}
-                          disabled={grantBusy === u.user_id}
-                          onClick={() =>
-                            void toggleGrant(u.user_id, !grants.some((g) => g.user_id === u.user_id))
-                          }
-                        >
-                          {grants.some((g) => g.user_id === u.user_id) ? "AI 허용됨" : "AI 허용"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="hint" style={{ margin: "6px 2px 0" }}>
-              닉네임 옆은 처음 로그인할 때 적은 실명·성별이에요. 눌러서 고칠 수 있어요.
-            </p>
-          </>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="sheet">
+          {head}
+          {stats && (
+            <>
+              {statsTop}
+              <div className="section-title">최근 라운드 {rounds.length}개</div>
+              {statsRest}
+            </>
+          )}
+        </div>
+      )}
       {moving && (
         <GuestMoveSheet
           guest={moving}

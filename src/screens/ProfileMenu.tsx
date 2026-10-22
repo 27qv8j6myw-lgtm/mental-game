@@ -69,8 +69,20 @@ export default function ProfileMenu({
           <div className="menu-scrim" onClick={onClose} />
           <div className="menu profile-menu" role="menu">
             <div className="menu-head">
-              <div className="mn">{user?.displayName ?? "사용자"}</div>
-              <div className="me">{user?.email}</div>
+              <div className="mh-text">
+                <div className="mn">{user?.displayName ?? "사용자"}</div>
+                <div className="me">{user?.email}</div>
+              </div>
+              {/* 회원 탈퇴: 이름 옆에 작고 옅게 */}
+              <button
+                className="menu-leave"
+                onClick={() => {
+                  onClose();
+                  setLeaving(true);
+                }}
+              >
+                회원 탈퇴
+              </button>
             </div>
             <div className="menu-links">
               <div className="ml-title">로그인 계정 연결</div>
@@ -153,15 +165,6 @@ export default function ProfileMenu({
             >
               <Icon name="logout" size={17} className="inline-ic" />
               로그아웃
-            </button>
-            <button
-              className="menu-item menu-leave"
-              onClick={() => {
-                onClose();
-                setLeaving(true);
-              }}
-            >
-              회원 탈퇴
             </button>
           </div>
         </>

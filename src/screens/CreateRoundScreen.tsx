@@ -37,6 +37,7 @@ import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { Icon } from "../icons";
 import TopBar, { BackButton } from "./TopBar";
+import { LogoHead } from "./PaneHead";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import {
   CaddieFeeField,
@@ -88,7 +89,14 @@ const writeJson = (key: string, v: unknown) => {
   }
 };
 
-export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }) {
+export default function CreateRoundScreen({
+  onCancel,
+  embedded = false,
+}: {
+  onCancel: () => void;
+  /** 펼친 iPhone Duo: 라운드 탭 왼쪽 칸 안에 (위 바 대신 로고 머리, 아래 버튼은 칸 아래에) */
+  embedded?: boolean;
+}) {
   const { user } = useAuth();
   const { openRound } = useRound();
   // 지난 설정과 최근 골프장 (매주 같은 멤버·같은 내기면 이름만 고르면 된다)
@@ -263,8 +271,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   };
 
   return (
-    <div className="app">
-      <TopBar left={<BackButton onClick={onCancel} />} />
+    <div className={embedded ? "pane-screen" : "app"}>
+      {embedded ? <LogoHead onBack={onCancel} /> : <TopBar left={<BackButton onClick={onCancel} />} />}
 
       <div className="sheet">
         <h2 className="page-title">라운드 만들기</h2>

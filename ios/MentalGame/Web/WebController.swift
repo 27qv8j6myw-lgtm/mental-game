@@ -43,6 +43,10 @@ final class WebController: NSObject {
         webView.scrollView.backgroundColor = UIColor(named: "LaunchBackground")
         // 안전 영역은 웹이 CSS 로 비킨다 (viewport-fit=cover)
         webView.scrollView.contentInsetAdjustmentBehavior = .never
+        // 화면 끝에서 더 끌어도 튕기지 않게 (튕기면 위에 고정한 상단 바까지 같이 내려온다)
+        webView.scrollView.bounces = false
+        // 키보드 위 입력칸 이동 막대(∧ ∨ 완료)는 띄우지 않는다
+        webView.hideKeyboardAccessoryBar()
         #if DEBUG
         webView.isInspectable = true
         #endif

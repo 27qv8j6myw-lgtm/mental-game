@@ -16,6 +16,7 @@ import { CaddieCard, CaddiePayRow, RankBoard } from "./SideGamePanels";
 import { caddieResult } from "../caddie";
 import { pointsConfig, rankResult, rankRules, rankScoreText } from "../rankGame";
 import { useRound } from "../round";
+import { useUnfolded } from "../rail";
 import { firstUnsaved, settledHoles } from "../model";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import HoleStatFields from "./HoleStatFields";
@@ -64,6 +65,8 @@ export default function GameScreen({
 }) {
   const { config, holes, currentHole: idx, goHole, setPar, setScore, status, holeSave } = session;
   const { myUid, activeRoundId } = useRound();
+  /** 펼친 iPhone Duo (왼쪽 정산 · 오른쪽 홀 진행) */
+  const split = useUnfolded();
   const hole = holes[idx];
   const lastIdx = holes.length - 1;
   const playing = status === "playing";
@@ -176,9 +179,10 @@ export default function GameScreen({
   }, [moved]);
   /** 다른 사람 저장으로 홀이 바뀐 직후엔 잠깐 점수 터치를 받지 않는다 (누르던 손가락이 다음 홀을 찍지 않게) */
   const lockUntil = useRef(0);
-  // 홀이 바뀌면 맨 위로 (홀 번호와 상태 줄이 보이게)
+  // 홀이 바뀌면 맨 위로 (홀 번호와 상태 줄이 보이게). 펼친 화면은 홀 진행 칸만
   useEffect(() => {
     window.scrollTo(0, 0);
+    document.querySelector(".split-pane.game")?.scrollTo(0, 0);
   }, [idx]);
 
   // 보고 있던 홀이 (다른 사람에 의해) 저장되면 저장 안 된 첫 홀로 따라간다. 앞 홀을 다시 보는 중이면 그대로
@@ -368,7 +372,8 @@ export default function GameScreen({
     return [who, when].filter(Boolean).join(" ");
   };
   // 이 홀 상태 한 줄 (PAR 위 고정 자리)
-  const lastAllSaved = playing && allSaved && idx === lastIdx;
+  // 다 저장했으면 마지막 홀에서 확정. 펼친 화면은 정산 칸 아래 확정이 없으니 어느 홀에서든
+  const lastAllSaved = playing && allSaved && (idx === lastIdx || split);
   /** 저장된 홀을 볼 때 아래 가운데 안내 */
   const savedHint = lastAllSaved
     ? session.isHost

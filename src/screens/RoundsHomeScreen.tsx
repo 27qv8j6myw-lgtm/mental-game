@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
@@ -6,6 +6,8 @@ import { takeInvite } from "../invite";
 import { joinRoundByCode, leaveOrDeleteRound, listMyRounds, subscribeRoundScores } from "../rounds";
 import { Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
+import PaneHead, { LogoHead } from "./PaneHead";
+import { useUnfolded } from "../rail";
 import type { RoundListItem, RoundRow } from "../types";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { fetchUserRounds, isAdmin, type UserRound } from "../admin";
@@ -168,7 +170,14 @@ function AllRounds({
 }
 
 /** 홈 (라운드 탭): 새 라운드·코드로 참여·진행 중·최근 라운드. 전적·기록은 하단 탭 */
-export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void }) {
+export default function RoundsHomeScreen({
+  onCreate,
+  side,
+}: {
+  onCreate: () => void;
+  /** 펼친 화면 왼쪽 칸에 코드 입력 대신 띄울 화면 (라운드 만들기 · 대기실) */
+  side?: ReactNode;
+}) {
   const { user, error, clearError, guestMoved, clearGuestMoved } = useAuth();
   const { openRound, exitNotice, clearExitNotice } = useRound();
   // 마지막으로 받은 목록을 먼저 보여준다 (통신이 없어도 라운드를 다시 열 수 있게)
@@ -408,6 +417,8 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
     };
   }, [showUsers]);
 
+  const split = useUnfolded();
+
   if (showAll) {
     return (
       <AllRounds
@@ -418,6 +429,178 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
       />
     );
   }
+
+  // 펼친 iPhone Duo: 왼쪽 코드 입력(스크롤 없음) · 오른쪽 진행 중 목록 (칸 머리에 제목)
+  const notices = (
+    <>
+      {/* 게스트 세션에서 로그인해 게스트로 친 라운드를 이 계정으로 옮겼을 때 */}
+      {guestMoved && (
+        <div className="notice-ok" role="status">
+          <span>
+            {guestMoved.moved > 0
+              ? `게스트로 친 라운드 ${guestMoved.moved}개를 내 계정으로 옮겼어요.`
+              : "게스트로 친 라운드를 옮기지 못했어요."}
+            {guestMoved.skipped > 0 && ` 이미 내 계정으로 들어가 있는 라운드 ${guestMoved.skipped}개는 그대로 두었어요.`}
+          </span>
+          <button aria-label="닫기" onClick={clearGuestMoved}>
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      )}
+      {error && (
+        <div className="notice-err" role="alert">
+          <span>{error}</span>
+          <button aria-label="닫기" onClick={clearError}>
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      )}
+    </>
+  );
+  const tagline = (
+    <p className="home-tagline">
+      골프 내기, 계산은 앱이 할게요
+      <br />
+      <b>멘탈만 챙기세요</b>
+    </p>
+  );
+  const joinCard = (
+    <div className="card join-card">
+      <div className="join-row">
+        <input
+          className="input code-input"
+          placeholder="초대 코드 4자리"
+          inputMode="numeric"
+          // (maxLength 를 두면 "…코드: 1234" 를 붙여 넣을 때 앞 4글자만 남아 빈칸이 된다)
+          value={code}
+          onChange={(e) =>
+            setCode(e.target.value.replace(/\D/g, "").slice(0, 4))
+          }
+        />
+        <button
+          className="btn-primary sm"
+          disabled={code.length !== 4 || joining}
+          onClick={() => void join()}
+        >
+          {joining ? "…" : "참여"}
+        </button>
+      </div>
+      {err && <p className="join-err">{err}</p>}
+    </div>
+  );
+  // 관리자: 내 라운드 / 다른 사용자들의 라운드
+  const scopeToggle =
+    admin && (
+      <div className="segmented home-scope">
+        <button className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>
+          본인
+        </button>
+        <button className={scope === "users" ? "active" : ""} onClick={() => setScope("users")}>
+          사용자{userRounds && userRounds.active.length > 0 ? ` ${userRounds.active.length}` : ""}
+        </button>
+      </div>
+    );
+  const list = (
+    <>
+      {loadFailed && (
+        <div className="list-offline">
+          <span>
+            {rounds.length > 0
+              ? "연결이 안 돼서 마지막으로 받은 목록이에요."
+              : "라운드 목록을 불러오지 못했어요."}
+          </span>
+          <button onClick={() => void load()}>다시 시도</button>
+        </div>
+      )}
+      {loading && rounds.length === 0 ? (
+        <>
+          <div className="section-title">내 라운드</div>
+          <div className="card">
+            <div className="empty-note">불러오는 중…</div>
+          </div>
+        </>
+      ) : rounds.length === 0 ? (
+        loadFailed ? null : (
+          <>
+            <div className="section-title">내 라운드</div>
+            <div className="card">
+              <div className="empty-note">아직 참여한 라운드가 없어요.</div>
+              <button className="btn-line wide gd-start" onClick={() => setGuideOpen(true)}>
+                <Icon name="book" size={16} className="inline-ic" />
+                처음이라면 사용 방법 보기
+              </button>
+            </div>
+          </>
+        )
+      ) : (
+        <>
+          {/* 진행 중(대기·진행)은 늘 위에, 끝난 라운드는 최근 5개만 (나머지는 전체 보기) */}
+          {(activeRounds.length > 0 || admin || split) && (
+            <>
+              {/* 펼친 화면은 칸 머리에 제목 */}
+              {!split && <div className="section-title">진행 중</div>}
+              {scopeToggle}
+              {!showUsers &&
+                (activeRounds.length > 0 ? (
+                  activeRounds.map(item)
+                ) : (
+                  <div className="card">
+                    <div className="empty-note">진행 중인 내 라운드가 없어요.</div>
+                  </div>
+                ))}
+              {showUsers &&
+                (userErr && !userRounds ? (
+                  <div className="card">
+                    <div className="empty-note">
+                      불러오지 못했어요. 처음이면 Supabase 에서 admin.sql 을 다시 실행해 주세요.
+                    </div>
+                  </div>
+                ) : !userRounds ? (
+                  <div className="card">
+                    <div className="empty-note">불러오는 중…</div>
+                  </div>
+                ) : userRounds.active.length === 0 ? (
+                  <div className="card">
+                    <div className="empty-note">지금 진행 중인 다른 사용자 라운드가 없어요.</div>
+                  </div>
+                ) : (
+                  <>
+                    {userRounds.active.map((u) => otherItem(u.round, u.line))}
+                    <p className="hint home-scope-hint">
+                      어제부터의 대기·진행 중 라운드예요 (내가 참여한 라운드 빼고). 30초마다 새로 받아요.
+                    </p>
+                  </>
+                ))}
+            </>
+          )}
+          {/* 관리자 사용자 보기: 다른 사용자들의 최근 끝난 라운드 */}
+          {showUsers && userRounds && (
+            <>
+              <div className="section-title">최근 라운드 · 사용자</div>
+              {userRounds.recent.length === 0 ? (
+                <div className="card">
+                  <div className="empty-note">다른 사용자의 끝난 라운드가 없어요.</div>
+                </div>
+              ) : (
+                userRounds.recent.map((u) => otherItem(u.round, u.line))
+              )}
+            </>
+          )}
+          {doneRounds.length > 0 && !showUsers && (
+            <>
+              <div className="section-title">최근 라운드</div>
+              {doneRounds.slice(0, RECENT).map(item)}
+              {doneRounds.length > RECENT && (
+                <button className="btn-line wide all-rounds-btn" onClick={() => setShowAll(true)}>
+                  전체 라운드 보기 ({rounds.length}개)
+                </button>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
 
   return (
     <div className="app">
@@ -431,168 +614,37 @@ export default function RoundsHomeScreen({ onCreate }: { onCreate: () => void })
         right={<NoticeButton />}
       />
 
-      <div className="sheet">
-
-        {/* 게스트 세션에서 로그인해 게스트로 친 라운드를 이 계정으로 옮겼을 때 */}
-        {guestMoved && (
-          <div className="notice-ok" role="status">
-            <span>
-              {guestMoved.moved > 0
-                ? `게스트로 친 라운드 ${guestMoved.moved}개를 내 계정으로 옮겼어요.`
-                : "게스트로 친 라운드를 옮기지 못했어요."}
-              {guestMoved.skipped > 0 && ` 이미 내 계정으로 들어가 있는 라운드 ${guestMoved.skipped}개는 그대로 두었어요.`}
-            </span>
-            <button aria-label="닫기" onClick={clearGuestMoved}>
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        )}
-        {error && (
-          <div className="notice-err" role="alert">
-            <span>{error}</span>
-            <button aria-label="닫기" onClick={clearError}>
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* 로그인 화면과 같은 한 줄 소개 */}
-        <p className="home-tagline">
-          골프 내기, 계산은 앱이 할게요
-          <br />
-          <b>멘탈만 챙기세요</b>
-        </p>
-        {/* 코드로 참여: 파란 상자 (제목 없이 칸 안 안내 글자로) */}
-        <div className="card join-card">
-          <div className="join-row">
-            <input
-              className="input code-input"
-              placeholder="초대 코드 4자리"
-              inputMode="numeric"
-              // (maxLength 를 두면 "…코드: 1234" 를 붙여 넣을 때 앞 4글자만 남아 빈칸이 된다)
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, "").slice(0, 4))
-              }
-            />
-            <button
-              className="btn-primary sm"
-              disabled={code.length !== 4 || joining}
-              onClick={() => void join()}
-            >
-              {joining ? "…" : "참여"}
-            </button>
-          </div>
-          {err && <p className="join-err">{err}</p>}
-        </div>
-
-        {loadFailed && (
-          <div className="list-offline">
-            <span>
-              {rounds.length > 0
-                ? "연결이 안 돼서 마지막으로 받은 목록이에요."
-                : "라운드 목록을 불러오지 못했어요."}
-            </span>
-            <button onClick={() => void load()}>다시 시도</button>
-          </div>
-        )}
-        {loading && rounds.length === 0 ? (
-          <>
-            <div className="section-title">내 라운드</div>
-            <div className="card">
-              <div className="empty-note">불러오는 중…</div>
-            </div>
-          </>
-        ) : rounds.length === 0 ? (
-          loadFailed ? null : (
-            <>
-              <div className="section-title">내 라운드</div>
-              <div className="card">
-                <div className="empty-note">아직 참여한 라운드가 없어요.</div>
-                <button className="btn-line wide gd-start" onClick={() => setGuideOpen(true)}>
-                  <Icon name="book" size={16} className="inline-ic" />
-                  처음이라면 사용 방법 보기
-                </button>
+      {split ? (
+        <div className="split-view">
+          {side ? (
+            <div className="split-pane home-side">{side}</div>
+          ) : (
+            <div className="split-pane still">
+              <LogoHead />
+              <div className="sheet home-left">
+                {notices}
+                {/* 로그인 화면과 같은 한 줄 소개 */}
+                {tagline}
+                {/* 코드로 참여: 파란 상자 (제목 없이 칸 안 안내 글자로) */}
+                {joinCard}
               </div>
-            </>
-          )
-        ) : (
-          <>
-            {/* 진행 중(대기·진행)은 늘 위에, 끝난 라운드는 최근 5개만 (나머지는 전체 보기) */}
-            {(activeRounds.length > 0 || admin) && (
-              <>
-                <div className="section-title">진행 중</div>
-                {/* 관리자: 내 라운드 / 다른 사용자들의 라운드 */}
-                {admin && (
-                  <div className="segmented home-scope">
-                    <button className={scope === "mine" ? "active" : ""} onClick={() => setScope("mine")}>
-                      본인
-                    </button>
-                    <button className={scope === "users" ? "active" : ""} onClick={() => setScope("users")}>
-                      사용자{userRounds && userRounds.active.length > 0 ? ` ${userRounds.active.length}` : ""}
-                    </button>
-                  </div>
-                )}
-                {!showUsers &&
-                  (activeRounds.length > 0 ? (
-                    activeRounds.map(item)
-                  ) : (
-                    <div className="card">
-                      <div className="empty-note">진행 중인 내 라운드가 없어요.</div>
-                    </div>
-                  ))}
-                {showUsers &&
-                  (userErr && !userRounds ? (
-                    <div className="card">
-                      <div className="empty-note">
-                        불러오지 못했어요. 처음이면 Supabase 에서 admin.sql 을 다시 실행해 주세요.
-                      </div>
-                    </div>
-                  ) : !userRounds ? (
-                    <div className="card">
-                      <div className="empty-note">불러오는 중…</div>
-                    </div>
-                  ) : userRounds.active.length === 0 ? (
-                    <div className="card">
-                      <div className="empty-note">지금 진행 중인 다른 사용자 라운드가 없어요.</div>
-                    </div>
-                  ) : (
-                    <>
-                      {userRounds.active.map((u) => otherItem(u.round, u.line))}
-                      <p className="hint home-scope-hint">
-                        어제부터의 대기·진행 중 라운드예요 (내가 참여한 라운드 빼고). 30초마다 새로 받아요.
-                      </p>
-                    </>
-                  ))}
-              </>
-            )}
-            {/* 관리자 사용자 보기: 다른 사용자들의 최근 끝난 라운드 */}
-            {showUsers && userRounds && (
-              <>
-                <div className="section-title">최근 라운드 · 사용자</div>
-                {userRounds.recent.length === 0 ? (
-                  <div className="card">
-                    <div className="empty-note">다른 사용자의 끝난 라운드가 없어요.</div>
-                  </div>
-                ) : (
-                  userRounds.recent.map((u) => otherItem(u.round, u.line))
-                )}
-              </>
-            )}
-            {doneRounds.length > 0 && !showUsers && (
-              <>
-                <div className="section-title">최근 라운드</div>
-                {doneRounds.slice(0, RECENT).map(item)}
-                {doneRounds.length > RECENT && (
-                  <button className="btn-line wide all-rounds-btn" onClick={() => setShowAll(true)}>
-                    전체 라운드 보기 ({rounds.length}개)
-                  </button>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          )}
+          <div className="split-pane">
+            <PaneHead title="진행 중" />
+            <div className="sheet">{list}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="sheet">
+          {notices}
+          {/* 로그인 화면과 같은 한 줄 소개 */}
+          {tagline}
+          {/* 코드로 참여: 파란 상자 (제목 없이 칸 안 안내 글자로) */}
+          {joinCard}
+          {list}
+        </div>
+      )}
 
       {guideOpen && <Guide onClose={() => setGuideOpen(false)} />}
 

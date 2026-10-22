@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRound } from "../round";
+import { useUnfolded } from "../rail";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import { relLabel, scoreLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
@@ -43,6 +44,8 @@ export default function RecordGameScreen({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { myUid, activeRoundId } = useRound();
+  /** 펼친 iPhone Duo: 기록 분석 칸 아래 종료가 없으니 어느 홀에서든 종료 */
+  const split = useUnfolded();
   const { config, holes, holeStats, currentHole: idx, goHole, setPar, setScore, setStat } = session;
   const hole = holes[idx];
   const me = config.players.find((p) => p.id === myUid) ?? null;
@@ -264,7 +267,7 @@ export default function RecordGameScreen({
             </button>
             <span className="pb-hint">{idx + 1}번 홀 저장</span>
           </PlayBar>
-        ) : session.isHost && session.status === "playing" && idx === holes.length - 1 && !justSaved ? (
+        ) : session.isHost && session.status === "playing" && (idx === holes.length - 1 || split) && !justSaved ? (
           <PlayBar action={<DockButton label="종료" onClick={onFinish} />}>
             <span className="pb-hint">마지막 홀 · 라운드 종료</span>
           </PlayBar>

@@ -6,6 +6,8 @@ import { digestRecords, loadRecordRounds, type RecordRound } from "../recordStat
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
+import PaneHead, { LogoHead } from "./PaneHead";
+import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
 import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
 import TrendChart from "./TrendChart";
@@ -115,6 +117,7 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   const summaryTrend = trendKey === "strokes" || trendKey === "diff";
   // 내기 라운드는 정산 화면 대신 이 화면 안에서 내 기록 분석을 연다
   const [detailId, setDetailId] = useState<string | null>(null);
+  const split = useUnfolded();
   // 기기 뒤로가기: 내기 라운드 분석 → 목록
   useBack(!!detailId, () => setDetailId(null));
   const detail = rounds?.find((r) => r.roundId === detailId) ?? null;
@@ -129,174 +132,205 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   if (detail)
     return <RoundDetail r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} />;
 
+  const status = (
+    <>
+      {err && (
+        <div className="card">
+          <div className="empty-note" style={{ color: "var(--loss)" }}>
+            {err}
+          </div>
+        </div>
+      )}
+      {!rounds && !err && (
+        <div className="card">
+          <div className="empty-note">불러오는 중…</div>
+        </div>
+      )}
+      {rounds && rounds.length === 0 && (
+        <div className="card">
+          <div className="empty-note">
+            아직 끝낸 기록 라운드가 없어요. 라운드 만들기에서 게임 방식을 '기록'으로 고르면 쌓여요.
+          </div>
+        </div>
+      )}
+    </>
+  );
+  // 기간 고르기 · 요약 · 추이 · 분석
+  const analysis = rounds && rounds.length > 0 && (
+    <>
+      <div className="segmented" style={{ marginBottom: 14 }}>
+        {SCOPES.map(([k, label]) => (
+          <button key={k} className={scope === k ? "active" : ""} onClick={() => setScope(k)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 연도별·월별: 기간마다 요약, 누르면 그 기간 분석 */}
+      {scope !== "all" && (
+        <div className="card st-list">
+          {periods.map((p) => (
+            <button
+              key={p.key}
+              className={`st-row ${p.key === activeKey ? "rr-on" : ""}`}
+              onClick={() => setPeriod(p.key)}
+            >
+              <span className="st-row-main">
+                <span className="st-row-name">{periodLabel(p.key)}</span>
+                <span className="st-row-sub">
+                  {p.d.count}라운드
+                  {p.d.putts != null && ` · 퍼트 ${one(p.d.putts)}`}
+                  {p.d.all.gir.rate != null && ` · GIR ${Math.round(p.d.all.gir.rate * 100)}%`}
+                  {p.d.avgDiff != null && ` · 보정 ${one(72 + p.d.avgDiff)}`}
+                </span>
+              </span>
+              <span className="st-row-amt">{p.d.avg == null ? "–" : `${one(p.d.avg)}타`}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {scope !== "all" && activeKey && (
+        <div className="section-title" style={{ marginTop: 20 }}>
+          {periodLabel(activeKey)}
+        </div>
+      )}
+      <div className="card rr-sum">
+        <button
+          className={`rr-total rr-pick ${trendKey === "strokes" ? "on" : ""}`}
+          aria-pressed={trendKey === "strokes"}
+          onClick={() => pickTrend("strokes")}
+        >
+          <b>{d.avg == null ? "–" : one(d.avg)}</b>
+          <span>평균 타수</span>
+          <em>{trendKey === "strokes" ? "추이 접기 ▴" : "추이 ▾"}</em>
+        </button>
+        <div className="st-golf">
+          <span>
+            <b>{d.count}</b>라운드
+          </span>
+          <span>
+            베스트 <b>{d.best ?? "–"}</b>
+            {d.best != null && "타"}
+          </span>
+          <span>
+            라운드당 퍼트 <b>{one(d.putts)}</b>
+          </span>
+        </div>
+        {d.avgDiff != null && (
+          <button
+            className={`rr-adj rr-pick ${trendKey === "diff" ? "on" : ""}`}
+            aria-pressed={trendKey === "diff"}
+            onClick={() => pickTrend("diff")}
+          >
+            {/* 보정타수는 파 72에 더해 타수처럼 보여준다 (예: 8.4 → 80.4타) */}
+            <div className="rr-adj-main">
+              <span>
+                평균 보정타수 (파 72 기준) <em>{trendKey === "diff" ? "▴" : "▾"}</em>
+              </span>
+              <b>{one(72 + d.avgDiff)}타</b>
+            </div>
+            <div className="rr-adj-sub">
+              파 72 + 보정타수 {one(d.avgDiff)}
+              <span className="rr-adj-formula">보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프</span>
+            </div>
+          </button>
+        )}
+      </div>
+      {summaryTrend && chart}
+
+      <div className="section-title">
+        분석 ({scope === "all" || !activeKey ? "전체 라운드" : periodLabel(activeKey)})
+      </div>
+      <p className="hint trend-hint">칸을 누르면 추이를 그래프로 볼 수 있어요.</p>
+      <RecordAnalysis
+        s={d.all}
+        rounds={d.count}
+        trend={{ active: trendKey, onPick: pickTrend, chart: summaryTrend ? null : chart }}
+      />
+    </>
+  );
+  // 라운드별 기록 목록
+  const list = rounds && rounds.length > 0 && (
+    <div className="card st-list">
+      {shown.map((r) => {
+        return (
+          <button
+            className="st-rec st-rec-btn"
+            key={r.roundId}
+            onClick={() => openDetail(r)}
+          >
+            <RecDate date={r.date} />
+            <span className="st-row-main">
+              <span className="st-row-name">
+                <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
+                <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+              </span>
+              {/* 퍼트 · FW · GIR. 18홀을 다 치지 않은 라운드만 홀 수를 앞에. 줄이 넘어가도 항목은 끊지 않는다 */}
+              <span className="st-row-sub">
+                {[
+                  r.summary.holesPlayed !== 18 && `${r.summary.holesPlayed}홀`,
+                  r.summary.putts != null && `퍼트 ${r.summary.putts}`,
+                  r.summary.fairway.rate != null && `FW ${Math.round(r.summary.fairway.rate * 100)}%`,
+                  r.summary.gir.rate != null && `GIR ${Math.round(r.summary.gir.rate * 100)}%`,
+                ]
+                  .filter((v): v is string => !!v)
+                  .map((v, i, all) => (
+                    // 가운뎃점은 앞 항목에 붙여, 줄이 넘어가도 새 줄이 점으로 시작하지 않게
+                    <span key={v}>
+                      <span className="nw">
+                        {v}
+                        {i < all.length - 1 && " ·"}
+                      </span>
+                      {i < all.length - 1 && " "}
+                    </span>
+                  ))}
+              </span>
+            </span>
+            {/* 타수는 오른쪽, 파 대비는 고정 폭: 줄마다 '타' 자리가 같다 */}
+            <span className="st-row-amt st-rec-score">
+              <span className="s">{r.summary.strokes}타</span>
+              <small className="rr-rel">{relLabel(r.summary.toPar)}</small>
+            </span>
+            <Icon name="chevronRight" size={16} className="st-row-go" />
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="app">
       <TopBar left={<BackButton onClick={close} />} right={<NoticeButton />} />
 
-      <div className="sheet results">
-        <h2 className="page-title">라운드 기록</h2>
-        {err && (
-          <div className="card">
-            <div className="empty-note" style={{ color: "var(--loss)" }}>
-              {err}
+      {split ? (
+        // 펼친 iPhone Duo: 왼쪽 분석까지 · 오른쪽 라운드별 기록
+        <div className="split-view">
+          <div className="split-pane">
+            <LogoHead />
+            <div className="sheet results">
+              {status}
+              {analysis}
             </div>
           </div>
-        )}
-        {!rounds && !err && (
-          <div className="card">
-            <div className="empty-note">불러오는 중…</div>
+          <div className="split-pane">
+            <PaneHead title="라운드별 기록" />
+            <div className="sheet results">{list}</div>
           </div>
-        )}
-        {rounds && rounds.length === 0 && (
-          <div className="card">
-            <div className="empty-note">
-              아직 끝낸 기록 라운드가 없어요. 라운드 만들기에서 게임 방식을 '기록'으로 고르면 쌓여요.
-            </div>
-          </div>
-        )}
-
-        {rounds && rounds.length > 0 && (
-          <>
-            <div className="segmented" style={{ marginBottom: 14 }}>
-              {SCOPES.map(([k, label]) => (
-                <button key={k} className={scope === k ? "active" : ""} onClick={() => setScope(k)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {/* 연도별·월별: 기간마다 요약, 누르면 그 기간 분석 */}
-            {scope !== "all" && (
-              <div className="card st-list">
-                {periods.map((p) => (
-                  <button
-                    key={p.key}
-                    className={`st-row ${p.key === activeKey ? "rr-on" : ""}`}
-                    onClick={() => setPeriod(p.key)}
-                  >
-                    <span className="st-row-main">
-                      <span className="st-row-name">{periodLabel(p.key)}</span>
-                      <span className="st-row-sub">
-                        {p.d.count}라운드
-                        {p.d.putts != null && ` · 퍼트 ${one(p.d.putts)}`}
-                        {p.d.all.gir.rate != null && ` · GIR ${Math.round(p.d.all.gir.rate * 100)}%`}
-                        {p.d.avgDiff != null && ` · 보정 ${one(72 + p.d.avgDiff)}`}
-                      </span>
-                    </span>
-                    <span className="st-row-amt">{p.d.avg == null ? "–" : `${one(p.d.avg)}타`}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {scope !== "all" && activeKey && (
-              <div className="section-title" style={{ marginTop: 20 }}>
-                {periodLabel(activeKey)}
-              </div>
-            )}
-            <div className="card rr-sum">
-              <button
-                className={`rr-total rr-pick ${trendKey === "strokes" ? "on" : ""}`}
-                aria-pressed={trendKey === "strokes"}
-                onClick={() => pickTrend("strokes")}
-              >
-                <b>{d.avg == null ? "–" : one(d.avg)}</b>
-                <span>평균 타수</span>
-                <em>{trendKey === "strokes" ? "추이 접기 ▴" : "추이 ▾"}</em>
-              </button>
-              <div className="st-golf">
-                <span>
-                  <b>{d.count}</b>라운드
-                </span>
-                <span>
-                  베스트 <b>{d.best ?? "–"}</b>
-                  {d.best != null && "타"}
-                </span>
-                <span>
-                  라운드당 퍼트 <b>{one(d.putts)}</b>
-                </span>
-              </div>
-              {d.avgDiff != null && (
-                <button
-                  className={`rr-adj rr-pick ${trendKey === "diff" ? "on" : ""}`}
-                  aria-pressed={trendKey === "diff"}
-                  onClick={() => pickTrend("diff")}
-                >
-                  {/* 보정타수는 파 72에 더해 타수처럼 보여준다 (예: 8.4 → 80.4타) */}
-                  <div className="rr-adj-main">
-                    <span>
-                      평균 보정타수 (파 72 기준) <em>{trendKey === "diff" ? "▴" : "▾"}</em>
-                    </span>
-                    <b>{one(72 + d.avgDiff)}타</b>
-                  </div>
-                  <div className="rr-adj-sub">
-                    파 72 + 보정타수 {one(d.avgDiff)}
-                    <span className="rr-adj-formula">보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프</span>
-                  </div>
-                </button>
-              )}
-            </div>
-            {summaryTrend && chart}
-
-            <div className="section-title">
-              분석 ({scope === "all" || !activeKey ? "전체 라운드" : periodLabel(activeKey)})
-            </div>
-            <p className="hint trend-hint">칸을 누르면 추이를 그래프로 볼 수 있어요.</p>
-            <RecordAnalysis
-              s={d.all}
-              rounds={d.count}
-              trend={{ active: trendKey, onPick: pickTrend, chart: summaryTrend ? null : chart }}
-            />
-
-            <div className="section-title">라운드별 기록 {shown.length}개</div>
-            <div className="card st-list">
-              {shown.map((r) => {
-                return (
-                  <button
-                    className="st-rec st-rec-btn"
-                    key={r.roundId}
-                    onClick={() => openDetail(r)}
-                  >
-                    <RecDate date={r.date} />
-                    <span className="st-row-main">
-                      <span className="st-row-name">
-                        <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
-                        <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
-                      </span>
-                      {/* 퍼트 · FW · GIR. 18홀을 다 치지 않은 라운드만 홀 수를 앞에. 줄이 넘어가도 항목은 끊지 않는다 */}
-                      <span className="st-row-sub">
-                        {[
-                          r.summary.holesPlayed !== 18 && `${r.summary.holesPlayed}홀`,
-                          r.summary.putts != null && `퍼트 ${r.summary.putts}`,
-                          r.summary.fairway.rate != null && `FW ${Math.round(r.summary.fairway.rate * 100)}%`,
-                          r.summary.gir.rate != null && `GIR ${Math.round(r.summary.gir.rate * 100)}%`,
-                        ]
-                          .filter((v): v is string => !!v)
-                          .map((v, i, all) => (
-                            // 가운뎃점은 앞 항목에 붙여, 줄이 넘어가도 새 줄이 점으로 시작하지 않게
-                            <span key={v}>
-                              <span className="nw">
-                                {v}
-                                {i < all.length - 1 && " ·"}
-                              </span>
-                              {i < all.length - 1 && " "}
-                            </span>
-                          ))}
-                      </span>
-                    </span>
-                    {/* 타수는 오른쪽, 파 대비는 고정 폭: 줄마다 '타' 자리가 같다 */}
-                    <span className="st-row-amt st-rec-score">
-                      <span className="s">{r.summary.strokes}타</span>
-                      <small className="rr-rel">{relLabel(r.summary.toPar)}</small>
-                    </span>
-                    <Icon name="chevronRight" size={16} className="st-row-go" />
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="sheet results">
+          <h2 className="page-title">라운드 기록</h2>
+          {status}
+          {analysis}
+          {list && (
+            <>
+              <div className="section-title">라운드별 기록 {shown.length}개</div>
+              {list}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

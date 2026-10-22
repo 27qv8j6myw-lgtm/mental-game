@@ -1252,6 +1252,297 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink);
   transition: background 0.15s ease;
 }
+/* 옆에 카메라·상태 막대가 있는 폰(iPhone Duo, rail.ts): 탭을 오른쪽 막대 아래쪽에 세로로 (엄지가 닿게) */
+:root[data-rail="right"] {
+  --rail-w: 60px;
+  /* 막대의 카메라·시계·와이파이는 안전 영역 가운데보다 6px 왼쪽에 있어서 그 줄에 맞춘다 */
+  --rail-nudge: 6px;
+}
+:root[data-rail="right"] .tabbar {
+  left: auto;
+  right: calc((var(--safe-right) - var(--rail-w)) / 2 + var(--rail-nudge));
+  top: auto;
+  bottom: var(--float-bottom);
+  width: var(--rail-w);
+  height: auto;
+  max-width: none;
+  margin: 0;
+  padding: 6px 0;
+  flex-direction: column;
+  gap: 4px;
+}
+:root[data-rail="right"] .tabbar button {
+  flex: none;
+  width: 50px;
+  height: 50px;
+}
+/* 프로필 메뉴: 세로 탭 왼쪽, 탭 아래 끝에 맞춰 위로 연다 */
+:root[data-rail="right"] .menu.profile-menu {
+  bottom: var(--float-bottom);
+  right: calc(var(--safe-right) + 6px);
+}
+/* 아래 탭 자리가 필요 없으니 탭이 있는 화면은 본문 아래 여백을 줄인다 */
+:root[data-rail="right"] body:has(.tabbar) .sheet:not(.with-actionbar) {
+  padding-bottom: calc(40px + var(--safe-bottom));
+}
+/* 라운드 진행 아래 줄도 막대 안에 세로로: 맨 아래 주 버튼(저장·확정…), 그 위 취소·수정, 맨 위 홈.
+   세로로는 안내 글자를 쓸 자리가 없어 가운데 유리 바는 없애고 글자 버튼만 동그라미로 남긴다 */
+:root[data-rail="right"] {
+  --rail-step: calc(var(--float-h) + 10px);
+}
+:root[data-rail="right"] .play-bar {
+  left: auto;
+  right: calc((var(--safe-right) - var(--float-h)) / 2 + var(--rail-nudge));
+  width: var(--float-h);
+  height: auto;
+  flex-direction: column;
+  gap: 10px;
+}
+:root[data-rail="right"] .pb-text {
+  display: contents;
+}
+:root[data-rail="right"] .pb-hint {
+  display: none;
+}
+:root[data-rail="right"] .pb-link {
+  width: var(--float-h);
+  height: var(--float-h);
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+/* 홈은 아래 줄 동그라미들 바로 위 (주 버튼·글자 버튼이 몇 개인지에 따라 한 칸씩 올라간다) */
+:root[data-rail="right"] .round-exit {
+  left: auto;
+  right: calc((var(--safe-right) - var(--float-h)) / 2 + var(--rail-nudge));
+}
+:root[data-rail="right"] body:has(.play-bar .dock-btn) .round-exit,
+:root[data-rail="right"] body:has(.play-bar .pb-link) .round-exit {
+  bottom: calc(var(--float-bottom) + var(--rail-step));
+}
+:root[data-rail="right"] body:has(.play-bar .dock-btn):has(.play-bar .pb-link) .round-exit {
+  bottom: calc(var(--float-bottom) + 2 * var(--rail-step));
+}
+/* 펼친 채 돌려서 막대가 위로 온 화면 (rail.ts data-rail="top"): 폭을 다 쓰고,
+   위 바는 막대 안 시계·와이파이 왼쪽에 넣어 본문이 막대 바로 아래에서 시작한다 */
+:root[data-rail="top"] {
+  --float-left: calc(var(--safe-left) + 16px);
+  --float-right: calc(var(--safe-right) + 16px);
+}
+:root[data-rail="top"] #root,
+:root[data-rail="top"] .actionbar,
+:root[data-rail="top"] .edit-bar {
+  max-width: none;
+}
+/* 위 바 높이를 막대와 같게, 버튼은 막대의 시계·와이파이와 같은 줄에 */
+:root[data-rail="top"] .topbar.app-top {
+  padding-top: calc((var(--safe-top) - 44px) / 2 + 2px);
+  padding-bottom: calc((var(--safe-top) - 44px) / 2 - 2px);
+}
+/* 오른쪽 버튼은 막대 오른쪽 시계·와이파이 앞에 */
+:root[data-rail="top"] .app-top .tb-right {
+  margin-right: 108px;
+}
+:root[data-rail="top"] .menu.notice-menu {
+  top: calc(var(--safe-top) + 4px);
+  right: calc(var(--safe-right) + 120px);
+}
+/* 라운드 화면 칸 (App RoundPlay): 접힌 화면에서는 칸 상자가 없는 것처럼 지금 탭 하나만 */
+.round-panes:not(.split),
+.round-panes:not(.split) > .split-pane {
+  display: contents;
+}
+/* 펼친 iPhone Duo: 두 칸 화면 (라운드 진행 · 라운드 · 전적 · 랭킹 · 기록). 위 바 없이 칸마다 따로 스크롤 */
+#root:has(.split-view) {
+  max-width: none;
+}
+.app:has(> .split-view) {
+  height: 100dvh;
+}
+.split-view {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.split-view > .split-pane {
+  min-height: 0;
+  overflow-y: auto;
+  /* 끝에서 더 끌어도 튕기지 않게 (튕기면 위에 고정한 칸 머리까지 같이 내려온다) */
+  overscroll-behavior: none;
+  display: flex;
+  flex-direction: column;
+}
+/* 스크롤하지 않는 칸 (라운드 탭 왼쪽 코드 입력) */
+.split-view > .split-pane.still {
+  overflow: hidden;
+}
+.split-view > .split-pane + .split-pane {
+  border-left: var(--border);
+}
+/* 두 칸 머리(홀 번호 · 정산 제목 · 칸 제목)를 같은 높이로 맨 위에 고정 (칸을 내려도 남는다) */
+.split-view > .split-pane > .hole-nav,
+.split-view > .split-pane > .result-hero,
+.split-view > .split-pane > .pane-head,
+.split-view > .split-pane > .pane-screen > .pane-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex: none;
+  height: calc(var(--safe-top) + 92px);
+  padding-top: var(--safe-top);
+  padding-bottom: 0;
+}
+.split-view > .split-pane > .result-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+/* 머리가 없는 칸은 본문만 안전 영역 아래로 */
+.split-view > .split-pane > .sheet:first-child {
+  padding-top: calc(var(--safe-top) + 18px);
+}
+/* 아래 탭이 막대로 가서 본문 아래 여백은 조금만 */
+.split-view > .split-pane > .sheet,
+.split-view > .split-pane > .pane-screen > .sheet {
+  padding-bottom: calc(40px + var(--safe-bottom));
+}
+/* 라운드 탭 왼쪽 칸 안의 라운드 만들기 · 대기실 (embedded): 상자 없이 칸에 바로 놓고, 아래 버튼은 칸 아래에 붙인다 */
+.pane-screen {
+  display: contents;
+}
+.split-view > .split-pane > .pane-screen > .actionbar {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  right: auto;
+  max-width: none;
+  margin: auto 0 0;
+}
+/* 칸 머리 (PaneHead): 가운데 제목 · 한 줄 설명, 양옆 버튼 */
+.pane-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding-left: 14px;
+  padding-right: 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.pane-head .ph-left {
+  justify-self: start;
+}
+.pane-head .ph-right {
+  justify-self: end;
+}
+.pane-head .ph-center {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+.pane-head .ph-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.pane-head .ph-sub {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.pane-head .navbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+/* 로고 머리 (LogoHead): 가운데 mental game 글자 로고. g 꼬리 때문에 글자 몸통이 위로 떠 보여서 살짝 내린다 */
+.pane-head.logo-head .ph-title {
+  padding-top: 3px;
+  line-height: 0;
+  overflow: visible;
+  color: var(--ink);
+}
+/* 정산 결과 머리(중간 등수 등)는 펼친 화면에서 로고 머리로 바뀐다 */
+.split-view > .split-pane.result > .result-hero {
+  display: none;
+}
+/* 한 칸 화면(대기실·라운드 만들기 등)의 맨 위 로고 머리: 칸 머리와 같은 높이로 위에 고정 */
+.pane-head.page-logo {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: calc(var(--safe-top) + 92px);
+  padding-top: var(--safe-top);
+}
+/* 두 칸 화면은 왼쪽 칸 머리에 로고가 있어서 숨긴다 */
+.app:has(> .split-view) > .page-logo {
+  display: none;
+}
+/* 칸 머리 안 토글 (관리자 본인/사용자 · 기간): 작게 */
+.pane-head .segmented {
+  margin: 0;
+  min-width: 220px;
+}
+.pane-head .segmented button {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+/* 펼친 화면: 위 바 대신 양옆 버튼을 막대의 와이파이 아래에 세로로 (TopBar) */
+.rail-actions {
+  position: fixed;
+  z-index: 30;
+  top: calc(var(--safe-top) + 108px);
+  right: calc((var(--safe-right) - 44px) / 2 + var(--rail-nudge, 0px));
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.rail-actions .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--ink);
+}
+.rail-actions.locked {
+  opacity: 0.35;
+  pointer-events: none;
+}
+/* 알림 창: 막대 왼쪽, 버튼 높이에서 */
+:root[data-unfolded] .menu.notice-menu {
+  top: calc(var(--safe-top) + 108px);
+  right: calc(var(--safe-right) + 6px);
+}
+/* 오프라인·저장 대기: 아래 바가 막대로 갔으니 본문 아래 가운데 */
+:root[data-rail="right"] .offline-pill.round-net {
+  left: calc((100vw - var(--safe-right) + var(--safe-left)) / 2);
+  bottom: var(--float-bottom);
+}
 /* 지금 탭: 아이콘 뒤에 옅은 알약 */
 .tabbar button.active {
   background: rgba(0, 0, 0, 0.065);
@@ -1607,13 +1898,29 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   inset: 0;
   z-index: 40;
 }
-/* 프로필 메뉴 맨 아래 회원 탈퇴: 작고 옅게 */
-.menu-item.menu-leave {
-  margin-top: 2px;
-  padding: 8px 10px;
-  font-size: 12.5px;
+/* 프로필 메뉴 머리: 이름·이메일 오른쪽에 회원 탈퇴 (작고 옅게, 이름 줄에 맞춤) */
+.profile-menu .menu-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.profile-menu .mh-text {
+  flex: 1;
+  min-width: 0;
+}
+.menu-leave {
+  flex: none;
+  margin-right: -4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ink-faint);
+  background: transparent;
+  cursor: pointer;
+}
+.menu-leave:active {
+  background: var(--paper-2);
 }
 .ml-ic.apple {
   background: #000;
