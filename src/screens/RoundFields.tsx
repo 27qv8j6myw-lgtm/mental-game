@@ -1,12 +1,33 @@
-import type { BetRules, GameMode, PaymentMethod, SettleTiming, SkinsRules } from "../types";
-import { capLabel, GAME_MODE_LABEL, settleNote } from "../util";
+import { useState } from "react";
+import type {
+  BetRules,
+  GameMode,
+  PaymentMethod,
+  RankMethod,
+  RankPrize,
+  RankRules,
+  SettleTiming,
+  SkinsRules,
+} from "../types";
+import {
+  CADDIE_PER_HOLE,
+  capLabel,
+  GAME_MODE_LABEL,
+  RANK_METHOD_LABEL,
+  settleNote,
+  won,
+  wonSigned,
+} from "../util";
+import { caddieCounted } from "../caddie";
 import { Icon } from "../icons";
 
-const GAME_MODES: GameMode[] = ["stroke", "skins", "record"];
+const GAME_MODES: GameMode[] = ["stroke", "skins", "caddie", "rank", "record"];
 
 const GAME_MODE_HINT: Record<GameMode, string> = {
   stroke: "두 명씩 홀마다 타수 차이 × 타당 금액을 주고받아요.",
   skins: "홀마다 단독 최저 타수 플레이어가 걸린 스킨을 모두 가져가요.",
+  caddie: "홀마다 꼴찌가 1만원씩 캐디피로 내요. 캐디피에 맞춰 앞 홀은 연습이에요.",
+  rank: "홀마다 돈이 오가지 않고 끝나고 등수만 정해요. 등수별 금액은 정해도 되고 안 해도 돼요.",
   record: "내기 없이 각자 스코어·퍼트·페어웨이·벌타를 기록해요.",
 };
 
@@ -22,7 +43,7 @@ export function GameModeField({
 }) {
   return (
     <>
-      <div className="segmented">
+      <div className="segmented mode-seg">
         {modes.map((m) => (
           <button key={m} className={value === m ? "active" : ""} onClick={() => onChange(m)}>
             {GAME_MODE_LABEL[m]}
@@ -289,6 +310,205 @@ export function RuleToggles({
           <li>홀 최대 타수는 더블파까지만 반영</li>
         </ul>
       </div>
+    </>
+  );
+}
+
+/* ---------- 캐디피 내기 ---------- */
+
+/** 홀 수에 맞는 캐디피 칩 (9홀은 7·8·9만원) */
+const caddieFees = (holeCount: number) =>
+  holeCount <= 9 ? [70000, 80000, 90000] : [150000, 160000, 170000, 180000];
+
+/** 캐디피: 칩 또는 만원 단위 직접 입력 + "16홀 × 1만원 · 앞 2홀 연습" 요약 */
+export function CaddieFeeField({
+  fee,
+  holeCount,
+  onChange,
+}: {
+  fee: number;
+  holeCount: number;
+  onChange: (fee: number) => void;
+}) {
+  const fees = caddieFees(holeCount);
+  const custom = !fees.includes(fee);
+  const [text, setText] = useState(custom && fee > 0 ? String(fee / CADDIE_PER_HOLE) : "");
+  const counted = caddieCounted(fee, holeCount);
+  const practice = holeCount - counted;
+  return (
+    <>
+      <div className="unit-chips">
+        {fees.map((f) => (
+          <button
+            key={f}
+            className={`chip ${fee === f ? "active" : ""}`}
+            onClick={() => {
+              onChange(f);
+              setText("");
+            }}
+          >
+            {f / CADDIE_PER_HOLE}만원
+          </button>
+        ))}
+        <button
+          className={`chip ${custom ? "active" : ""}`}
+          onClick={() => {
+            const v = Number(text) || fees[0] / CADDIE_PER_HOLE;
+            setText(String(v));
+            onChange(v * CADDIE_PER_HOLE);
+          }}
+        >
+          직접입력
+        </button>
+      </div>
+      {custom && (
+        <div className="field caddie-custom" style={{ marginTop: 12 }}>
+          <input
+            className="input"
+            type="text"
+            inputMode="numeric"
+            placeholder="캐디피 (만원)"
+            value={text}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+              setText(digits);
+              onChange((Number(digits) || 0) * CADDIE_PER_HOLE);
+            }}
+          />
+          <span>만원</span>
+        </div>
+      )}
+      <p className="hint caddie-sum" style={{ marginTop: 10 }}>
+        {counted > 0
+          ? `${counted}홀 × 1만원${practice > 0 ? ` · 앞 ${practice}홀은 연습` : ""}`
+          : "캐디피를 1만원 이상 정해 주세요."}
+        {fee > holeCount * CADDIE_PER_HOLE &&
+          ` · ${holeCount}홀이라 모든 홀에서 1만원씩 (${won(holeCount * CADDIE_PER_HOLE)})`}
+      </p>
+    </>
+  );
+}
+
+/* ---------- 등수 내기 ---------- */
+
+const RANK_METHODS: RankMethod[] = ["points", "net", "skins"];
+const RANK_METHOD_HINT: Record<RankMethod, string> = {
+  points: "타당처럼 두 명씩 타수 차이를 포인트로 쌓아 포인트가 많은 순으로 정해요.",
+  net: "총 타수에서 핸디를 빼서 적은 순으로 정해요. 핸디는 각자 대기실에서 평균 타수로 정하고(±조정), 9홀이면 절반이에요.",
+  skins: "홀마다 단독 최저 타수가 스킨을 가져가고, 딴 스킨이 많은 순으로 정해요.",
+};
+
+/** 등수 정하는 방식: 타당 포인트 / 핸디 타수 / 스킨스 */
+export function RankMethodField({ value, onChange }: { value: RankMethod; onChange: (v: RankMethod) => void }) {
+  return (
+    <>
+      <div className="segmented">
+        {RANK_METHODS.map((m) => (
+          <button key={m} className={value === m ? "active" : ""} onClick={() => onChange(m)}>
+            {RANK_METHOD_LABEL[m]}
+          </button>
+        ))}
+      </div>
+      <p className="hint" style={{ marginTop: 10 }}>
+        {RANK_METHOD_HINT[value]}
+      </p>
+    </>
+  );
+}
+
+const PRIZES: [RankPrize, string][] = [
+  ["none", "없음"],
+  ["pay", "내는 돈"],
+  ["exchange", "주고받는 돈"],
+];
+const PAY_DEFAULT = [0, 10000, 20000, 30000];
+const EXCHANGE_DEFAULT = [20000, 10000, -10000, -20000];
+
+/**
+ * 등수별 금액: 없음 / 내는 돈(각자 내서 모은다) / 주고받는 돈(+ 받음 · − 냄, 합 0 이면 송금).
+ * count: 금액을 정할 등수 수 (라운드 만들 때 4, 대기실에서는 참여 인원)
+ */
+export function RankPrizeField({
+  rules,
+  onChange,
+  count = 4,
+}: {
+  rules: RankRules;
+  onChange: (r: RankRules) => void;
+  count?: number;
+}) {
+  const amounts = Array.from({ length: count }, (_, i) => rules.amounts[i] ?? 0);
+  const setPrize = (prize: RankPrize) => {
+    // 내는 돈 ↔ 주고받는 돈은 금액 뜻이 달라서, 맞지 않으면 기본값으로
+    let next = rules.amounts;
+    if (prize === "pay" && next.some((v) => v < 0)) next = PAY_DEFAULT;
+    if (prize === "exchange" && next.every((v) => v >= 0)) next = EXCHANGE_DEFAULT;
+    onChange({ ...rules, prize, amounts: next });
+  };
+  const setAmount = (i: number, v: number) => {
+    const next = [...amounts];
+    next[i] = v;
+    onChange({ ...rules, amounts: next });
+  };
+  const sum = amounts.reduce((a, b) => a + b, 0);
+  return (
+    <>
+      <div className="segmented">
+        {PRIZES.map(([p, label]) => (
+          <button key={p} className={rules.prize === p ? "active" : ""} onClick={() => setPrize(p)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {rules.prize === "none" ? (
+        <p className="hint" style={{ marginTop: 10 }}>
+          돈 없이 등수만 정해요.
+        </p>
+      ) : (
+        <>
+          <div className="rank-prizes">
+            {amounts.map((v, i) => (
+              <div className="rank-prize" key={i}>
+                <span className="rp-rank">{i + 1}등</span>
+                {rules.prize === "exchange" && (
+                  <button
+                    className={`rp-sign ${v < 0 ? "neg" : "pos"}`}
+                    onClick={() => setAmount(i, -v)}
+                    aria-label={`${i + 1}등 받음/냄 바꾸기`}
+                  >
+                    {v < 0 ? "냄" : "받음"}
+                  </button>
+                )}
+                <input
+                  className="input"
+                  type="text"
+                  inputMode="numeric"
+                  value={Math.abs(v) ? Math.abs(v).toLocaleString("ko-KR") : ""}
+                  placeholder="0"
+                  onChange={(e) => {
+                    const n = Number(e.target.value.replace(/\D/g, "").slice(0, 8)) || 0;
+                    setAmount(i, v < 0 ? -n : n);
+                  }}
+                />
+                <span className="rp-won">원</span>
+              </div>
+            ))}
+          </div>
+          {rules.prize === "pay" ? (
+            <p className="hint" style={{ marginTop: 10 }}>
+              등수별로 각자 내서 모아요 (캐디피·식사비 등). 사람끼리 주고받지 않아요. 같은 등수는 그 자리들
+              금액을 나눠 내요{count < 5 ? ", 5등부터는 0원" : ""}.
+            </p>
+          ) : (
+            <p className={`hint rp-sum ${sum === 0 ? "ok" : "warn"}`} style={{ marginTop: 10 }}>
+              합계 {sum === 0 ? "0원" : wonSigned(sum)} ·{" "}
+              {sum === 0
+                ? "아래 등수가 위 등수에게 보내요. 같은 등수는 금액을 나눠요."
+                : `${count}명 기준 합이 0원이어야 송금을 계산해요.`}
+            </p>
+          )}
+        </>
+      )}
     </>
   );
 }

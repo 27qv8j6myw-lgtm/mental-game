@@ -1,3 +1,4 @@
+import { rankResult } from "./rankGame";
 import type {
   BetRules,
   GameConfig,
@@ -416,6 +417,25 @@ export function splitShare(value: number, ways: number): number {
   return Math.max(1000, Math.round(exact / 1000) * 1000);
 }
 
+/**
+ * total 을 n 명이 천 원 단위로 정확히 나눈다 (합이 total 과 같다). 나누어 떨어지지 않는 천 원은 앞사람부터 하나씩 더.
+ * 음수(등수별 주고받는 돈의 낼 돈)도 같은 방식으로 나눈다
+ */
+export function splitThousands(total: number, n: number): number[] {
+  if (n <= 0) return [];
+  const sign = total < 0 ? -1 : 1;
+  const abs = Math.abs(total);
+  const units = Math.floor(abs / 1000);
+  // 천 원 아래 끝전(보통 없음)은 첫 사람에게
+  const rest = abs - units * 1000;
+  const base = Math.floor(units / n);
+  const extra = units - base * n;
+  return Array.from(
+    { length: n },
+    (_, i) => sign * ((base + (i < extra ? 1 : 0)) * 1000 + (i === 0 ? rest : 0)) || 0
+  );
+}
+
 /** 후반 가중이 붙는 마지막 홀 수 */
 export const LATE_HOLES = 3;
 
@@ -526,7 +546,10 @@ export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult
   };
 }
 
-/** 전체 최종 정산 = (타당: 게임 + 버디 / 스킨스: 스킨) + (사후정산 시)핸디캡 */
+/**
+ * 전체 최종 정산 = (타당: 게임 + 버디 / 스킨스: 스킨) + (사후정산 시)핸디캡.
+ * 사람끼리 주고받는 돈만 센다: 캐디피 내기·등수 내기(내는 돈·금액 없음)는 0, 등수 내기(주고받는 돈)는 등수 금액
+ */
 export function totalNet(
   config: GameConfig,
   holes: HoleScore[],
@@ -535,7 +558,13 @@ export function totalNet(
   const net: Record<string, number> = {};
   for (const p of config.players) net[p.id] = 0;
   // 기록 모드는 내기가 없다
-  if (config.gameMode === "record") return { net, transfers: [] };
+  if (config.gameMode === "record" || config.gameMode === "caddie") return { net, transfers: [] };
+  if (config.gameMode === "rank") {
+    const rank = rankResult(config, holes);
+    if (rank.rules.prize !== "exchange") return { net, transfers: [] };
+    addInto(net, rank.amounts);
+    return { net, transfers: rank.transfers };
+  }
 
   if (config.gameMode === "skins") {
     addInto(net, skinsResult(config, holes).net);

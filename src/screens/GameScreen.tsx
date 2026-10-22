@@ -11,6 +11,9 @@ import { holeEditItems, localTime, relLabel, scoreLabel, won, wonSigned } from "
 import { Avatar, Icon } from "../icons";
 import type { HoleScore, HoleStat, ParValue, Session, Transfer } from "../types";
 import { SkinPot, SkinStrip } from "./SkinsPanel";
+import { CaddieCard, CaddiePayRow, RankBoard } from "./SideGamePanels";
+import { caddieResult } from "../caddie";
+import { pointsConfig, rankResult, rankRules, rankScoreText } from "../rankGame";
 import { useRound } from "../round";
 import { firstUnsaved, settledHoles } from "../model";
 import { EMPTY_STAT, girOf } from "../recordStats";
@@ -212,33 +215,46 @@ export default function GameScreen({
   }, [holeSave, playing, goHole]);
 
   // ---- 정산: 누적은 저장된 홀만, 이번 홀은 입력 중인 값으로 미리 계산 ----
+  const isCaddie = config.gameMode === "caddie";
+  const isRank = config.gameMode === "rank";
+  const rank = isRank ? rankRules(config) : null;
+  /** 타당 계산(배판·이월·이번 홀 정산)을 쓰는 방식: 타당, 등수 내기 포인트(1타 = 1점) */
+  const strokeLike = config.gameMode === "stroke" || rank?.method === "points";
+  const betCfg = useMemo(() => (isRank ? pointsConfig(config) : config), [isRank, config]);
   const settled = useMemo(() => settledHoles(holes), [holes]);
   const preview = useMemo(
     () => settled.map((h, j) => (j === idx ? view : h)),
     [settled, idx, view]
   );
   const carries = useMemo(
-    () => carryMultipliers(preview, config.players, config.rules),
-    [preview, config.players, config.rules]
+    () => carryMultipliers(preview, betCfg.players, betCfg.rules),
+    [preview, betCfg.players, betCfg.rules]
   );
   const carry = carries[idx] ?? 1;
   const nextCarry = idx < lastIdx ? carries[idx + 1] : null;
   const game = useMemo(
-    () => holeNet(view, config.players, config.unit, config.rules, carry),
-    [view, config, carry]
+    () => holeNet(view, betCfg.players, betCfg.unit, betCfg.rules, carry),
+    [view, betCfg, carry]
   );
   const birdie = useMemo(
-    () => birdieHoleNet(view, config.players, config.unit, config.rules, carry),
-    [view, config, carry]
+    () => birdieHoleNet(view, betCfg.players, betCfg.unit, betCfg.rules, carry),
+    [view, betCfg, carry]
   );
 
-  // 스킨스 라운드는 배판·버디 추가 정산 없이 스킨으로만 정산한다
-  const isSkins = config.gameMode === "skins";
-  const skins = useMemo(() => (isSkins ? skinsResult(config, preview) : null), [isSkins, config, preview]);
+  // 스킨스 라운드는 배판·버디 추가 정산 없이 스킨으로만 정산한다 (등수 내기 스킨스는 개수만)
+  const isSkins = config.gameMode === "skins" || rank?.method === "skins";
+  const skinsCfg = useMemo(() => (isRank ? { ...config, unit: 1 } : config), [isRank, config]);
+  const skins = useMemo(() => (isSkins ? skinsResult(skinsCfg, preview) : null), [isSkins, skinsCfg, preview]);
   const skinsSettled = useMemo(
-    () => (isSkins ? skinsResult(config, settled) : null),
-    [isSkins, config, settled]
+    () => (isSkins ? skinsResult(skinsCfg, settled) : null),
+    [isSkins, skinsCfg, settled]
   );
+  // 캐디피: 이번 홀은 입력 중인 값으로, 낸 돈 누적은 저장된 홀로
+  const caddie = useMemo(() => (isCaddie ? caddieResult(config, preview) : null), [isCaddie, config, preview]);
+  const caddieSettled = useMemo(() => (isCaddie ? caddieResult(config, settled) : null), [isCaddie, config, settled]);
+  const cHole = caddie?.holes[idx] ?? null;
+  // 등수: 저장된 홀로 매긴 지금 순위
+  const rankNow = useMemo(() => (isRank ? rankResult(config, settled) : null), [isRank, config, settled]);
   const skin = skins?.holes[idx] ?? null;
   const skinTransfers = useMemo(() => (skin ? settleNet(skin.net) : []), [skin]);
 
@@ -246,6 +262,8 @@ export default function GameScreen({
     if (skinsSettled) return skinsSettled.net;
     const net: Record<string, number> = {};
     for (const p of config.players) net[p.id] = 0;
+    // 캐디피·등수 내기는 누적 금액 대신 낸 캐디피·순위를 보여 준다
+    if (isCaddie || isRank) return net;
     const settledCarries = carryMultipliers(settled, config.players, config.rules);
     settled.forEach((h, j) => {
       const c = settledCarries[j] ?? 1;
@@ -254,7 +272,7 @@ export default function GameScreen({
       for (const id of Object.keys(net)) net[id] += g[id] + b[id];
     });
     return net;
-  }, [skinsSettled, settled, config]);
+  }, [skinsSettled, settled, config, isCaddie, isRank]);
 
   const scoreOpts = SCORE_OPTS.filter((s) => s >= 1 - view.par && s <= view.par);
   const scoreClass = (rel: number) => (rel < 0 ? "under" : rel > 0 ? "over" : "even");
@@ -423,7 +441,11 @@ export default function GameScreen({
           ))}
         </div>
 
-        {skins && skin ? (
+        {rankNow && <RankBoard result={rankNow} players={config.players} myUid={myUid ?? ""} />}
+
+        {caddie && cHole ? (
+          <CaddieCard hole={cHole} result={caddie} players={config.players} isLast={idx === lastIdx} />
+        ) : skins && skin ? (
           <>
             {/* key: 홀을 옮기거나 승부가 나면 카드 애니메이션을 다시 재생 */}
             <SkinPot
@@ -434,10 +456,11 @@ export default function GameScreen({
               players={config.players}
               isLast={idx === lastIdx}
               birdieOn={!!config.rules.skins?.birdie}
+              countOnly={isRank}
             />
             <SkinStrip holes={skins.holes} current={idx} players={config.players} onPick={go} />
           </>
-        ) : game.allTie ? (
+        ) : !strokeLike || (rank && !rank.multipliers) ? null : game.allTie ? (
           <div className="bet-banner carry">
             <div className="mult">{nextCarry ? `×${nextCarry}` : "–"}</div>
             <div className="bb-txt">
@@ -464,6 +487,9 @@ export default function GameScreen({
             const rel = view.scores[p.id];
             const net = running[p.id];
             const skinWin = !!skin && skin.winnerIds.includes(p.id);
+            // 캐디피: 이 홀 꼴찌 표시 / 등수: 지금 순위
+            const cdLast = cHole?.status === "paid" && cHole.payerId === p.id;
+            const myRank = rankNow?.order.find((r) => r.id === p.id);
             const adj = p.strokeAdj ?? 0;
             const mine = canStat && p.id === myUid;
             const recStat = rec ?? myStat;
@@ -498,9 +524,20 @@ export default function GameScreen({
                       {skin.status === "split" ? "나눔" : `스킨 ${skin.skins}`}
                     </span>
                   )}
-                  <span className={`pnet ${net > 0 ? "pos" : net < 0 ? "neg" : ""}`}>
-                    <small>누적</small> {net === 0 ? "±0" : wonSigned(net)}
-                  </span>
+                  {cdLast && <span className="win-badge loss">꼴찌</span>}
+                  {caddieSettled ? (
+                    <span className={`pnet ${caddieSettled.paid[p.id] > 0 ? "neg" : ""}`}>
+                      <small>캐디피</small> {won(caddieSettled.paid[p.id])}
+                    </span>
+                  ) : rankNow && rank && myRank ? (
+                    <span className="pnet">
+                      <small>{myRank.rank}위</small> {rankScoreText(rank.method, myRank.score)}
+                    </span>
+                  ) : (
+                    <span className={`pnet ${net > 0 ? "pos" : net < 0 ? "neg" : ""}`}>
+                      <small>누적</small> {net === 0 ? "±0" : wonSigned(net)}
+                    </span>
+                  )}
                 </div>
                 <div
                   className={`score-grid main-score ${inputOn ? "" : "locked"}`}
@@ -546,6 +583,56 @@ export default function GameScreen({
           })}
         </div>
 
+        {isCaddie && cHole ? (
+          <>
+            <div className="section-title">이번 홀 캐디피{previewNote}</div>
+            {cHole.status === "paid" ? (
+              <CaddiePayRow
+                player={config.players.find((p) => p.id === cHole.payerId)}
+                amount={cHole.stake}
+                note={cHole.carryCount > 0 ? `(${cHole.carryCount}홀 넘어옴)` : undefined}
+              />
+            ) : (
+              <div className="card">
+                <div className="empty-note">
+                  {cHole.practice
+                    ? "연습 홀이라 내는 돈이 없어요."
+                    : cHole.status === "carried"
+                    ? idx === lastIdx
+                      ? "마지막 홀이 공동 꼴찌라, 끝나면 남은 돈을 모두 나눠 내요."
+                      : "공동 꼴찌라 이 홀 돈은 다음 홀로 넘어가요."
+                    : holeSave
+                    ? "스코어를 모두 입력하면 꼴찌를 보여줘요. 저장해야 캐디피에 들어가요."
+                    : "스코어를 모두 입력하면 꼴찌를 보여줘요."}
+                </div>
+              </div>
+            )}
+          </>
+        ) : isRank ? (
+          // 등수 내기: 포인트 방식만 이번 홀 포인트를 보여 준다 (스킨스는 위 카드, 핸디 타수는 순위로)
+          rank?.method === "points" && (
+            <>
+              <div className="section-title">이번 홀 포인트{previewNote}</div>
+              <div className="card">
+                {config.players.map((p) => {
+                  const pt = (game.net[p.id] ?? 0) + (rank.multipliers ? birdie.net[p.id] ?? 0 : 0);
+                  return (
+                    <div className="gplayer" key={p.id} style={{ justifyContent: "space-between" }}>
+                      <span className="gp-name">
+                        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                        <b>{p.name || "?"}</b>
+                      </span>
+                      <span className={`pnet ${pt > 0 ? "pos" : pt < 0 ? "neg" : ""}`}>
+                        {view.scores[p.id] == null ? "–" : rankScoreText("points", pt)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )
+        ) : (
+        <>
         <div className="section-title">이번 홀 정산{previewNote}</div>
         {skin ? (
           skinTransfers.length === 0 ? (
@@ -584,6 +671,8 @@ export default function GameScreen({
             </div>
             {renderTransfers(birdie.transfers, true)}
           </>
+        )}
+        </>
         )}
 
         <div className="section-title" style={{ marginTop: 16 }}>

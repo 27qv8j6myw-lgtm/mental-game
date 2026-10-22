@@ -394,7 +394,7 @@ export default function AdminScreen({ onClose }: { onClose: () => void }) {
                             `방장 ${r.host_name || "?"}`,
                             `${r.player_count}명`,
                             `${r.hole_count}홀`,
-                            r.game_mode !== "record" && `${num(r.unit)}원`,
+                            r.game_mode !== "record" && r.game_mode !== "rank" && `${num(r.unit)}원`,
                             r.edit_count > 0 && `수정 ${r.edit_count}번`,
                           ]}
                         />

@@ -7,6 +7,8 @@ import { Avatar, Icon } from "../icons";
 import { adjLabel, hcLabel, PAYMENT_LABEL, settleNote, teeLabel, won } from "../util";
 import AccountField from "./AccountField";
 import { StrokeAdjField } from "./RoundFields";
+import { caddieSummary } from "../caddie";
+import { rankPrizeBalanced, rankRules, rankSummary } from "../rankGame";
 import RoundSettingsSheet from "./RoundSettingsSheet";
 import type { Gender } from "../types";
 
@@ -106,6 +108,9 @@ export default function LobbyScreen() {
   const handicapMode = isRecord ? null : hm;
   const payment = isRecord ? null : pay;
   const minPlayers = isRecord ? 1 : 2;
+  // 캐디피·등수 내기: 핸디 금액을 주고받지 않는다
+  const isSide = gameMode === "caddie" || gameMode === "rank";
+  const rank = gameMode === "rank" ? rankRules(session.config) : null;
   const needBase = handicapMode === "stroke" && !baseUid;
   const setBase = (uid: string) =>
     void updateRound({ rules: { ...round.rules, baseUid: uid } });
@@ -258,6 +263,13 @@ export default function LobbyScreen() {
             {teeLabel(round.course_tee) && `${teeLabel(round.course_tee)} · `}
             {isRecord ? (
               "기록 모드 (내기 없음)"
+            ) : gameMode === "caddie" ? (
+              caddieSummary(round.rules.caddie?.fee ?? 0, round.hole_count)
+            ) : rank ? (
+              <>
+                {rankSummary(rank)}
+                {rank.prize === "exchange" && ` · ${PAYMENT_LABEL[pay]}`}
+              </>
             ) : (
               <>
                 {gameMode === "skins" ? "스킨스 · 스킨 1개 " : "타당 "}
@@ -268,6 +280,16 @@ export default function LobbyScreen() {
         </div>
 
         <div className="section-title">참여자 {bundle.players.length}명</div>
+        {/* 등수 내기 주고받는 돈: 지금 인원으로 합이 0원이어야 송금을 계산한다 */}
+        {rank && !rankPrizeBalanced(rank, bundle.players.length) && (
+          <div className="card base-pick missing">
+            <div className="bp-title">등수 금액 합이 0원이 아니에요</div>
+            <p className="hint" style={{ marginTop: 6 }}>
+              {bundle.players.length}명 기준으로 받는 돈과 내는 돈의 합이 0원이어야 송금을 계산해요.
+              {isHost ? " 설정 수정에서 고쳐 주세요." : " 방장이 설정에서 고칠 수 있어요."}
+            </p>
+          </div>
+        )}
         {isAdjust && (
           <div className="card base-pick">
             <div className="bp-title">타수 보정</div>
@@ -510,7 +532,7 @@ export default function LobbyScreen() {
           </div>
         )}
 
-        {!isAdjust && !isRecord && (
+        {!isAdjust && !isRecord && !isSide && (
           <>
           <div className="section-title">
             핸디캡 정산 미리보기 {round.handicap_settle === "pre" ? "(사전)" : "(사후)"}

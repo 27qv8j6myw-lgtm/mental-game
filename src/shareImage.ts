@@ -218,6 +218,8 @@ const MODE_CHIP: Record<GameMode, [string, string]> = {
   record: [C.gainSoft, "#047857"],
   stroke: [C.blueSoft, "#1d4ed8"],
   skins: [C.goldSoft, "#b45309"],
+  caddie: ["#ccfbf1", "#0f766e"],
+  rank: ["#ede9fe", "#6d28d9"],
 };
 
 const pct = (n: number, d: number) => (d === 0 ? "—" : `${Math.round((n / d) * 100)}%`);
@@ -385,6 +387,12 @@ export interface SettlementPlayer {
   net: number;
   /** 금액 내역: [["타당", 17000], ["버디", 4000], ["핸디", 2000]] */
   parts: [string, number][];
+  /** 등수 (공동 등수). 없으면 줄 순서 */
+  rank?: number;
+  /** 이름 아래 줄 (있으면 금액 내역 대신): "꼴찌 2번", "+12점" */
+  note?: string;
+  /** 오른쪽 값 (있으면 금액 대신): "+12점" */
+  valueText?: string;
 }
 
 export interface SettlementData {
@@ -401,6 +409,11 @@ export interface SettlementData {
   transfers: { from: string; to: string; amount: number }[];
   /** 홀별 파와 사람별 파 대비 타수, 그 홀 배수 (1 보다 크면 배판: 홀 번호를 노랗게) */
   holes: { par: number; scores: Record<string, number | null>; multiplier: number }[];
+  /** 순위 칸 제목 (기본 "순위와 정산 금액") / 송금 칸 제목 (기본 "송금") */
+  listTitle?: string;
+  transfersTitle?: string;
+  /** 송금 칸을 그리지 않는다 (등수 내기 금액 없음) */
+  hideTransfers?: boolean;
 }
 
 const tone = (n: number) => (n > 0 ? C.gain : n < 0 ? C.loss : C.soft);
@@ -411,7 +424,9 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     d.course,
     d.tee ?? "",
     ...d.chips,
-    ...d.players.map((p) => p.name + p.parts.map(([l]) => l).join("")),
+    ...d.players.map((p) => p.name + p.parts.map(([l]) => l).join("") + (p.note ?? "") + (p.valueText ?? "")),
+    d.listTitle ?? "",
+    d.transfersTitle ?? "",
     "멘탈게임최종중간정산순위와금액송금홀별스코어주고받을이없어요에서한결과예요파전반후반합계배판홀더블년월일화수목금토",
   ]);
   const W = 720;
@@ -439,8 +454,7 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     196 +
     sec(n * PROW) +
     26 +
-    sec(Math.max(1, d.transfers.length) * TROW) +
-    26 +
+    (d.hideTransfers ? 0 : sec(Math.max(1, d.transfers.length) * TROW) + 26) +
     sec(halves.length * halfH + (halves.length - 1) * 18 + 24 + LEG) +
     72;
 
@@ -481,13 +495,14 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
 
   // ---- 순위와 금액
   let y = 196;
-  title("순위와 정산 금액", y);
+  title(d.listTitle ?? "순위와 정산 금액", y);
   y += 40;
   card(y, n * PROW);
   // 칸 폭 고정: 가장 긴 금액에 맞춰 금액 칸을 잡고, 그 왼쪽에 파 대비 타원·타수를 줄마다 같은 자리에
   const netLabel = (v: number) => (v === 0 ? "±0원" : wonSigned(v));
+  const valueOf = (p: SettlementPlayer) => p.valueText ?? netLabel(p.net);
   const netX = PAD + CW - 20;
-  const netColW = Math.max(...d.players.map((p) => width(ctx, netLabel(p.net), { size: 21, weight: 900, num: true })));
+  const netColW = Math.max(...d.players.map((p) => width(ctx, valueOf(p), { size: 21, weight: 900, num: true })));
   const pillCx = netX - netColW - 14 - 21;
   const grossRight = pillCx - 27;
   const grossColW = Math.max(
@@ -498,14 +513,20 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
   d.players.forEach((p, i) => {
     const mid = y + i * PROW + PROW / 2;
     if (i > 0) hline(ctx, PAD + 18, PAD + CW - 18, y + i * PROW);
-    const top = i === 0 && p.net > 0;
+    const top = p.rank != null ? p.rank === 1 : i === 0 && p.net > 0;
     ctx.fillStyle = top ? C.goldSoft : C.fill2;
     ctx.beginPath();
     ctx.arc(PAD + 34, mid, 15, 0, Math.PI * 2);
     ctx.fill();
-    text(ctx, String(i + 1), PAD + 34, mid + 1, { size: 15, weight: 800, color: top ? C.gold : C.soft, align: "center", num: true });
+    text(ctx, String(p.rank ?? i + 1), PAD + 34, mid + 1, { size: 15, weight: 800, color: top ? C.gold : C.soft, align: "center", num: true });
     text(ctx, p.name || "?", PAD + 62, mid - 11, { size: 19, weight: 800 });
-    text(ctx, netLabel(p.net), netX, mid + 1, { size: 21, weight: 900, color: tone(p.net), align: "right", num: true });
+    text(ctx, valueOf(p), netX, mid + 1, {
+      size: 21,
+      weight: 900,
+      color: p.valueText ? C.ink : tone(p.net),
+      align: "right",
+      num: true,
+    });
     if (p.gross != null && p.rel != null) {
       ctx.fillStyle = C.fill2;
       roundRect(ctx, pillCx - 21, mid - 11, 42, 22, 11);
@@ -515,7 +536,8 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
     }
     // 이름 아래 금액 내역: 타수 칸과 겹치면 글자를 줄인다
     const parts = p.parts.filter(([, v]) => v !== 0);
-    const line = parts.length ? parts.map(([l, v]) => `${l} ${shortWon(v)}`).join(" · ") : "주고받을 돈 없음";
+    const line =
+      p.note ?? (parts.length ? parts.map(([l, v]) => `${l} ${shortWon(v)}`).join(" · ") : "주고받을 돈 없음");
     const lw = width(ctx, line, { size: 13, weight: 500, num: true });
     text(ctx, line, PAD + 62, mid + 14, {
       size: lw > partsRoom ? Math.max(10, Math.floor(((13 * partsRoom) / lw) * 2) / 2) : 13,
@@ -527,22 +549,24 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
   y += n * PROW + 26;
 
   // ---- 송금
-  title("송금", y);
-  y += 40;
-  const tn = Math.max(1, d.transfers.length);
-  card(y, tn * TROW);
-  if (d.transfers.length === 0) {
-    text(ctx, "주고받을 금액이 없어요", PAD + CW / 2, y + TROW / 2, { size: 15, weight: 600, color: C.faint, align: "center" });
+  if (!d.hideTransfers) {
+    title(d.transfersTitle ?? "송금", y);
+    y += 40;
+    const tn = Math.max(1, d.transfers.length);
+    card(y, tn * TROW);
+    if (d.transfers.length === 0) {
+      text(ctx, "주고받을 금액이 없어요", PAD + CW / 2, y + TROW / 2, { size: 15, weight: 600, color: C.faint, align: "center" });
+    }
+    d.transfers.forEach((t, i) => {
+      const mid = y + i * TROW + TROW / 2;
+      if (i > 0) hline(ctx, PAD + 18, PAD + CW - 18, y + i * TROW);
+      const fw = text(ctx, t.from || "?", PAD + 22, mid, { size: 17, weight: 700 });
+      strokePath(ctx, "M5 12h13M13 7l5 5-5 5", PAD + 22 + fw + 18, mid, 20, C.faint, 2.2);
+      text(ctx, t.to || "?", PAD + 22 + fw + 36, mid, { size: 17, weight: 700 });
+      text(ctx, won(t.amount), PAD + CW - 20, mid + 1, { size: 18, weight: 800, align: "right", num: true });
+    });
+    y += tn * TROW + 26;
   }
-  d.transfers.forEach((t, i) => {
-    const mid = y + i * TROW + TROW / 2;
-    if (i > 0) hline(ctx, PAD + 18, PAD + CW - 18, y + i * TROW);
-    const fw = text(ctx, t.from || "?", PAD + 22, mid, { size: 17, weight: 700 });
-    strokePath(ctx, "M5 12h13M13 7l5 5-5 5", PAD + 22 + fw + 18, mid, 20, C.faint, 2.2);
-    text(ctx, t.to || "?", PAD + 22 + fw + 36, mid, { size: 17, weight: 700 });
-    text(ctx, won(t.amount), PAD + CW - 20, mid + 1, { size: 18, weight: 800, align: "right", num: true });
-  });
-  y += tn * TROW + 26;
 
   // ---- 홀별 스코어 (사람별 타수 모양)
   title("홀별 스코어", y);

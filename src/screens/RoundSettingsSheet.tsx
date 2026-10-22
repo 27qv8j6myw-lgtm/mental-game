@@ -11,6 +11,8 @@ import {
   hcLabel,
   onOff,
   PAYMENT_LABEL,
+  RANK_METHOD_LABEL,
+  RANK_PRIZE_LABEL,
   RULE_LABELS,
   SETTLE_LABEL,
   SKINS_RULE_LABELS,
@@ -21,19 +23,30 @@ import type {
   BetRules,
   GameMode,
   PaymentMethod,
+  RankRules,
   Session,
   SettleTiming,
   SkinsRules,
   StoredRules,
 } from "../types";
 import {
+  CaddieFeeField,
   GameModeField,
   MaxMultiplierField,
   PaymentFields,
+  RankMethodField,
+  RankPrizeField,
   RuleToggles,
   SkinsMultiplierFields,
   StrokeAdjField,
 } from "./RoundFields";
+import { rankRules } from "../rankGame";
+
+/** "내는 돈 0원·10,000원·20,000원" (수정 내역용) */
+const prizeText = (r: RankRules, n: number) =>
+  r.prize === "none"
+    ? RANK_PRIZE_LABEL.none
+    : `${RANK_PRIZE_LABEL[r.prize]} ${Array.from({ length: n }, (_, i) => won(r.amounts[i] ?? 0)).join("·")}`;
 
 /** 방장 전용: 게임 시작·정산 확정 후에도 게임 방식·지불 방법·핸디캡·배판(배수) 규칙을 고친다. */
 export default function RoundSettingsSheet({
@@ -52,7 +65,13 @@ export default function RoundSettingsSheet({
   const [unit, setUnit] = useState(cfg.unit);
   const [holeCount, setHoleCount] = useState(bundle?.round.hole_count ?? 18);
   const [gameMode, setGameMode] = useState<GameMode>(cfg.gameMode);
-  const isStroke = gameMode === "stroke";
+  // 캐디피·등수 내기는 방식을 바꾸지 않고 그 방식의 설정만 고친다
+  const isCaddie = cfg.gameMode === "caddie";
+  const isRank = cfg.gameMode === "rank";
+  const isMoney = !isCaddie && !isRank;
+  const [caddieFee, setCaddieFee] = useState(cfg.rules.caddie?.fee ?? 0);
+  const rankInit = rankRules(cfg);
+  const [rank, setRank] = useState<RankRules>(rankInit);
   const [payment, setPayment] = useState<PaymentMethod>(cfg.payment);
   const [settle, setSettle] = useState<SettleTiming>(cfg.handicapSettle);
   const [rules, setRules] = useState<BetRules>({
@@ -66,6 +85,11 @@ export default function RoundSettingsSheet({
   // 배수 조건이 없는 예전 스킨스 라운드는 모두 꺼진 상태, 타당에서 바꾸면 새 라운드 기본값
   const skinsInit = cfg.rules.skins ?? (cfg.gameMode === "skins" ? CLASSIC_SKINS : DEFAULT_SKINS_RULES);
   const [skins, setSkins] = useState<SkinsRules>(skinsInit);
+  /** 배판 규칙을 쓰는지 (타당, 등수 내기 포인트 + 배판) / 스킨스 배수 조건을 쓰는지 (스킨스, 등수 내기 스킨스) */
+  const usesStrokeRules = isMoney ? gameMode === "stroke" : isRank && rank.method === "points" && rank.multipliers;
+  const usesSkins = isMoney ? gameMode === "skins" : isRank && rank.method === "skins";
+  /** 지불 방법을 고르는지 (등수 내기는 주고받는 돈일 때만) */
+  const showPayment = isMoney || (isRank && rank.prize === "exchange");
   const [hc, setHc] = useState<Record<string, number>>(() =>
     Object.fromEntries(cfg.players.map((p) => [p.id, p.handicap]))
   );
@@ -142,8 +166,17 @@ export default function RoundSettingsSheet({
       if (isAdjust && (adj[p.id] ?? 0) !== (p.strokeAdj ?? 0))
         items.push(`${name} 타수 보정: ${adjLabel(p.strokeAdj ?? 0)} → ${adjLabel(adj[p.id] ?? 0)}`);
     }
+    if (isRank) {
+      if (rank.method !== rankInit.method)
+        items.push(`등수 정하는 방식: ${RANK_METHOD_LABEL[rankInit.method]} → ${RANK_METHOD_LABEL[rank.method]}`);
+      if (rank.method === "points" && rank.multipliers !== rankInit.multipliers)
+        items.push(`배판 적용: ${onOff(rankInit.multipliers)} → ${onOff(rank.multipliers)}`);
+      const n = cfg.players.length;
+      if (prizeText(rank, n) !== prizeText(rankInit, n))
+        items.push(`등수 금액: ${prizeText(rankInit, n)} → ${prizeText(rank, n)}`);
+    }
     // 스킨스는 배판 대신 배수 조건, 타당은 배판 규칙만 저장·기록한다
-    if (!isStroke) {
+    if (usesSkins) {
       if (skins.maxMultiplier !== skinsInit.maxMultiplier)
         items.push(`스킨스 배수 총 상한: ${capLabel(skinsInit.maxMultiplier)} → ${capLabel(skins.maxMultiplier)}`);
       for (const [key, label] of SKINS_RULE_LABELS) {
@@ -152,6 +185,7 @@ export default function RoundSettingsSheet({
       }
       return items;
     }
+    if (!usesStrokeRules) return items;
     if (rules.maxMultiplier !== (cfg.rules.maxMultiplier === undefined ? 2 : cfg.rules.maxMultiplier))
       items.push(`배수 총 상한: ${capLabel(cfg.rules.maxMultiplier)} → ${capLabel(rules.maxMultiplier)}`);
     for (const [key, label] of RULE_LABELS) {
@@ -165,17 +199,27 @@ export default function RoundSettingsSheet({
     setSaving(true);
     setErr(null);
     try {
+      /** 방식별 설정: 등수 내기는 방식에 따라 핸디 방식·지불 방법이 정해진다 */
+      const modeRules: Partial<StoredRules> = isCaddie
+        ? { caddie: { fee: caddieFee } }
+        : isRank
+          ? {
+              rank,
+              handicapMode: rank.method === "net" ? "avg" : "adjust",
+              payment: rank.prize === "exchange" ? payment : "cash",
+            }
+          : { gameMode, payment };
       if (inLobby) {
         const next: StoredRules = {
           ...bundle.round.rules,
-          ...(isStroke ? rules : { skins }),
-          gameMode,
-          payment,
+          ...(usesStrokeRules && rules),
+          ...(usesSkins && { skins }),
+          ...modeRules,
         };
         await updateRound({
           handicap_settle: settle,
           rules: next,
-          ...(unit > 0 && { unit }),
+          ...(isMoney && unit > 0 && { unit }),
           hole_count: holeCount,
         });
         onClose();
@@ -183,9 +227,9 @@ export default function RoundSettingsSheet({
       }
       let next: StoredRules = {
         ...bundle.round.rules,
-        ...(isStroke ? rules : { skins }),
-        gameMode,
-        payment,
+        ...(usesStrokeRules && rules),
+        ...(usesSkins && { skins }),
+        ...modeRules,
         hcOverrides: hc,
         ...(isAdjust && { strokeAdj: adj }),
         ...(isAvg && { avgOverrides: avg }),
@@ -227,7 +271,16 @@ export default function RoundSettingsSheet({
 
         <div className="sm-body">
 
-        {inLobby && (
+        {inLobby && isCaddie && (
+          <>
+            <div className="section-title">캐디피</div>
+            <div className="card">
+              <CaddieFeeField fee={caddieFee} holeCount={holeCount} onChange={setCaddieFee} />
+            </div>
+          </>
+        )}
+
+        {inLobby && isMoney && (
           <>
             <div className="section-title">{gameMode === "skins" ? "홀당 금액" : "타당 금액"}</div>
             <div className="card">
@@ -249,6 +302,10 @@ export default function RoundSettingsSheet({
                 />
               </div>
             </div>
+          </>
+        )}
+        {inLobby && (
+          <>
             <div className="section-title">홀 수</div>
             <div className="card">
               <div className="segmented">
@@ -283,24 +340,65 @@ export default function RoundSettingsSheet({
         </>
         )}
 
-        <div className="section-title">게임 방식</div>
-        <div className="card">
-          {/* 내기 라운드를 기록 모드로 바꾸지는 않는다 (정산·핸디 설정이 사라지므로) */}
-          <GameModeField value={gameMode} onChange={setGameMode} modes={["stroke", "skins"]} />
-        </div>
+        {isMoney && (
+          <>
+            <div className="section-title">게임 방식</div>
+            <div className="card">
+              {/* 내기 라운드를 기록 모드로 바꾸지는 않는다 (정산·핸디 설정이 사라지므로) */}
+              <GameModeField value={gameMode} onChange={setGameMode} modes={["stroke", "skins"]} />
+            </div>
+          </>
+        )}
 
-        <div className="section-title">지불 방법</div>
-        <div className="card">
-          <PaymentFields
-            payment={payment}
-            settle={settle}
-            onChange={(p, s) => {
-              setPayment(p);
-              setSettle(s);
-            }}
-            showSettle={!isAdjust}
-          />
-        </div>
+        {isRank && (
+          <>
+            <div className="section-title">등수 정하는 방식</div>
+            <div className="card">
+              {/* 시작한 뒤에는 핸디 방식이 달라져 방식은 대기실에서만 바꾼다 */}
+              {inLobby ? (
+                <RankMethodField value={rank.method} onChange={(method) => setRank((r) => ({ ...r, method }))} />
+              ) : (
+                <p className="hint" style={{ margin: 0 }}>
+                  <b>{RANK_METHOD_LABEL[rank.method]}</b> · 방식은 게임 시작 전에만 바꿀 수 있어요.
+                </p>
+              )}
+              {rank.method === "points" && (
+                <div className="toggle-row rank-mult" onClick={() => setRank((r) => ({ ...r, multipliers: !r.multipliers }))}>
+                  <div className="tinfo">
+                    <span className="t">배판 적용</span>
+                    <span className="s">
+                      {rank.multipliers
+                        ? "배판 규칙·이월·버디 추가 포인트를 그대로 써요."
+                        : "배판·이월·버디 추가 없이 타수 차이만 포인트로 쌓아요."}
+                    </span>
+                  </div>
+                  <div className={`switch ${rank.multipliers ? "on" : ""}`} />
+                </div>
+              )}
+            </div>
+            <div className="section-title">등수 금액</div>
+            <div className="card">
+              <RankPrizeField rules={rank} onChange={setRank} count={Math.max(2, bundle.players.length)} />
+            </div>
+          </>
+        )}
+
+        {showPayment && (
+          <>
+            <div className="section-title">지불 방법</div>
+            <div className="card">
+              <PaymentFields
+                payment={payment}
+                settle={settle}
+                onChange={(p, s) => {
+                  setPayment(p);
+                  setSettle(s);
+                }}
+                showSettle={isMoney && !isAdjust}
+              />
+            </div>
+          </>
+        )}
 
         {!inLobby && (
         <>
@@ -367,7 +465,7 @@ export default function RoundSettingsSheet({
         </>
         )}
 
-        {!isStroke && (
+        {usesSkins && (
           <>
             <div className="section-title">배수 조건</div>
             <div className="card">
@@ -376,7 +474,7 @@ export default function RoundSettingsSheet({
           </>
         )}
 
-        {isStroke && (
+        {usesStrokeRules && (
           <>
             <div className="section-title">배수 총 상한</div>
             <div className="card">

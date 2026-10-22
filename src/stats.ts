@@ -1,5 +1,8 @@
 import { supabase } from "./supabase";
 import { totalNet } from "./betting";
+import { caddieRanks, caddieResult } from "./caddie";
+import { rankResult, rankScoreText } from "./rankGame";
+import { won } from "./util";
 import { bundleConfig, bundleHoles } from "./model";
 import { listMyRounds, type RoundBundle } from "./rounds";
 import type { GameMode, Gender, RoundListItem, RoundPlayerRow } from "./types";
@@ -18,9 +21,13 @@ export interface RoundRecord {
   gameMode: GameMode;
   playerCount: number;
   holeCount: number;
-  /** 금액 기준 순위 (같은 금액은 같은 순위) */
+  /** 금액 기준 순위 (같은 금액은 같은 순위). 캐디피는 적게 낸 순, 등수 내기는 그 등수 */
   rank: number;
   net: number;
+  /** 사람끼리 돈을 주고받은 라운드 (캐디피·등수 내기의 내는 돈·금액 없음은 아님): 승패·누적 금액에 넣는다 */
+  money: boolean;
+  /** 돈을 주고받지 않은 라운드의 오른쪽 표시: "캐디피 30,000원", "+12점" */
+  detail?: string;
   /** 모든 홀을 쳤을 때의 타수, 아니면 null */
   gross: number | null;
   birdies: number;
@@ -77,8 +84,10 @@ export interface StatsResult {
 /** 라운드 묶음들 → 사람별 전적 (네트워크 없이 계산만, 테스트 가능) */
 export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult {
   const people = new Map<string, PersonStats>();
-  // 사람마다 라운드별 금액 (맞대결 계산용)
+  // 사람마다 라운드별 금액 (맞대결 계산용). 돈을 주고받은 라운드만
   const netByRound = new Map<string, Map<string, number>>();
+  /** 전적에 넣은 라운드 수 (캐디피·등수 내기 포함) */
+  let included = 0;
 
   // 오래된 라운드부터 → 이름·사진은 가장 최근 라운드 것으로 덮인다
   const ordered = [...bundles].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
@@ -88,14 +97,24 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
     const holes = bundleHoles(bundle);
     if (config.players.length < 2 || config.gameMode === "record") continue;
     const { net } = totalNet(config, holes, true);
-    netByRound.set(bundle.round.id, new Map(Object.entries(net)));
+    included++;
+    // 캐디피·등수(내는 돈·금액 없음)는 사람끼리 오간 돈이 없어 승패·누적 금액·맞대결에서 뺀다
+    const isMoney =
+      config.gameMode !== "caddie" && !(config.gameMode === "rank" && config.rules.rank?.prize !== "exchange");
+    if (isMoney) netByRound.set(bundle.round.id, new Map(Object.entries(net)));
+    const caddie = config.gameMode === "caddie" ? caddieResult(config, holes, true) : null;
+    const caddieRank = caddie ? caddieRanks(caddie) : null;
+    const rankGame = config.gameMode === "rank" ? rankResult(config, holes) : null;
 
     // 폰 없는 동반자는 라운드마다 새 id 라 이름으로 한 사람으로 묶는다
     const offline = new Set(bundle.players.filter((r) => r.offline_player).map((r) => r.user_uid));
     for (const p of config.players) {
       const key = offline.has(p.id) ? `offline:${p.name || "?"}` : p.id;
       const mine = Math.round(net[p.id] ?? 0);
-      const rank = 1 + config.players.filter((q) => Math.round(net[q.id] ?? 0) > mine).length;
+      const rank =
+        caddieRank?.[p.id] ??
+        rankGame?.order.find((r) => r.id === p.id)?.rank ??
+        1 + config.players.filter((q) => Math.round(net[q.id] ?? 0) > mine).length;
       let gross = 0;
       let complete = true;
       let birdies = 0;
@@ -120,6 +139,9 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
         holeCount: holes.length,
         rank,
         net: mine,
+        money: isMoney,
+        ...(caddie && { detail: `캐디피 ${won(caddie.paid[p.id])}` }),
+        ...(rankGame && !isMoney && { detail: rankScoreText(rankGame.rules.method, rankGame.score[p.id]) }),
         gross: complete ? gross : null,
         birdies,
         eagles,
@@ -150,11 +172,14 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
       cur.photoUrl = p.photoUrl ?? cur.photoUrl;
       cur.gender = p.gender;
       cur.rounds++;
-      if (rank === 1 && mine > 0) cur.firsts++;
-      if (mine > 0) cur.wins++;
-      else if (mine < 0) cur.losses++;
-      else cur.draws++;
-      cur.total += mine;
+      // 1위: 돈을 주고받은 라운드는 딴 1위만, 캐디피·등수 내기는 그 라운드 1등
+      if (rank === 1 && (isMoney ? mine > 0 : true)) cur.firsts++;
+      if (isMoney) {
+        if (mine > 0) cur.wins++;
+        else if (mine < 0) cur.losses++;
+        else cur.draws++;
+        cur.total += mine;
+      }
       cur.birdies += birdies;
       cur.eagles += eagles;
       cur.history.push(rec);
@@ -195,7 +220,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
   return {
     me: people.get(myUid) ?? null,
     people: list,
-    roundCount: netByRound.size,
+    roundCount: included,
   };
 }
 

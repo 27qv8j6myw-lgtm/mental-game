@@ -4,11 +4,22 @@ import type {
   GameMode,
   HandicapMode,
   PaymentMethod,
+  RankRules,
   SettleTiming,
   SkinsRules,
   TeeBox,
 } from "../types";
-import { capLabel, DEFAULT_SKINS_RULES, localDate, localTime, RULE_LABELS, TEE_BOXES, won } from "../util";
+import {
+  CADDIE_PER_HOLE,
+  capLabel,
+  DEFAULT_RANK_RULES,
+  DEFAULT_SKINS_RULES,
+  localDate,
+  localTime,
+  RULE_LABELS,
+  TEE_BOXES,
+  won,
+} from "../util";
 import { createRound } from "../rounds";
 import {
   courseRating,
@@ -26,8 +37,11 @@ import { useRound } from "../round";
 import { Icon } from "../icons";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import {
+  CaddieFeeField,
   GameModeField,
   MaxMultiplierField,
+  RankMethodField,
+  RankPrizeField,
   PaymentFields,
   RuleToggles,
   SkinsMultiplierFields,
@@ -60,6 +74,10 @@ interface LastSetup {
   handicapSettle: SettleTiming;
   handicapMode: HandicapMode;
   rules: BetRules;
+  /** 캐디피 내기 금액 (예전 기록엔 없음) */
+  caddieFee?: number;
+  /** 등수 내기 설정 (예전 기록엔 없음) */
+  rankRules?: RankRules;
 }
 const SETUP_KEY = "mentalgame-last-setup";
 const COURSES_KEY = "mentalgame-recent-courses";
@@ -107,6 +125,8 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
       maxMultiplier: 2,
     }
   );
+  const [caddieFee, setCaddieFee] = useState(last?.caddieFee ?? 160000);
+  const [rankRules, setRankRules] = useState<RankRules>(last?.rankRules ?? DEFAULT_RANK_RULES);
   /** 배수 상한·배판 규칙 펼침 (처음엔 한 줄 요약만) */
   const [rulesOpen, setRulesOpen] = useState(false);
 
@@ -145,7 +165,16 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
   const isCustomUnit = !UNITS.includes(unit);
   // 기록 모드는 내기가 없어 금액·지불·핸디캡·배판 설정이 없다
   const isRecord = gameMode === "record";
-  const canSave = courseName.trim().length > 0 && (isRecord || unit > 0);
+  // 캐디피: 홀당 1만원 고정·현금·타수 보정 / 등수: 홀마다 돈이 없고 방식·등수 금액만
+  const isCaddie = gameMode === "caddie";
+  const isRank = gameMode === "rank";
+  /** 타당·스킨스처럼 홀마다 돈을 주고받는 방식 (금액·지불·핸디 방식을 고른다) */
+  const isMoney = gameMode === "stroke" || gameMode === "skins";
+  const rankPays = isRank && rankRules.prize === "exchange";
+  const canSave =
+    courseName.trim().length > 0 && (isMoney ? unit > 0 : isCaddie ? caddieFee >= CADDIE_PER_HOLE : true);
+  /** 배판 규칙 카드: 타당, 그리고 등수 내기 포인트에서 배판을 켰을 때 */
+  const showStrokeRules = gameMode === "stroke" || (isRank && rankRules.method === "points" && rankRules.multipliers);
 
   const submit = async () => {
     if (!canSave || busy) return;
@@ -157,20 +186,35 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
         courseTee: tee,
         date,
         teeTime,
-        unit: isRecord ? 0 : unit,
+        unit: isMoney ? unit : isCaddie ? CADDIE_PER_HOLE : 0,
         rules: {
           ...(isRecord
             ? { parPenalty: false, tie: false, birdieDouble: false, gameMode }
-            : {
-                ...rules,
-                payment,
-                handicapMode,
-                gameMode,
-                ...(gameMode === "skins" && { skins: skinsRules }),
-              }),
+            : isCaddie
+              ? // 캐디피: 현금, 핸디는 타수 보정만
+                { parPenalty: false, tie: false, birdieDouble: false, gameMode, payment: "cash" as const,
+                  handicapMode: "adjust" as const, caddie: { fee: caddieFee } }
+              : isRank
+                ? {
+                    ...rules,
+                    gameMode,
+                    // 주고받는 돈만 지불 방법을 고른다
+                    payment: rankPays ? payment : ("cash" as const),
+                    // 핸디 타수는 평균 타수로 정한 핸디, 포인트·스킨스는 타수 보정 (기본 0타)
+                    handicapMode: rankRules.method === "net" ? ("avg" as const) : ("adjust" as const),
+                    rank: rankRules,
+                    ...(rankRules.method === "skins" && { skins: skinsRules }),
+                  }
+                : {
+                    ...rules,
+                    payment,
+                    handicapMode,
+                    gameMode,
+                    ...(gameMode === "skins" && { skins: skinsRules }),
+                  }),
           ...(rating && { rating }),
         },
-        handicapSettle,
+        handicapSettle: isMoney ? handicapSettle : rankPays && payment === "transfer" ? "post" : "pre",
         holeCount,
         me: {
           name: user?.displayName?.trim() || "나",
@@ -184,12 +228,14 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
         holeCount,
         tee,
         gameMode,
-        unit: isRecord ? last?.unit ?? 1000 : unit,
+        unit: isMoney ? unit : last?.unit ?? 1000,
         skinsRules,
         payment,
         handicapSettle,
         handicapMode,
         rules,
+        caddieFee,
+        rankRules,
       } satisfies LastSetup);
       const name = courseName.trim();
       writeJson(COURSES_KEY, [name, ...recentCourses.filter((c) => c !== name)].slice(0, 5));
@@ -369,7 +415,78 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           <GameModeField value={gameMode} onChange={setGameMode} />
         </div>
 
-        {!isRecord && (
+        {isCaddie && (
+          <>
+            <div className="section-title">캐디피</div>
+            <div className="card">
+              <CaddieFeeField fee={caddieFee} holeCount={holeCount} onChange={setCaddieFee} />
+              <p className="hint caddie-rule">
+                내는 홀마다 꼴찌가 1만원을 내요. 공동 꼴찌면 다음 홀로 넘어가 다음 홀 꼴찌가 2만원을 내고,
+                마지막 홀까지 넘어간 돈은 모두가 나눠 내요. 계좌이체 없이 현금으로 모아요.
+              </p>
+            </div>
+            <div className="section-title">핸디캡</div>
+            <div className="card">
+              <p className="hint" style={{ margin: 0 }}>
+                타수 보정 방식이에요. {HANDICAP_HINT.adjust}
+              </p>
+            </div>
+          </>
+        )}
+
+        {isRank && (
+          <>
+            <div className="section-title">등수 정하는 방식</div>
+            <div className="card">
+              <RankMethodField value={rankRules.method} onChange={(method) => setRankRules((r) => ({ ...r, method }))} />
+              {rankRules.method === "points" && (
+                <div
+                  className="toggle-row rank-mult"
+                  onClick={() => setRankRules((r) => ({ ...r, multipliers: !r.multipliers }))}
+                >
+                  <div className="tinfo">
+                    <span className="t">배판 적용</span>
+                    <span className="s">
+                      {rankRules.multipliers
+                        ? "아래 배판 규칙·이월·버디 추가 포인트를 그대로 써요."
+                        : "배판·이월·버디 추가 없이 타수 차이만 포인트로 쌓아요."}
+                    </span>
+                  </div>
+                  <div className={`switch ${rankRules.multipliers ? "on" : ""}`} />
+                </div>
+              )}
+              {rankRules.method !== "net" && (
+                <p className="hint" style={{ marginTop: 10 }}>
+                  핸디는 타수 보정이에요. 방장이 대기실에서 사람마다 파4·파5 홀당 잡아줄 타수(0·1·2타)를 정해요.
+                </p>
+              )}
+            </div>
+
+            <div className="section-title">등수 금액</div>
+            <div className="card">
+              <RankPrizeField rules={rankRules} onChange={setRankRules} />
+            </div>
+
+            {rankPays && (
+              <>
+                <div className="section-title">지불 방법</div>
+                <div className="card">
+                  <PaymentFields
+                    payment={payment}
+                    settle={handicapSettle}
+                    onChange={(p, st) => {
+                      setPayment(p);
+                      setHandicapSettle(st);
+                    }}
+                    showSettle={false}
+                  />
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {isMoney && (
         <>
         <div className="section-title">{gameMode === "skins" ? "홀당 금액" : "타당 금액"}</div>
         <div className="card">
@@ -457,7 +574,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
         </>
         )}
 
-        {gameMode === "skins" && (
+        {(gameMode === "skins" || (isRank && rankRules.method === "skins")) && (
           <>
             <div className="section-title">배수 조건</div>
             <div className="card">
@@ -466,7 +583,7 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
           </>
         )}
 
-        {gameMode === "stroke" && (
+        {showStrokeRules && (
           <>
             {/* 배수 상한·배판 규칙은 한 줄 요약으로 접어 두고, 바꿀 때만 펼친다 */}
             <div className="section-title">배판 규칙</div>
@@ -508,8 +625,10 @@ export default function CreateRoundScreen({ onCancel }: { onCancel: () => void }
             ? "생성 중…"
             : !courseName.trim()
             ? "골프장 이름을 입력해 주세요"
-            : !isRecord && unit <= 0
+            : isMoney && unit <= 0
             ? "금액을 입력해 주세요"
+            : isCaddie && caddieFee < CADDIE_PER_HOLE
+            ? "캐디피를 정해 주세요"
             : isRecord
             ? "기록 라운드 만들기"
             : "라운드 만들고 코드 받기"}

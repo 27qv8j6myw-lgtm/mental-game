@@ -20,9 +20,11 @@ export type SettleTiming = "pre" | "post";
 export type PaymentMethod = "cash" | "transfer";
 /**
  * stroke: 타당(두 명씩 타수 차) / skins: 홀마다 단독 최저 타수가 스킨을 가져감
+ * caddie: 캐디피 내기 — 홀마다 꼴찌가 1만원씩 캐디피로 낸다 (앞 홀은 연습)
+ * rank: 등수 내기 — 홀마다 돈이 오가지 않고 끝나고 등수만 정한다 (등수별 금액은 선택)
  * record: 기록 모드 — 내기 없이 각자 자기 스코어·퍼트·티샷·벌타를 기록
  */
-export type GameMode = "stroke" | "skins" | "record";
+export type GameMode = "stroke" | "skins" | "caddie" | "rank" | "record";
 
 /** 티 박스 (rounds.course_tee 에 저장. 예전 라운드는 빈 값) */
 export type TeeBox = "red" | "senior" | "white" | "blue" | "black";
@@ -62,6 +64,28 @@ export interface SkinsRules {
   maxMultiplier: number | null;
 }
 
+/** 캐디피 내기: 캐디피 금액. 홀당 1만원으로 나눠 내는 홀 수가 정해지고, 나머지 앞 홀은 연습 */
+export interface CaddieRules {
+  fee: number;
+}
+
+/**
+ * 등수 정하는 방식
+ * points: 타당처럼 타수 차로 포인트 (배판 규칙 적용 가능) / net: 총 타수 − 핸디 / skins: 딴 스킨 수
+ */
+export type RankMethod = "points" | "net" | "skins";
+/** 등수별 금액: 없음 / 등수별로 내는 돈 (모아서 쓴다) / 등수별로 받고 내는 돈 (합 0, 송금) */
+export type RankPrize = "none" | "pay" | "exchange";
+
+export interface RankRules {
+  method: RankMethod;
+  prize: RankPrize;
+  /** 1등부터 등수별 금액 (pay: 내는 돈 ≥ 0 / exchange: + 받음 · − 냄). 없는 등수는 0 */
+  amounts: number[];
+  /** 포인트 방식: 배판·이월·버디 추가를 쓴다 (끄면 타수 차만) */
+  multipliers: boolean;
+}
+
 export interface BetRules {
   /**
    * 파 페널티 배판(동시 규칙): 파3 더블보기(+2)↑ / 파4·5 트리플보기(+3)↑ 이면 배판.
@@ -82,8 +106,12 @@ export interface BetRules {
    * 값이 없는 예전 라운드는 ×2 로 본다.
    */
   maxMultiplier?: number | null;
-  /** 스킨스 배수 조건 (스킨스 라운드에서만 사용) */
+  /** 스킨스 배수 조건 (스킨스 라운드, 등수 내기 스킨스 방식에서 사용) */
   skins?: SkinsRules;
+  /** 캐디피 내기 설정 */
+  caddie?: CaddieRules;
+  /** 등수 내기 설정 */
+  rank?: RankRules;
 }
 
 /** KGA 코스레이팅: 라운드 만들기에서 고른 골프장·코스·티 (보정타수 계산용) */

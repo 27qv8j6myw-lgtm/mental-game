@@ -552,7 +552,12 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                       {r.eagles > 0 && ` · 이글 ${r.eagles}`}
                     </span>
                   </span>
-                  <span className={`st-row-amt ${tone(r.net)}`}>{money(r.net)}</span>
+                  {/* 캐디피·등수 내기(내는 돈·금액 없음)는 주고받은 돈 대신 낸 캐디피·점수 */}
+                  {r.money ? (
+                    <span className={`st-row-amt ${tone(r.net)}`}>{money(r.net)}</span>
+                  ) : (
+                    <span className="st-row-amt st-row-detail">{r.detail ?? "–"}</span>
+                  )}
                   <Icon name="chevronRight" size={16} className="st-row-go" />
                 </button>
               ))}

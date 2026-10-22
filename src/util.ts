@@ -3,6 +3,9 @@ import type {
   Gender,
   HoleScore,
   PaymentMethod,
+  RankMethod,
+  RankPrize,
+  RankRules,
   SettleTiming,
   SkinsRules,
   StoredRules,
@@ -12,7 +15,32 @@ import type {
 export const GAME_MODE_LABEL: Record<GameMode, string> = {
   stroke: "타당",
   skins: "스킨스",
+  caddie: "캐디피",
+  rank: "등수",
   record: "기록",
+};
+
+/** 캐디피 내기: 홀마다 꼴찌가 내는 금액 (고정) */
+export const CADDIE_PER_HOLE = 10000;
+
+export const RANK_METHOD_LABEL: Record<RankMethod, string> = {
+  points: "타당 포인트",
+  net: "핸디 타수",
+  skins: "스킨스",
+};
+
+export const RANK_PRIZE_LABEL: Record<RankPrize, string> = {
+  none: "금액 없음",
+  pay: "등수별로 내는 돈",
+  exchange: "등수별로 주고받는 돈",
+};
+
+/** 새 등수 내기의 기본값: 타당 포인트(배판 적용), 등수별 금액 없음 */
+export const DEFAULT_RANK_RULES: RankRules = {
+  method: "points",
+  prize: "none",
+  amounts: [0, 10000, 20000, 30000],
+  multipliers: true,
 };
 
 /** 티 박스: 라운드 만들기에서 고르는 순서대로 */

@@ -30,6 +30,9 @@ import { useAuth } from "../auth";
 import { settledHoles } from "../model";
 import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderSettlement } from "../shareImage";
+import SideGameResults, { sideSettlement } from "./SideGameResults";
+import { caddieSummary } from "../caddie";
+import { pointsConfig, rankRules, rankSummary } from "../rankGame";
 
 /** 클립보드 복사 (구형 브라우저는 textarea 로 대체) */
 async function copyToClipboard(text: string) {
@@ -109,6 +112,9 @@ export default function ResultsScreen({
   const final = useMemo(() => totalNet(config, holes, isPost), [config, holes, isPost]);
   const isSkins = config.gameMode === "skins";
   const isAdjust = config.handicapMode === "adjust";
+  /** 캐디피·등수 내기: 가운데 칸을 SideGameResults 로 */
+  const isSide = config.gameMode === "caddie" || config.gameMode === "rank";
+  const finished = session.status === "done";
   const skins = useMemo(() => (isSkins ? skinsResult(config, holes) : null), [isSkins, config, holes]);
   /** 섹션 번호: 타당 기준 번호를 받아, 스킨스는 버디 섹션이 없으니 그 뒤를 하나씩 당긴다 */
   const N = (k: number) => "①②③④⑤⑥"[(isSkins && k > 2 ? k - 1 : k) - 1];
@@ -128,7 +134,29 @@ export default function ResultsScreen({
 
   /** 정산 결과 이미지: 순위·금액(내역), 송금, 홀별 스코어. 내역은 최종 금액을 이루는 것만 (사전 정산 핸디는 빠진다) */
   const makeSettlement = () =>
-    renderSettlement({
+    isSide
+      ? renderSettlement({
+          course: courseTitle(config.courseName, config.rating),
+          date: config.date,
+          teeTime: config.teeTime || undefined,
+          tee: teeLabel(config.courseTee) || undefined,
+          ...sideSettlement(
+            config,
+            holes,
+            finished,
+            savingNow,
+            savingNow ? `저장된 ${savedCount}/${holes.length}홀` : `${holes.length}홀`
+          ),
+          // 등수 내기 포인트(배판 적용)는 배판 홀을 노랗게
+          holes: (() => {
+            const bd =
+              config.gameMode === "rank" && rankRules(config).method === "points" && rankRules(config).multipliers
+                ? holeBreakdowns(pointsConfig(config), holes)
+                : null;
+            return holes.map((h, i) => ({ par: h.par, scores: h.scores, multiplier: bd?.[i]?.multiplier ?? 1 }));
+          })(),
+        })
+      : renderSettlement({
       title: savingNow ? "중간 정산" : "최종 정산",
       course: courseTitle(config.courseName, config.rating),
       date: config.date,
@@ -292,12 +320,34 @@ export default function ResultsScreen({
     <>
       <div className="result-hero">
         <div className="big">
-          <Icon name="trophy" size={22} className="inline-ic" /> {savingNow ? "중간 정산" : "최종 정산"}
+          <Icon name="trophy" size={22} className="inline-ic" />{" "}
+          {config.gameMode === "caddie"
+            ? savingNow
+              ? "중간 캐디피"
+              : "캐디피 정산"
+            : config.gameMode === "rank"
+            ? savingNow
+              ? "중간 등수"
+              : "최종 등수"
+            : savingNow
+            ? "중간 정산"
+            : "최종 정산"}
         </div>
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
           {savingNow ? `저장된 ${savedCount}/${holes.length}홀 기준` : `${playedHoles}개 홀 진행`} ·{" "}
-          {isSkins ? `스킨스 · 스킨 1개 ${won(config.unit)}` : `타당 ${won(config.unit)}`} ·{" "}
-          {PAYMENT_LABEL[config.payment]}
+          {config.gameMode === "caddie" ? (
+            caddieSummary(config.rules.caddie?.fee ?? 0, holes.length)
+          ) : config.gameMode === "rank" ? (
+            <>
+              {rankSummary(rankRules(config))}
+              {rankRules(config).prize === "exchange" && ` · ${PAYMENT_LABEL[config.payment]}`}
+            </>
+          ) : (
+            <>
+              {isSkins ? `스킨스 · 스킨 1개 ${won(config.unit)}` : `타당 ${won(config.unit)}`} ·{" "}
+              {PAYMENT_LABEL[config.payment]}
+            </>
+          )}
         </div>
         {config.editLog.length > 0 && (
           <div className="hero-edited">
@@ -337,8 +387,20 @@ export default function ResultsScreen({
 
         <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
           <Icon name="share" size={17} />
-          {savingNow ? "중간 정산 이미지로 공유·저장" : "정산 결과 이미지로 공유·저장"}
+          {savingNow ? "중간 결과 이미지로 공유·저장" : isSide ? "결과 이미지로 공유·저장" : "정산 결과 이미지로 공유·저장"}
         </button>
+
+        {isSide ? (
+          <SideGameResults
+            config={config}
+            holes={holes}
+            finished={finished}
+            savingNow={savingNow}
+            myUid={myUid}
+            renderTransfers={(list, withAccount) => <Transfers list={list} withAccount={withAccount} />}
+          />
+        ) : (
+        <>
 
         {/* 내 정산: 누구에게 얼마 보내고(계좌 복사) 누구에게서 받는지 맨 위에 */}
         {me && (() => {
@@ -802,11 +864,14 @@ export default function ResultsScreen({
           )}
         </div>
 
+        </>
+        )}
+
         {/* 6) 수정 내역 (저장된 홀 수정, 종료 후 방장 수정): 모든 참여자에게 공개 */}
         {(session.status === "done" || config.editLog.length > 0) && (
           <>
             <div className="section-title" style={{ marginTop: 20 }}>
-              {N(6)} 수정 내역
+              {isSide ? "" : `${N(6)} `}수정 내역
               {config.editLog.length > 0 ? ` (${config.editLog.length}건)` : ""}
             </div>
             {config.editLog.length === 0 ? (
@@ -837,7 +902,7 @@ export default function ResultsScreen({
         <ShareImageSheet
           make={makeSettlement}
           fileName={`settlement-${config.date || "round"}.png`}
-          title={savingNow ? "중간 정산" : "정산 결과"}
+          title={savingNow ? (isSide ? "중간 결과" : "중간 정산") : isSide ? "결과" : "정산 결과"}
           onClose={() => setSharing(false)}
         />
       )}

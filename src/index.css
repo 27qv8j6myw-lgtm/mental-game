@@ -1756,6 +1756,14 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: var(--gain-soft);
   color: #047857;
 }
+.mode-tag.caddie {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+.mode-tag.rank {
+  background: #ede9fe;
+  color: #6d28d9;
+}
 /* 티 박스: 칩마다 티 색 점 */
 .segmented.tee-seg button {
   display: flex;
@@ -6068,4 +6076,371 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .ad-real.none {
   background: var(--paper-3);
   color: var(--ink-faint);
+}
+
+/* 게임 방식: 다섯 개라 글자 양옆 여백을 줄인다 */
+.segmented.mode-seg button {
+  padding: 10px 2px;
+}
+/* 캐디피 직접 입력 (만원 단위) */
+.caddie-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.caddie-custom span {
+  flex: none;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+/* 등수별 금액 */
+.rank-prizes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rank-prize {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rank-prize .rp-rank {
+  flex: none;
+  width: 32px;
+  font-weight: 800;
+}
+.rank-prize .input {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+.rank-prize .rp-won {
+  flex: none;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.rp-sign {
+  flex: none;
+  min-width: 48px;
+  padding: 8px 8px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.rp-sign.pos {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.rp-sign.neg {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+.rp-sum.ok {
+  color: var(--gain);
+}
+.rp-sum.warn {
+  color: var(--loss);
+}
+
+.caddie-rule {
+  margin-top: 10px;
+  word-break: keep-all;
+}
+.toggle-row.rank-mult {
+  margin-top: 12px;
+  padding-bottom: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: none;
+  cursor: pointer;
+}
+.caddie-sum {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* ============ 진행(캐디피 내기): 이번 홀 카드 ============ */
+.cd-card {
+  text-align: center;
+  padding: 16px 16px 14px;
+  margin-bottom: 10px;
+  border-radius: 18px;
+  background: var(--paper);
+  border: var(--border);
+}
+.cd-card.practice {
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+.cd-card.pending {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.cd-card.pending.hot {
+  background: var(--mustard-soft);
+  border-color: #f0d492;
+}
+.cd-card.paid {
+  background: var(--loss-soft);
+  border-color: #fecaca;
+}
+.cd-card.carried {
+  background: var(--olive-soft);
+  border-color: #c7dbff;
+}
+.cd-label {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.cd-main {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.cd-main.big {
+  font-family: var(--font-num);
+  font-size: 30px;
+  font-weight: 900;
+  color: #047857;
+}
+.cd-card.hot .cd-main.big {
+  color: var(--mustard);
+}
+.cd-sub {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.cd-who {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 16px;
+}
+.cd-tied {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 800;
+}
+.cd-money {
+  margin-top: 6px;
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--loss);
+}
+.cd-progress {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-strong);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.cd-progress b {
+  color: var(--ink);
+}
+.transfer.caddie-pay .to {
+  font-weight: 800;
+  color: #047857;
+}
+.transfer.caddie-pay .to small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.win-badge.loss {
+  background: linear-gradient(135deg, #f87171, #dc2626);
+}
+
+/* ============ 진행(등수 내기): 현재 순위 ============ */
+.rank-board {
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+}
+.rb-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #6d28d9;
+}
+.rb-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.rb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.rb-chip b {
+  color: #6d28d9;
+}
+.rb-chip em {
+  font-style: normal;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rb-chip.top {
+  background: #ede9fe;
+}
+.rb-chip.me {
+  box-shadow: 0 0 0 2px #c4b5fd;
+}
+
+/* ============ 결과(캐디피·등수 내기) ============ */
+.standing .nm .sg-sub {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.cd-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+.cd-summary span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.cd-summary b {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-num);
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.sg-log {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.sg-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.sg-row:last-child {
+  border-bottom: none;
+}
+.sg-row.muted {
+  color: var(--ink-faint);
+}
+.sg-hole {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.sg-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sg-amt {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.sg-table-wrap {
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+.sg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.sg-table th,
+.sg-table td {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.sg-table th {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sg-table td:first-child {
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.sg-table td small {
+  margin-left: 2px;
+  font-size: 10px;
+  color: var(--mustard);
+}
+.sg-table tr.bae td:first-child {
+  color: var(--mustard);
+}
+.sg-table td.pos {
+  color: var(--gain);
+  font-weight: 800;
+}
+.sg-table td.neg {
+  color: var(--loss);
+  font-weight: 800;
+}
+.sg-table tr:last-child td {
+  border-bottom: none;
+}
+.st-row-amt.st-row-detail {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.standing .nm.sg-nm {
+  white-space: normal;
+  overflow: visible;
+  min-width: 0;
+}
+.sg-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.sg-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sg-line .me-tag {
+  flex: none;
+}
+.standing.sg-standing {
+  grid-template-columns: 28px 26px minmax(0, 1fr) auto;
 }

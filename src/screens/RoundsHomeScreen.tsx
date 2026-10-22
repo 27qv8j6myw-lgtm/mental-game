@@ -86,11 +86,13 @@ function PlayersLine({ r, line }: { r: RoundListItem; line?: RoundScoreLine }) {
   );
 }
 
-type RoundFilter = "all" | "stroke" | "skins" | "record" | "host";
+type RoundFilter = "all" | "stroke" | "skins" | "caddie" | "rank" | "record" | "host";
 const FILTERS: [RoundFilter, string][] = [
   ["all", "전체"],
   ["stroke", "타당"],
   ["skins", "스킨스"],
+  ["caddie", "캐디피"],
+  ["rank", "등수"],
   ["record", "기록"],
   ["host", "내가 방장"],
 ];

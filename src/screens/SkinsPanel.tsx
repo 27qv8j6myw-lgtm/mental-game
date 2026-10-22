@@ -20,6 +20,7 @@ export function SkinPot({
   players,
   isLast,
   birdieOn,
+  countOnly = false,
 }: {
   hole: SkinHole;
   /** 다음 홀 (이월 시 다음 홀에 걸리는 스킨을 보여준다) */
@@ -28,6 +29,8 @@ export function SkinPot({
   players: Player[];
   isLast: boolean;
   birdieOn: boolean;
+  /** 등수 내기(스킨스 방식): 금액 없이 스킨 개수만 */
+  countOnly?: boolean;
 }) {
   const n = players.length;
   const winners = hole.winnerIds
@@ -65,9 +68,11 @@ export function SkinPot({
           <b>{hole.skins}</b>
           <span>스킨</span>
         </div>
-        <div className="sp-money big">
-          {split ? "각 " : ""}+{won(hole.amount)}
-        </div>
+        {!countOnly && (
+          <div className="sp-money big">
+            {split ? "각 " : ""}+{won(hole.amount)}
+          </div>
+        )}
         {chips}
       </div>
     );
@@ -97,7 +102,9 @@ export function SkinPot({
             <small>스킨</small>
           </span>
         </div>
-        <div className="sp-money">다음 홀 1명당 {won(next.stake * unit)}</div>
+        <div className="sp-money">
+          {countOnly ? `다음 홀 스킨 ${next.stake}개` : `다음 홀 1명당 ${won(next.stake * unit)}`}
+        </div>
       </div>
     );
   }
@@ -112,7 +119,9 @@ export function SkinPot({
         <span>스킨</span>
       </div>
       <div className="sp-money">
-        1명당 {won(hole.stake * unit)} · 총 {won(hole.stake * unit * (n - 1))}
+        {countOnly
+          ? `단독 최저 타수가 스킨 ${hole.stake}개를 가져가요`
+          : `1명당 ${won(hole.stake * unit)} · 총 ${won(hole.stake * unit * (n - 1))}`}
       </div>
       {chips}
       {hole.carryCount >= 2 && (
