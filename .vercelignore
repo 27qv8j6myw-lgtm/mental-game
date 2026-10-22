@@ -1,0 +1,8 @@
+# vercel 명령으로 배포할 때 올리지 않는 것 (사이트에 필요 없음)
+# iOS 앱 (빌드 폴더 포함 수백 MB), 예시 파일, Claude 작업 폴더
+/ios
+/samples
+/.claude
+# Vercel 이 서버에서 다시 빌드하므로 이 컴퓨터의 빌드 결과는 올리지 않는다
+/dist
+*.tsbuildinfo
