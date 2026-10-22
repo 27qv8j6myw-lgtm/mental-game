@@ -15,7 +15,7 @@ create or replace function public.move_guest_rounds(p_from uuid, p_to uuid)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
 declare
   rid uuid;
@@ -36,8 +36,16 @@ begin
       continue;
     end if;
 
-    update public.round_players set user_uid = p_to, is_guest = false
-      where round_id = rid and user_uid = p_from;
+    -- 게스트 줄은 사진이 비어 있어서 계정(카카오·구글) 사진으로 채운다
+    update public.round_players rp set
+      user_uid = p_to,
+      is_guest = false,
+      photo_url = coalesce(
+        nullif(rp.photo_url, ''),
+        (select coalesce(nullif(u.raw_user_meta_data ->> 'avatar_url', ''), nullif(u.raw_user_meta_data ->> 'picture', ''))
+           from auth.users u where u.id = p_to)
+      )
+      where rp.round_id = rid and rp.user_uid = p_from;
     update public.round_scores set player_uid = p_to
       where round_id = rid and player_uid = p_from;
     -- 내 기록·AI 분석·홀 저장한 사람: 해당 SQL(record·insight·holesave)을 실행한 DB 에만 있다
@@ -77,6 +85,16 @@ begin
   perform set_config('app.hole_save', 'off', true);
   return jsonb_build_object('moved', moved, 'skipped', skipped);
 end $$;
+
+-- 이미 옮긴 줄의 빈 사진을 계정 사진으로 채운다 (처음 판은 옮길 때 사진을 채우지 않았다).
+-- 로그인한 계정의 줄 중 사진이 비어 있고 계정에 사진이 있는 것만 바꾼다. 여러 번 실행해도 같다
+update public.round_players rp set
+  photo_url = coalesce(nullif(u.raw_user_meta_data ->> 'avatar_url', ''), nullif(u.raw_user_meta_data ->> 'picture', ''))
+from auth.users u
+where u.id = rp.user_uid
+  and not coalesce(u.is_anonymous, false)
+  and nullif(rp.photo_url, '') is null
+  and coalesce(nullif(u.raw_user_meta_data ->> 'avatar_url', ''), nullif(u.raw_user_meta_data ->> 'picture', '')) is not null;
 
 -- ---- 관리자: 게스트로 친 기록 ----
 -- 라운드에 참여한 게스트(익명 계정)마다: 쓴 이름들, 만든 때, 참여한 라운드 (최근 순)

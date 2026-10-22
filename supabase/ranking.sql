@@ -122,7 +122,13 @@ as $$
   ),
   members as (
     select
-      rp.round_id, rp.user_uid, rp.photo_url, rp.gender, rp.joined_at,
+      rp.round_id, rp.user_uid, rp.gender, rp.joined_at,
+      -- 사진: 그 라운드 사진, 없으면 계정(카카오·구글) 사진 (게스트로 친 기록을 옮긴 줄은 사진이 비어 있다)
+      coalesce(
+        nullif(rp.photo_url, ''),
+        nullif(u.raw_user_meta_data ->> 'avatar_url', ''),
+        nullif(u.raw_user_meta_data ->> 'picture', '')
+      ) as photo_url,
       -- 앱에서 정한 이름(실명)이 있으면 그것, 없으면 그 라운드 이름
       coalesce(nullif(trim(u.raw_user_meta_data ->> 'mg_name'), ''), rp.name) as name
     from public.round_players rp
@@ -154,11 +160,11 @@ as $$
     select * from per where n = hole_count
   ),
   people as (
-    -- 이름(실명이 없으면)·사진은 가장 최근에 참여한 라운드 것
+    -- 이름(실명이 없으면)·사진은 가장 최근에 참여한 라운드 것 (사진이 있는 라운드 먼저)
     select distinct on (m.user_uid) m.user_uid, m.name, m.photo_url, m.gender
     from members m
     where m.user_uid in (select user_uid from finished)
-    order by m.user_uid, m.joined_at desc
+    order by m.user_uid, (m.photo_url is null), m.joined_at desc
   )
   select jsonb_build_object(
     'visibility', (select v from my_vis),
