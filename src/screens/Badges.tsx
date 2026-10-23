@@ -17,8 +17,8 @@ import { CARD_ICONS, CollectCard, cardSvg } from "./CollectCard";
 const dotted = (d: string) => d.replace(/-/g, ".");
 const GROUPS: BadgeGroup[] = ["rounds", "score", "hole", "record"];
 
-/** 배지 머리 아이콘: 하이라이트 아이콘 + 배지에만 쓰는 것 */
-function badgeIcon(icon: BadgeIcon, n?: number): ReactNode {
+/** 배지 머리 아이콘: 하이라이트 아이콘 + 배지에만 쓰는 것 (올해의 결산도 쓴다) */
+export function badgeIcon(icon: BadgeIcon, n?: number): ReactNode {
   switch (icon) {
     case "flag":
       return CARD_ICONS.gir;

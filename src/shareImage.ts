@@ -1,11 +1,13 @@
 import type { CourseRating, Fairway, GameMode, TeeLie } from "./types";
 import { girOf } from "./recordStats";
 import { GAME_MODE_LABEL, relLabel, won, wonSigned } from "./util";
+import type { YearReview } from "./yearReview";
 
 /*
  * 공유·저장용 이미지. 캔버스에 직접 그린다 (앱 글꼴을 그대로 쓰고 외부 라이브러리 없이).
  * - 기록 라운드: 스코어카드 (전반·후반 표: 파·타수 모양·퍼트·티샷·그린적중·OB·해저드·샌드샷)
  * - 내기 라운드: 정산 결과 (순위·금액과 내역, 송금, 홀별 스코어)
+ * - 올해의 골프 결산: 한 장 요약
  * 화면 크기와 상관없이 같은 모양이 나오게 고정 폭으로 그리고 2배로 저장한다
  */
 
@@ -642,6 +644,148 @@ export async function renderSettlement(d: SettlementData): Promise<HTMLCanvasEle
   y += halves.length * halfH + (halves.length - 1) * 18 + 24 + LEG;
 
   text(ctx, "멘탈게임에서 정산한 결과예요", W / 2, y + 36, { size: 13, weight: 600, color: C.faint, align: "center" });
+  return canvas;
+}
+
+/* ------------------------------ 올해의 골프 결산 ------------------------------ */
+
+const md = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
+
+export async function renderYearReview(d: YearReview & { name: string }): Promise<HTMLCanvasElement> {
+  const tiles: { label: string; value: string; sub: string; color?: string }[] = [
+    { label: "평균 타수", value: d.avg18 != null ? `${d.avg18}타` : "–", sub: `18홀 ${d.rounds18}라운드` },
+    {
+      label: "베스트 스코어",
+      value: d.best18 ? `${d.best18.gross}타` : "–",
+      sub: d.best18 ? `${md(d.best18.date)} · ${d.best18.course}` : "18홀을 끝까지 치면",
+      color: C.loss,
+    },
+    {
+      label: "가장 많이 간 골프장",
+      value: d.topCourse ? d.topCourse.name : "–",
+      sub: d.topCourse ? `${d.topCourse.count}번 · 모두 ${d.courses}곳` : "",
+    },
+    {
+      label: "가장 많이 함께 친 사람",
+      value: d.companions[0] ? d.companions[0].name : "–",
+      sub: d.companions[0] ? `${d.companions[0].count}번 · 모두 ${d.companionCount}명` : "",
+    },
+    { label: "버디 · 이글", value: `${d.birdies} · ${d.eagles}`, sub: `파 ${d.pars}개`, color: C.red },
+    d.money
+      ? {
+          label: "내기 정산",
+          value: d.money.total === 0 ? "±0원" : wonSigned(d.money.total),
+          sub: `${d.money.wins}승 ${d.money.losses}패 · ${d.money.rounds}라운드`,
+          color: d.money.total > 0 ? C.gain : d.money.total < 0 ? C.loss : C.soft,
+        }
+      : { label: "얻은 배지", value: `${d.badges.length}개`, sub: "올해 새로 얻은 배지", color: C.gold },
+  ];
+  await ensureFonts([
+    d.name,
+    ...tiles.flatMap((t) => [t.label, t.value, t.sub]),
+    ...d.badges.map((b) => b.title),
+    "멘탈게임골프결산님의라운드홀을걸었어요올해얻은배지에서돌아본한해",
+  ]);
+  const W = 720;
+  const PAD = 28;
+  const CW = W - 2 * PAD;
+  const GAP = 12;
+  const TW = (CW - GAP) / 2;
+  const TH = 112;
+  const BADGE_H = d.badges.length ? 96 : 0;
+  const H = 150 + 168 + 22 + 3 * TH + 2 * GAP + (BADGE_H ? 22 + BADGE_H : 0) + 76;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(SCALE, SCALE);
+  ctx.fillStyle = C.fill;
+  ctx.fillRect(0, 0, W, H);
+
+  const card = (x: number, y: number, w: number, h: number, fill = "#fff") => {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.06)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = fill;
+    roundRect(ctx, x, y, w, h, 18);
+    ctx.fill();
+    ctx.restore();
+    if (fill === "#fff") {
+      ctx.strokeStyle = C.line;
+      ctx.lineWidth = 1;
+      roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 18);
+      ctx.stroke();
+    }
+  };
+  /** 칸 폭에 맞게 글자를 줄인다 */
+  const fit = (s: string, max: number, o: TextOpt) => {
+    let t = s;
+    while (t.length > 1 && width(ctx, t, o) > max) t = t.slice(0, -1);
+    return t === s ? s : `${t.slice(0, -1)}…`;
+  };
+
+  // ---- 머리글
+  text(ctx, `멘탈게임 · ${d.year} 골프 결산`, PAD, 44, { size: 14, weight: 800, color: C.blue });
+  text(ctx, `${d.name}님의 ${d.year}`, PAD, 84, { size: 30, weight: 800 });
+  if (d.first && d.last)
+    text(ctx, `${md(d.first.date)} 첫 라운드부터 ${md(d.last.date)}까지`, PAD, 118, { size: 15, weight: 500, color: C.soft });
+
+  // ---- 라운드 · 홀 (파란 상자)
+  let y = 150;
+  ctx.save();
+  const g = ctx.createLinearGradient(PAD, y, PAD + CW, y + 168);
+  g.addColorStop(0, "#2563eb");
+  g.addColorStop(1, "#1d4ed8");
+  ctx.fillStyle = g;
+  roundRect(ctx, PAD, y, CW, 168, 20);
+  ctx.fill();
+  ctx.restore();
+  const half = CW / 2;
+  for (const [i, [v, unit, label]] of ([
+    [String(d.rounds), "라운드", "올해 끝낸 라운드"],
+    [String(d.holes), "홀", "걸어온 홀"],
+  ] as const).entries()) {
+    const x = PAD + 28 + i * half;
+    text(ctx, label, x, y + 44, { size: 15, weight: 600, color: "rgba(255,255,255,0.82)" });
+    const vw = text(ctx, v, x, y + 102, { size: 60, weight: 800, color: "#fff", num: true });
+    text(ctx, unit, x + vw + 6, y + 112, { size: 20, weight: 800, color: "#fff" });
+  }
+
+  // ---- 칸 여섯 개
+  y += 168 + 22;
+  tiles.forEach((t, i) => {
+    const x = PAD + (i % 2) * (TW + GAP);
+    const ty = y + Math.floor(i / 2) * (TH + GAP);
+    card(x, ty, TW, TH);
+    text(ctx, t.label, x + 20, ty + 28, { size: 13, weight: 700, color: C.soft });
+    const big = t.value.length > 7 ? 22 : 30;
+    text(ctx, fit(t.value, TW - 40, { size: big, weight: 800 }), x + 20, ty + 64, {
+      size: big,
+      weight: 800,
+      color: t.color ?? C.ink,
+      num: /^[\d+−±,.\s·-]+(타|원|개)?$/.test(t.value),
+    });
+    if (t.sub) text(ctx, fit(t.sub, TW - 40, { size: 13, weight: 500 }), x + 20, ty + 94, { size: 13, weight: 500, color: C.faint });
+  });
+  y += 3 * TH + 2 * GAP;
+
+  // ---- 얻은 배지
+  if (BADGE_H) {
+    y += 22;
+    card(PAD, y, CW, BADGE_H);
+    text(ctx, `올해 얻은 배지 ${d.badges.length}개`, PAD + 20, y + 28, { size: 13, weight: 700, color: C.soft });
+    let bx = PAD + 20;
+    for (const b of d.badges) {
+      const w = width(ctx, b.title, { size: 13, weight: 700 }) + 24;
+      if (bx + w > PAD + CW - 20) break;
+      bx += chip(ctx, b.title, bx, y + 64, C.fill2, C.ink, 13) + 6;
+    }
+    y += BADGE_H;
+  }
+
+  text(ctx, "멘탈게임에서 돌아본 한 해", W / 2, y + 44, { size: 13, weight: 600, color: C.faint, align: "center" });
   return canvas;
 }
 

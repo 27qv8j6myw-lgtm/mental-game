@@ -18,6 +18,7 @@ import { courseTitle, renderScorecard } from "../shareImage";
 import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./Insight";
 import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
 import { saveGreenSpeed } from "../greenSpeed";
+import { YearReviewEntry } from "./YearReview";
 import { GreenSpeedButton } from "./GreenSpeed";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
@@ -344,7 +345,11 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
           </div>
           <div className="split-pane">
             <PaneHead title="라운드별 기록" />
-            <div className="sheet results">{list}</div>
+            <div className="sheet results">
+              {/* 올해의 골프 결산: 라운드별 기록 바로 위 */}
+              <YearReviewEntry />
+              {list}
+            </div>
           </div>
         </div>
       ) : (
@@ -352,6 +357,8 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
           <h2 className="page-title">라운드 기록</h2>
           {status}
           {analysis}
+          {/* 올해의 골프 결산: 라운드별 기록 바로 위 */}
+          <YearReviewEntry />
           {list && (
             <>
               <div className="section-title">라운드별 기록 {shown.length}개</div>

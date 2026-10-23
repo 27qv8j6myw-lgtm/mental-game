@@ -9294,3 +9294,250 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
     animation: none;
   }
 }
+
+/* ============ 올해의 골프 결산 (YearReview): 기록 탭 '라운드별 기록' 위 입구, 누르면 아래로 펼친다 ============ */
+.card.yr-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  background: linear-gradient(135deg, var(--olive), var(--olive-deep));
+  color: #fff;
+  text-align: left;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.yr-entry-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.yr-entry-tx {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.yr-entry-tx b {
+  font-size: 16px;
+  font-weight: 800;
+}
+.yr-entry-tx span {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.82);
+}
+/* 결산 화면 */
+.sheet.yr-sheet {
+  padding-bottom: calc(40px + var(--safe-bottom));
+}
+.section-title.yr-sec {
+  margin-top: 18px;
+}
+.yr-lead {
+  margin: 4px 2px 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+.yr-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.yr-years button {
+  padding: 6px 12px;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.yr-years button.on {
+  border-color: var(--olive);
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+/* 맨 위: 라운드 · 홀 (흰 카드, 파란 숫자) */
+.card.yr-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 18px 18px 20px;
+}
+.yr-hero-title {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.yr-hero-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.yr-hero-col span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.yr-hero-col b {
+  font-family: var(--font-num);
+  color: var(--olive);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.yr-hero-col b small {
+  margin-left: 4px;
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+/* 숫자 카드 */
+.card.yr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.yr-stat-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.yr-stat-value {
+  font-family: var(--font-num);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.yr-stat-value.loss,
+.yr-stat-value.neg {
+  color: var(--loss);
+}
+.yr-stat-value.pos {
+  color: var(--gain);
+}
+.yr-stat-value.terra {
+  color: var(--terra);
+}
+.yr-stat-value.olive {
+  color: var(--olive);
+}
+.yr-stat-sub {
+  font-size: 13px;
+  color: var(--ink-faint);
+  word-break: keep-all;
+}
+.yr-pair,
+.yr-trio {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.yr-trio {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.yr-pair .card.yr-stat,
+.yr-trio .card.yr-stat {
+  margin-bottom: 10px;
+}
+.yr-trio .yr-stat-value {
+  font-size: 30px;
+}
+/* 가장 많이 간 골프장 */
+.card.yr-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 24px 16px;
+  text-align: center;
+}
+.yr-feature-ic {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.yr-feature b {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+.yr-feature span {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+/* 함께한 사람 Top 3 */
+.card.yr-people {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 16px;
+}
+.yr-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.yr-person + .yr-person {
+  border-top: var(--border);
+}
+.yr-person b {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.yr-person > span:last-child {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--olive);
+}
+.yr-rank {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--paper-3);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.yr-rank.r1 {
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}
+.btn-primary.yr-share {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
