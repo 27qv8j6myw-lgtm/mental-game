@@ -1868,63 +1868,122 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .nw {
   white-space: nowrap;
 }
-/* 랭킹 하이라이트 (Highlights): 3칸 카드, 위는 색 방패에 흰 아이콘 */
-.hl-grid {
+/* 모으는 카드 (CollectCard): 랭킹 하이라이트 · 배지 · 시상식. 3칸.
+   흰 카드 가운데 단색 동그라미 + 흰 아이콘, 아래 이름 · 값(그 색) · 점선 아래 날짜·골프장 */
+.cc-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 4px;
 }
-.hl-card {
-  overflow: hidden;
+.cc-card {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px 12px;
   border-radius: 16px;
-  background: var(--paper);
   border: var(--border);
+  background: var(--paper);
   box-shadow: var(--shadow-sm);
-  padding-bottom: 12px;
   text-align: center;
 }
-.hl-badge {
-  height: 74px;
+.cc-emblem {
+  position: relative;
+  flex: none;
   display: grid;
   place-items: center;
-  padding-bottom: 10px;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 10px;
+  border-radius: 50%;
   color: #fff;
-  background: var(--hl);
-  clip-path: polygon(0 0, 100% 0, 100% 74%, 50% 100%, 0 74%);
+  background: var(--cc);
 }
-.hl-date {
-  margin-top: 8px;
-  font-size: 11.5px;
-  font-weight: 600;
+.cc-emblem svg {
+  width: 28px;
+  height: 28px;
+}
+.cc-lock {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--paper);
   color: var(--ink-faint);
-  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 1px var(--line);
 }
-.hl-course {
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.hl-title {
-  margin-top: 3px;
+.cc-title {
+  padding: 0 4px;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.3;
   color: var(--ink);
-  white-space: nowrap;
+  word-break: keep-all;
 }
-.hl-value {
-  margin-top: 3px;
-  padding: 0 6px;
-  font-size: 18px;
+.cc-value {
+  margin-top: 4px;
+  padding: 0 4px;
+  font-size: 17px;
   font-weight: 900;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  color: var(--hl);
+  color: var(--cc);
   word-break: keep-all;
+  font-variant-numeric: tabular-nums;
+}
+.cc-meta {
+  width: 100%;
+  margin-top: auto;
+  padding: 8px 4px 0;
+  border-top: 1px dashed var(--line);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--ink-faint);
+  word-break: keep-all;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-variant-numeric: tabular-nums;
+}
+/* 날짜·골프장은 카드 맨 아래 (값과는 최소 10px) */
+.cc-value {
+  margin-bottom: 10px;
+}
+.cc-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--loss);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+/* 아직 없는 것: 점선 테두리, 회색 엠블럼 */
+.cc-card.off {
+  border: 1px dashed var(--line-strong);
+  background: var(--paper);
+  box-shadow: none;
+}
+.cc-card.off .cc-emblem {
+  color: #b5bcc6;
+  background: var(--paper-3);
+}
+.cc-card.off .cc-title {
+  color: var(--ink-soft);
+}
+.cc-card.off .cc-value {
+  font-size: 15px;
+  color: var(--ink-faint);
 }
 /* 문장마다 줄을 바꾼 글자 (sentences.ts): 넣은 줄바꿈을 그대로 보여 준다 */
 [data-sentences] {
@@ -9113,7 +9172,7 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   }
 }
 
-/* ============ 배지 (Badges): 하이라이트 카드(.hl-card)를 그대로, 아직 없는 배지는 회색 ============ */
+/* ============ 배지 (Badges): 모으는 카드(.cc-card), 아직 없는 배지는 회색·자물쇠 ============ */
 .card.bd-sum {
   display: flex;
   flex-direction: column;
@@ -9162,48 +9221,76 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   font-weight: 700;
   color: var(--ink-faint);
 }
-.hl-grid.bd-grid {
+.cc-grid.bd-grid {
   margin-bottom: 18px;
 }
-.hl-card.bd-card {
-  position: relative;
-}
-.bd-card .hl-title {
-  padding: 0 6px;
-  white-space: normal;
-  word-break: keep-all;
-  line-height: 1.3;
-}
-.bd-card .hl-value {
-  font-size: 14px;
-}
-.bd-card.off .hl-badge {
-  opacity: 0.55;
-}
-.bd-card.off .hl-title {
-  color: var(--ink-soft);
-}
+/* 아직 없는 배지: 값 자리에 얻는 방법 */
 .bd-how {
-  margin-top: 3px;
-  padding: 0 8px;
+  display: block;
   font-size: 11px;
-  line-height: 1.4;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0;
   color: var(--ink-faint);
-  word-break: keep-all;
-}
-.bd-new {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--loss);
-  font-size: 10.5px;
-  font-weight: 800;
 }
 /* 종 알림: 새 배지 */
 .notice-item .ni-ic.badge {
   background: var(--mustard-soft);
   color: var(--mustard);
+}
+
+/* ============ 시상식 (Awards): 정산 결과 공유 버튼 아래, 모으는 카드(.cc-card) ============ */
+.btn-line.wide.aw-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.aw-btn .aw-chev {
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+.aw-btn.open .aw-chev {
+  transform: rotate(-90deg);
+}
+.cc-grid.aw-grid {
+  margin: 12px 0 6px;
+  animation: aw-open 0.25s ease;
+}
+@keyframes aw-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.aw-who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin: 6px 0 2px;
+  padding: 0 6px;
+}
+.aw-faces {
+  display: flex;
+}
+.aw-faces .avatar + .avatar {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.aw-names {
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-grid.aw-grid {
+    animation: none;
+  }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../auth";
 import {
   BADGES,
@@ -12,7 +12,7 @@ import {
 } from "../badges";
 import { NOTICE_STALE_MS, refreshMyRounds, useMyRounds } from "../notices";
 import { dayLabel } from "../goals";
-import { HL_ICONS, hlSvg } from "./Highlights";
+import { CARD_ICONS, CollectCard, cardSvg } from "./CollectCard";
 
 const dotted = (d: string) => d.replace(/-/g, ".");
 const GROUPS: BadgeGroup[] = ["rounds", "score", "hole", "record"];
@@ -21,19 +21,19 @@ const GROUPS: BadgeGroup[] = ["rounds", "score", "hole", "record"];
 function badgeIcon(icon: BadgeIcon, n?: number): ReactNode {
   switch (icon) {
     case "flag":
-      return HL_ICONS.gir;
+      return CARD_ICONS.gir;
     case "down":
-      return HL_ICONS.down;
+      return CARD_ICONS.down;
     case "birdie":
-      return HL_ICONS.birdie;
+      return CARD_ICONS.birdie;
     case "eagle":
-      return HL_ICONS.eagle;
+      return CARD_ICONS.eagle;
     case "streak":
-      return HL_ICONS.streak;
+      return CARD_ICONS.streak;
     case "putts":
-      return HL_ICONS.putts;
+      return CARD_ICONS.putts;
     case "count":
-      return hlSvg(
+      return cardSvg(
         <>
           <circle cx="12" cy="12" r="8.5" />
           <text x="12" y="15.6" textAnchor="middle" fontSize={n && n >= 100 ? 7.5 : 9.5} fontWeight="800" fill="currentColor" stroke="none">
@@ -42,7 +42,7 @@ function badgeIcon(icon: BadgeIcon, n?: number): ReactNode {
         </>
       );
     case "calendar":
-      return hlSvg(
+      return cardSvg(
         <>
           <rect x="4" y="5.5" width="16" height="14" rx="2.5" />
           <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
@@ -50,14 +50,14 @@ function badgeIcon(icon: BadgeIcon, n?: number): ReactNode {
         </>
       );
     case "shield":
-      return hlSvg(
+      return cardSvg(
         <>
           <path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6.3l7-2.8Z" />
           <path d="m8.8 12.2 2.3 2.3 4.3-4.6" />
         </>
       );
     case "ace":
-      return hlSvg(
+      return cardSvg(
         <>
           <ellipse cx="12" cy="17" rx="7" ry="2.5" />
           <circle cx="12" cy="9" r="3.2" />
@@ -65,14 +65,14 @@ function badgeIcon(icon: BadgeIcon, n?: number): ReactNode {
         </>
       );
     case "green":
-      return hlSvg(
+      return cardSvg(
         <>
           <ellipse cx="12" cy="17.5" rx="8" ry="2.6" />
           <path d="M12 17.5V4.5l6 2.6-6 2.6" />
         </>
       );
     case "goal":
-      return hlSvg(
+      return cardSvg(
         <>
           <path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" />
           <path d="M8 6H5a2.5 2.5 0 0 0 3 4M16 6h3a2.5 2.5 0 0 1-3 4" />
@@ -162,22 +162,32 @@ export default function Badges() {
                 {defs.filter((b) => earned.has(b.id)).length}/{defs.length}
               </span>
             </div>
-            <div className="hl-grid bd-grid">
+            <div className="cc-grid bd-grid">
               {defs.map((b) => {
                 const e = earned.get(b.id);
                 return (
-                  <div
+                  <CollectCard
                     key={b.id}
-                    className={`hl-card bd-card ${e ? "" : "off"}`}
-                    style={{ "--hl": e ? b.color : "#c3c8cf" } as CSSProperties}
-                  >
-                    <div className="hl-badge">{badgeIcon(b.icon, b.n)}</div>
-                    {fresh.has(b.id) && <span className="bd-new">새로</span>}
-                    <div className="hl-date">{e ? dotted(e.date) : "아직"}</div>
-                    <div className="hl-course">{e?.course || " "}</div>
-                    <div className="hl-title">{b.title}</div>
-                    {e ? <div className="hl-value">{e.value}</div> : <div className="bd-how">{b.how}</div>}
-                  </div>
+                    color={b.color}
+                    icon={badgeIcon(b.icon, b.n)}
+                    title={b.title}
+                    off={!e}
+                    tag={fresh.has(b.id) ? "새로" : undefined}
+                    value={e ? e.value : <span className="bd-how">{b.how}</span>}
+                    meta={
+                      e ? (
+                        <>
+                          {dotted(e.date)}
+                          {e.course && (
+                            <>
+                              <br />
+                              {e.course}
+                            </>
+                          )}
+                        </>
+                      ) : undefined
+                    }
+                  />
                 );
               })}
             </div>
