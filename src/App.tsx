@@ -14,7 +14,7 @@ import AdminScreen from "./screens/AdminScreen";
 import StatsScreen from "./screens/StatsScreen";
 import NameDialog from "./screens/NameDialog";
 import RankingScreen from "./screens/RankingScreen";
-import ProfileMenu from "./screens/ProfileMenu";
+import ProfileScreen from "./screens/ProfileScreen";
 import TopBar, { BackButton } from "./screens/TopBar";
 import { LogoHead } from "./screens/PaneHead";
 import { DockButton } from "./screens/PlayBar";
@@ -66,9 +66,9 @@ function NamePrompt() {
 function MemberFlow() {
   const round = useRound();
   const { user } = useAuth();
-  const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking">("home");
-  /** 하단 바 프로필 사진을 누르면 여는 메뉴 */
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking" | "profile">("home");
+  /** 내 정보 → 랭킹 공개 범위로 연 랭킹 관리 (닫으면 내 정보로 돌아간다) */
+  const [rankingManage, setRankingManage] = useState(false);
   // 펼친 iPhone Duo: 라운드 만들기·대기실은 라운드 탭 왼쪽 칸에 (오른쪽은 진행 중 목록 그대로)
   const split = useUnfolded();
 
@@ -79,7 +79,8 @@ function MemberFlow() {
   }, [round.activeRoundId, view]);
 
   // 기기 뒤로가기: 라운드 → (전적·기록 등) 화면 → 홈 순서로 닫는다
-  useBack(view !== "home", () => setView("home"));
+  // (관리자 대시보드는 내 정보에서 여니 내 정보로)
+  useBack(view !== "home", () => setView((v) => (v === "admin" ? "profile" : "home")));
   useBack(!!round.activeRoundId, () => round.closeRound());
 
   if (round.activeRoundId) {
@@ -121,8 +122,10 @@ function MemberFlow() {
     ) : (
       <CreateRoundScreen onCancel={() => setView("home")} />
     );
-  if (view === "admin") return <AdminScreen onClose={() => setView("home")} />;
+  if (view === "admin") return <AdminScreen onClose={() => setView("profile")} />;
   // 홈·전적·기록·랭킹은 하단 탭으로 오간다 (아이콘만, 떠 있는 유리 바). 오른쪽 끝은 프로필
+  // 내 정보에서 연 랭킹 관리는 내 정보 탭에 불을 켠다
+  const tab = rankingManage ? "profile" : view;
   const tabs = (
     <>
       <nav className="tabbar" aria-label="메뉴">
@@ -136,11 +139,11 @@ function MemberFlow() {
         ).map(([v, icon, label]) => (
           <button
             key={v}
-            className={view === v ? "active" : ""}
-            aria-pressed={view === v}
+            className={tab === v ? "active" : ""}
+            aria-pressed={tab === v}
             aria-label={label}
             onClick={() => {
-              setProfileOpen(false);
+              setRankingManage(false);
               setView(v);
               window.scrollTo(0, 0);
             }}
@@ -149,15 +152,18 @@ function MemberFlow() {
           </button>
         ))}
         <button
-          className={`tab-profile${profileOpen ? " active" : ""}`}
+          className={`tab-profile${tab === "profile" ? " active" : ""}`}
           aria-label="내 정보"
-          aria-expanded={profileOpen}
-          onClick={() => setProfileOpen((v) => !v)}
+          aria-pressed={tab === "profile"}
+          onClick={() => {
+            setRankingManage(false);
+            setView("profile");
+            window.scrollTo(0, 0);
+          }}
         >
           <Avatar photoUrl={user?.photoURL} fallback="user" size={28} />
         </button>
       </nav>
-      <ProfileMenu open={profileOpen} onClose={() => setProfileOpen(false)} onAdmin={() => setView("admin")} />
     </>
   );
   return (
@@ -167,7 +173,24 @@ function MemberFlow() {
       ) : view === "records" ? (
         <RecordStatsScreen onClose={() => setView("home")} />
       ) : view === "ranking" ? (
-        <RankingScreen onClose={() => setView("home")} />
+        <RankingScreen
+          key={rankingManage ? "manage" : "ranking"}
+          manageOnly={rankingManage}
+          onClose={() => {
+            setView(rankingManage ? "profile" : "home");
+            setRankingManage(false);
+          }}
+        />
+      ) : view === "profile" ? (
+        <ProfileScreen
+          onClose={() => setView("home")}
+          onAdmin={() => setView("admin")}
+          onRankingManage={() => {
+            setRankingManage(true);
+            setView("ranking");
+            window.scrollTo(0, 0);
+          }}
+        />
       ) : (
         <RoundsHomeScreen onCreate={() => setView("create")} />
       )}

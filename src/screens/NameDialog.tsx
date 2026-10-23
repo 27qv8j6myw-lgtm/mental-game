@@ -8,7 +8,7 @@ const MAX_NAME = 20;
 
 /**
  * 앱에서 쓸 이름(실명) 정하기. 카카오 닉네임이 별명인 경우가 많아 처음 로그인할 때 묻는다.
- * onClose 가 없으면 닫을 수 없다 (처음 정할 때). 프로필 메뉴의 '내 이름 바꾸기'에서는 닫을 수 있다.
+ * onClose 가 없으면 닫을 수 없다 (처음 정할 때). 내 정보의 '이름·성별 바꾸기'에서는 닫을 수 있다.
  * 관리자가 다른 사람 이름·성별을 고칠 때는 title·desc·initialGender·onSave 를 넘긴다
  */
 export default function NameDialog({

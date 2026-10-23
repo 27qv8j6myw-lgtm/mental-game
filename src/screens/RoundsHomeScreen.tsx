@@ -585,7 +585,7 @@ export default function RoundsHomeScreen({
 
   return (
     <div className="app">
-      {/* 인스타그램처럼: 왼쪽 새 라운드, 가운데 글자 로고, 오른쪽 알림 (사용 방법·프로필은 하단 바 내 사진) */}
+      {/* 인스타그램처럼: 왼쪽 새 라운드, 가운데 글자 로고, 오른쪽 알림 (사용 방법·내 정보는 하단 바 내 사진) */}
       <TopBar
         left={
           <button className="icon-btn" aria-label="새 라운드 만들기" onClick={onCreate}>

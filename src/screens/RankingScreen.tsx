@@ -84,7 +84,14 @@ let lastView: { kind: PeriodKind; key: string | null; selected: string | null } 
 };
 
 /** 랭킹: 모든 이용자의 18홀 평균 타수 순위 (월별·연도별, 전월 대비 순위 변화). 누르면 그 사람 기록 */
-export default function RankingScreen({ onClose }: { onClose: () => void }) {
+export default function RankingScreen({
+  onClose,
+  manageOnly = false,
+}: {
+  onClose: () => void;
+  /** 내 정보 → 랭킹 공개 범위: 랭킹 관리로 바로 열고, 관리를 닫으면 화면도 닫는다 */
+  manageOnly?: boolean;
+}) {
   const { user } = useAuth();
   const myUid = user?.uid ?? "";
   const [data, setData] = useState<RankingData | null>(cachedRanking);
@@ -113,13 +120,14 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
     onClose();
   };
   /** 랭킹 관리 (숨기기 · 제외한 사람) */
-  const [managing, setManaging] = useState(false);
+  const [managing, setManaging] = useState(manageOnly);
   const openManage = () => {
     setManaging(true);
     window.scrollTo(0, 0);
   };
+  const closeManage = () => (manageOnly ? close() : setManaging(false));
   // 기기 뒤로가기: 랭킹 관리 → 순위, 사람 → 순위
-  useBack(managing, () => setManaging(false));
+  useBack(managing, closeManage);
   useBack(!!selected && !managing, () => setSelected(null));
 
   const load = () =>
@@ -546,7 +554,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
       <TopBar
         left={
           <BackButton
-            onClick={() => (managing ? setManaging(false) : selected ? setSelected(null) : close())}
+            onClick={() => (managing ? closeManage() : selected ? setSelected(null) : close())}
           />
         }
         right={<NoticeButton />}
@@ -568,7 +576,7 @@ export default function RankingScreen({ onClose }: { onClose: () => void }) {
           <div className="split-pane rk-right">
             <PaneHead
               title={managing ? "랭킹 관리" : "랭킹"}
-              onBack={managing ? () => setManaging(false) : undefined}
+              onBack={managing ? closeManage : undefined}
               right={
                 data && !managing ? (
                   <button className="rk-manage-btn" onClick={openManage}>
