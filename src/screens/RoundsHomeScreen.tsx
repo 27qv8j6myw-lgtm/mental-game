@@ -3,7 +3,8 @@ import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
 import { takeInvite } from "../invite";
-import { joinRoundByCode, leaveOrDeleteRound, listMyRounds, subscribeRoundScores } from "../rounds";
+import { joinRoundByCode, leaveOrDeleteRound, subscribeRoundScores } from "../rounds";
+import { patchListRound, refreshMyRounds, useMyRounds } from "../notices";
 import { Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import PaneHead, { LogoHead } from "./PaneHead";
@@ -21,24 +22,6 @@ const STATUS_LABEL: Record<string, string> = {
   playing: "진행중",
   done: "완료",
 };
-
-/** 마지막으로 받은 내 라운드 목록 (사용자별). 통신이 없을 때 홈에 보여준다 */
-const LIST_KEY = "mentalgame-rounds-cache";
-function readListCache(uid: string | undefined): RoundListItem[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(LIST_KEY) ?? "null") as { uid: string; list: RoundListItem[] } | null;
-    return v && v.uid === uid && Array.isArray(v.list) ? v.list : [];
-  } catch {
-    return [];
-  }
-}
-function writeListCache(uid: string | undefined, list: RoundListItem[]) {
-  try {
-    if (uid) localStorage.setItem(LIST_KEY, JSON.stringify({ uid, list }));
-  } catch {
-    /* 저장소를 쓸 수 없으면 보관하지 않는다 */
-  }
-}
 
 /** 홈에 보여줄 끝난 라운드 수 (나머지는 전체 보기) */
 const RECENT = 5;
@@ -181,8 +164,8 @@ export default function RoundsHomeScreen({
 }) {
   const { user, error, clearError, guestMoved, clearGuestMoved } = useAuth();
   const { openRound, exitNotice, clearExitNotice } = useRound();
-  // 마지막으로 받은 목록을 먼저 보여준다 (통신이 없어도 라운드를 다시 열 수 있게)
-  const [rounds, setRounds] = useState<RoundListItem[]>(() => readListCache(user?.uid));
+  // 마지막으로 받은 목록을 먼저 보여준다 (통신이 없어도 라운드를 다시 열 수 있게). 종 알림과 같이 쓴다
+  const rounds = useMyRounds(user?.uid ?? "");
   const [loading, setLoading] = useState(true);
   /** 목록을 서버에서 받지 못함 (보이는 건 마지막으로 받은 목록) */
   const [loadFailed, setLoadFailed] = useState(false);
@@ -265,9 +248,7 @@ export default function RoundsHomeScreen({
     setLoading(true);
     setLoadFailed(false);
     try {
-      const list = await listMyRounds();
-      setRounds(list);
-      writeListCache(user?.uid, list);
+      const list = await refreshMyRounds(user?.uid ?? "");
       // 전적 탭을 바로 열 수 있게 미리 계산해 둔다 (결과는 stats.ts 가 보관)
       if (user?.uid)
         void loadStats(user.uid, list).catch((e) => console.error("전적 불러오기 실패", e));
@@ -296,11 +277,7 @@ export default function RoundsHomeScreen({
     if (!window.confirm("이 라운드를 삭제할까요? 참여자 모두의 기록이 사라져요.")) return;
     try {
       await leaveOrDeleteRound(r.id, user.uid, true);
-      setRounds((rs) => {
-        const next = rs.filter((x) => x.id !== r.id);
-        writeListCache(user?.uid, next);
-        return next;
-      });
+      patchListRound(r.id, null);
     } catch (e) {
       console.error(e);
       alert("삭제에 실패했어요. 잠시 후 다시 시도해 주세요.");

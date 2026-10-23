@@ -1,4 +1,5 @@
 import { differential, ratingFor } from "./kga";
+import { greenSpeedOf } from "./greenSpeed";
 import { playerRating, teeLie } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
@@ -225,6 +226,8 @@ export interface RecordRound {
   rating: CourseRating | null;
   /** 내 성별 레이팅 "KGA 71/130" (스코어카드 이미지용) */
   ratingLabel: string | null;
+  /** 그린스피드 (m, 넣은 라운드만) */
+  greenSpeed: number | null;
 }
 
 type StatRow = HoleStat & { round_id: string; hole_index: number; player_uid: string };
@@ -298,6 +301,7 @@ export async function loadRecordRounds(
           holeCount: r.hole_count,
           gameMode: r.rules.gameMode ?? "stroke",
           rating: playerRating(r.rules.rating, r.rules.teeRatings, me?.tee),
+          greenSpeed: greenSpeedOf(r.rules),
         },
         pars.filter((h) => h.round_id === r.id),
         scores.filter((s) => s.round_id === r.id && s.player_uid === myUid),
@@ -319,6 +323,7 @@ export function recordRound(
     holeCount: number;
     gameMode: GameMode;
     rating: CourseRating | null;
+    greenSpeed?: number | null;
   },
   pars: { hole_index: number; par: number }[],
   scores: { hole_index: number; rel: number }[],
@@ -344,6 +349,7 @@ export function recordRound(
         : null,
     rating: r.rating,
     ratingLabel: rating ? `KGA ${rating.cr}/${rating.slope}` : null,
+    greenSpeed: r.greenSpeed ?? null,
   };
 }
 

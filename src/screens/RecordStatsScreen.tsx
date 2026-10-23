@@ -17,6 +17,8 @@ import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderScorecard } from "../shareImage";
 import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./Insight";
 import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
+import { saveGreenSpeed } from "../greenSpeed";
+import { GreenSpeedButton } from "./GreenSpeed";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 
@@ -59,6 +61,11 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   const close = () => {
     lastView = { scope: "all", period: null };
     onClose();
+  };
+  /** 상세 화면 그린스피드 저장 → 목록 값도 바로 바꾼다 */
+  const setGreenSpeed = async (roundId: string, v: number | null) => {
+    await saveGreenSpeed(roundId, v);
+    setRounds((rs) => rs?.map((x) => (x.roundId === roundId ? { ...x, greenSpeed: v } : x)) ?? rs);
   };
 
   useEffect(() => {
@@ -132,7 +139,14 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
   };
 
   if (detail && !split)
-    return <RoundDetail r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} />;
+    return (
+      <RoundDetail
+        r={detail}
+        all={rounds ?? []}
+        onBack={() => setDetailId(null)}
+        onGreenSpeed={(v) => setGreenSpeed(detail.roundId, v)}
+      />
+    );
 
   const status = (
     <>
@@ -311,7 +325,13 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
           <div className="split-pane rec-left">
             {/* 내기 라운드를 누르면 이 칸에 그 라운드 내 기록 (오른쪽 목록은 그대로) */}
             {detail ? (
-              <RoundDetail embedded r={detail} all={rounds ?? []} onBack={() => setDetailId(null)} />
+              <RoundDetail
+                embedded
+                r={detail}
+                all={rounds ?? []}
+                onBack={() => setDetailId(null)}
+                onGreenSpeed={(v) => setGreenSpeed(detail.roundId, v)}
+              />
             ) : (
               <>
                 <LogoHead />
@@ -349,12 +369,15 @@ function RoundDetail({
   r,
   all,
   onBack,
+  onGreenSpeed,
   embedded = false,
 }: {
   r: RecordRound;
   /** 내 기록 라운드 전체 (AI 분석의 평소 기록) */
   all: RecordRound[];
   onBack: () => void;
+  /** 그린스피드 넣기·고치기 (내가 친 라운드라 누구나) */
+  onGreenSpeed: (v: number | null) => Promise<void>;
   /** 펼친 iPhone Duo: 왼쪽 칸 안에 (위 바 대신 로고 머리, 오른쪽 칸에는 라운드별 기록이 그대로) */
   embedded?: boolean;
 }) {
@@ -378,6 +401,7 @@ function RoundDetail({
           holeCount: r.holeCount,
           mode: GAME_MODE_LABEL[r.gameMode],
           differential: r.differential,
+          greenSpeed: r.greenSpeed,
         },
         r.holes,
         past.map((x) => x.holes),
@@ -415,6 +439,7 @@ function RoundDetail({
         <div className="rr-meta">
           {[r.date, tee].filter(Boolean).join(" · ")}
           <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
+          <GreenSpeedButton value={r.greenSpeed} onSave={onGreenSpeed} />
         </div>
         <div className="rr-total">
           <b>{r.summary.holesPlayed === 0 ? "–" : r.summary.strokes}</b>

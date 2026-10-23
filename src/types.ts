@@ -158,6 +158,8 @@ export interface StoredRules extends BetRules {
   nameOverrides?: Record<string, string>;
   /** 스코어 수정 내역: 저장된 홀을 고친 것, 종료 후 방장이 고친 것 (모든 참여자에게 공개) */
   editLog?: EditLogEntry[];
+  /** 그린스피드 (스팀프미터 m, 0.1 단위). 라운드에 한 값, 참여자 누구나 기록 화면에서 넣는다 (record.sql set_round_green_speed) */
+  greenSpeed?: number;
 }
 
 /** '수정 완료' 한 번에 바뀐 항목들. items 는 "1번 홀 박영수: 5타(+1) → 4타(E)" 같은 문장 */
@@ -189,6 +191,8 @@ export interface GameConfig {
   rating: CourseRating | null;
   /** 티 박스별 레이팅 (사람마다 티가 다를 때) */
   teeRatings: Partial<Record<TeeBox, CourseRating>>;
+  /** 그린스피드 (m). 넣지 않았으면 null */
+  greenSpeed: number | null;
 }
 
 export type ParValue = 3 | 4 | 5;

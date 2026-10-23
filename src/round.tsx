@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth";
+import { patchListRound } from "./notices";
 import { bundleConfig, bundleHoleStats, bundleHoles, firstUnsaved, usesHoleSave } from "./model";
 import {
   applyOp,
@@ -322,6 +323,11 @@ export function RoundProvider({ children }: { children: ReactNode }) {
 
   const isHost = !!bundle && !!myUid && bundle.round.host_uid === myUid;
   const status = bundle?.round.status ?? null;
+  // 홈 목록·종 알림: 시작·종료(누가 했든)를 바로 반영
+  const bundleRoundId = bundle?.round.id;
+  useEffect(() => {
+    if (bundleRoundId && status) patchListRound(bundleRoundId, { status });
+  }, [bundleRoundId, status]);
 
   // 내 참가자 정보 쓰기는 순서대로 보낸다. 동시에 보내면 늦게 도착한 이전 값이 덮어쓸 수 있다.
   const writeQueue = useRef<Promise<unknown>>(Promise.resolve());
@@ -596,6 +602,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const leave = useCallback(async () => {
     if (!activeRoundId || !myUid) return;
     await leaveOrDeleteRound(activeRoundId, myUid, isHost);
+    patchListRound(activeRoundId, null);
     clearPending(activeRoundId);
     closeRound(true);
   }, [activeRoundId, myUid, isHost, closeRound]);

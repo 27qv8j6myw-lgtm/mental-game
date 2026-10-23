@@ -46,6 +46,7 @@ const PROMPT = `당신은 아마추어 골퍼의 타수를 줄여 주는 코치�
   보기를 넘긴 타수 beyondBogey — 각각 타수와 홀 번호, 그린을 놓친 홀 missedGreenHoles, GIR 후 3퍼트 홀 girThreePuttHoles), 홀별 기록(holes).
 - usual: 같은 골퍼의 평소(다른 라운드 평균, 라운드당 손실 leaksPerRound 포함). 없으면 null.
 - sameCourse: 같은 코스에서 친 다른 라운드 평균과 홀별 평균 타수. 없으면 null.
+- round.greenSpeed: 그린스피드(스팀프미터 m). 없으면 null. 2.8 이상은 빠른 그린, 2.4 이하는 느린 그린이에요. 퍼트 기록을 해석할 때만 써요.
 
 각 칸은 이 순서로 써요.
 1) 무엇이 타수를 잃게 했는지: 숫자와 홀 번호로 (예: "GIR 6번 중 3번이 3퍼트(2·7·15번 홀)로 3타를 더 쳤어요")

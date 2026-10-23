@@ -1,4 +1,5 @@
 import type { RoundBundle } from "./rounds";
+import { greenSpeedOf } from "./greenSpeed";
 import type { CourseRating, GameConfig, HoleScore, HoleStat, ParValue, Player, RoundRow, TeeBox, TeeLie } from "./types";
 
 /*
@@ -46,6 +47,7 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
     editLog: r.rules.editLog ?? [],
     rating: r.rules.rating ?? null,
     teeRatings: r.rules.teeRatings ?? {},
+    greenSpeed: greenSpeedOf(r.rules),
   };
 }
 

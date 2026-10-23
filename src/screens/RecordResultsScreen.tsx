@@ -12,6 +12,8 @@ import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderScorecard } from "../shareImage";
 import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./Insight";
 import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
+import { saveGreenSpeed, withGreenSpeed } from "../greenSpeed";
+import { GreenSpeedButton } from "./GreenSpeed";
 
 /**
  * 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프레이팅.
@@ -42,8 +44,19 @@ function AdjustedScore({
 
 /** 기록 분석 탭: 한 사람(기본: 나)의 이 라운드 분석과 스코어카드. 여럿이면 타수 순위도 */
 export default function RecordResultsScreen({ session }: { session: Session }) {
-  const { myUid, activeRoundId } = useRound();
+  const { myUid, activeRoundId, isHost, bundle, updateRound, refresh } = useRound();
   const { config, holes, holeStats } = session;
+  /** 그린스피드: 라운드를 친 사람 누구나 (SQL 함수가 아직 없으면 방장만 rules 를 직접 고친다) */
+  const setGreenSpeed = async (v: number | null) => {
+    if (!activeRoundId) return;
+    const rules = bundle?.round.rules;
+    await saveGreenSpeed(
+      activeRoundId,
+      v,
+      isHost && rules ? () => updateRound({ rules: withGreenSpeed(rules, v) }) : undefined
+    );
+    await refresh();
+  };
   const players = config.players;
   const [pick, setPick] = useState<string | null>(null);
   const selectedId =
@@ -107,6 +120,7 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
           holeCount: holes.length,
           mode: GAME_MODE_LABEL[config.gameMode],
           differential: diffSel,
+          greenSpeed: config.greenSpeed,
         },
         mine?.recs ?? [],
         past.map((x) => x.holes),
@@ -193,6 +207,10 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
               {/* 날짜·골프장·티 (예전 위쪽 '라운드 기록' 머리 대신 카드 안에) */}
               <div className="rr-meta">
                 {[config.date, config.courseName, tee].filter(Boolean).join(" · ")}
+                <GreenSpeedButton
+                  value={config.greenSpeed}
+                  onSave={selected.id === myUid ? setGreenSpeed : undefined}
+                />
               </div>
               <div className="rr-total">
                 <b>{mine.s.holesPlayed === 0 ? "–" : mine.s.strokes}</b>

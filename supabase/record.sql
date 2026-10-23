@@ -1,6 +1,7 @@
 -- ============ 기록 모드: 홀별 상세 기록 ============
 -- 기록 모드(내기 없음) 라운드에서 각자 입력하는 퍼트·티샷·벌타·샌드샷.
 -- 스코어 자체는 기존 round_scores 를 그대로 쓴다.
+-- 라운드 정보 중 참여자 누구나 넣는 값(그린스피드)도 여기서 연다 (맨 아래).
 -- Supabase 대시보드 > SQL Editor 에서 실행. 여러 번 실행해도 안전하다.
 
 create table if not exists public.round_hole_stats (
@@ -68,3 +69,33 @@ begin
     alter publication supabase_realtime add table public.round_hole_stats;
   end if;
 end $$;
+
+-- ============ 그린스피드 (라운드에 한 값) ============
+-- rules.greenSpeed (스팀프미터 m, 0.1 단위). 그 라운드를 친 사람(참여자·방장)이면 누구나 기록 화면에서 넣고 고친다.
+-- rounds 는 방장만 고칠 수 있어서(rounds_update) 이 값만 함수로 연다. p_speed 가 null 이면 지운다
+create or replace function public.set_round_green_speed(p_round_id uuid, p_speed numeric)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'UNAUTHORIZED' using errcode = '42501';
+  end if;
+  if not public.is_round_member(p_round_id) then
+    raise exception 'NOT_MEMBER' using errcode = '42501';
+  end if;
+  if p_speed is not null and (p_speed < 1.5 or p_speed > 4.5) then
+    raise exception 'BAD_SPEED' using errcode = '22023';
+  end if;
+  update public.rounds
+     set rules = case
+       when p_speed is null then coalesce(rules, '{}'::jsonb) - 'greenSpeed'
+       else jsonb_set(coalesce(rules, '{}'::jsonb), '{greenSpeed}', to_jsonb(round(p_speed, 1)))
+     end
+   where id = p_round_id;
+end $$;
+
+revoke all on function public.set_round_green_speed(uuid, numeric) from public, anon;
+grant execute on function public.set_round_green_speed(uuid, numeric) to authenticated;

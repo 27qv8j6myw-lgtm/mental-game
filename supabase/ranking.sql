@@ -228,6 +228,8 @@ as $$
         'game_mode', coalesce(rules ->> 'gameMode', 'stroke'),
         -- 그 사람이 다른 티를 쳤으면 그 티의 레이팅
         'rating', coalesce(rules -> 'teeRatings' -> ptee, rules -> 'rating'),
+        -- 그린스피드 (record.sql, 넣은 라운드만)
+        'green_speed', case when jsonb_typeof(rules -> 'greenSpeed') = 'number' then (rules ->> 'greenSpeed')::numeric end,
         'gender', gender))
       from mine), '[]'::jsonb),
     'holes', coalesce((

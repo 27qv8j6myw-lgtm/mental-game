@@ -7976,6 +7976,83 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .notice-menu .empty-note {
   padding: 18px 10px 20px;
 }
+/* 종 버튼: 처음 보는 알림이 있으면 빨간 점 */
+.notice-btn {
+  position: relative;
+}
+.notice-dot {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--loss);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+}
+.notice-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.notice-item:active {
+  background: var(--paper-2);
+}
+.notice-item.new {
+  background: var(--olive-soft);
+}
+.notice-item .ni-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--mustard-soft);
+  color: #b45309;
+}
+.notice-item .ni-tx {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.notice-item .ni-tx b {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.notice-item .ni-tx span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+.notice-item .ni-tx em {
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--olive-deep);
+}
+.notice-item .ni-go {
+  flex: none;
+  color: var(--ink-faint);
+}
 .wordmark {
   display: block;
 }
@@ -8245,4 +8322,103 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 기록 스코어카드 오른쪽 위: 그린스피드 배지 (게임 방식 배지 .mode-tag 와 같은 크기). 없으면 '＋ 그린스피드' */
+.gs-btn {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 7px;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.gs-btn.empty {
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.gs-btn.static {
+  cursor: default;
+}
+/* 빠르기 색: 느림(파랑) → 매우 빠름(빨강) */
+.gs0 {
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.gs1 {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.gs2 {
+  background: var(--mustard-soft);
+  color: #b45309;
+}
+.gs3 {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.gs4 {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+/* 입력 창: 저장 버튼과 같은 폭 */
+.gs-field {
+  position: relative;
+  width: 100%;
+}
+.gs-field .input {
+  width: 100%;
+  padding-right: 34px;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.gs-unit {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+/* 다섯 단계 눈금: 같은 크기 배지 다섯 개가 입력 창 폭에 꽉 차게 */
+.gs-scale {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.gs-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 0 5px;
+  border-radius: 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+.gs-step:not(.on) {
+  background: var(--paper-2);
+  color: var(--ink-faint);
+}
+.gs-step b {
+  font-size: 11px;
+  font-weight: 800;
+}
+.gs-step small {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+.name-cancel.gs-clear {
+  color: var(--loss);
 }

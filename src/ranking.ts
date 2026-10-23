@@ -238,6 +238,8 @@ type ProfileRound = {
   hole_count: number;
   game_mode: GameMode;
   rating: CourseRating | null;
+  /** 그린스피드 (ranking.sql 을 다시 실행하기 전 DB 에는 없음) */
+  green_speed?: number | null;
   gender: Gender;
 };
 type StatRow = { round_id: string; hole_index: number; putts: number | null; fairway: Fairway | null; lie: TeeLie | null; ob: number; hazard: number; sand: number };
@@ -264,6 +266,7 @@ export async function loadProfile(uid: string): Promise<RecordRound[]> {
           holeCount: r.hole_count,
           gameMode: r.game_mode,
           rating: r.rating,
+          greenSpeed: r.green_speed == null ? null : Number(r.green_speed),
         },
         v.holes.filter((h) => h.round_id === r.id),
         v.scores.filter((s) => s.round_id === r.id),

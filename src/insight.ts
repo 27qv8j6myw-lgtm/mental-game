@@ -141,7 +141,15 @@ const played = (rounds: HoleRecord[][]) => rounds.filter((hs) => hs.some((h) => 
  * sameCourse: 같은 코스에서 친 다른 라운드 평균과 홀별 평균 타수 (없으면 null)
  */
 export function buildInsightInput(
-  meta: { date: string; course: string; holeCount: number; mode: string; differential: number | null },
+  meta: {
+    date: string;
+    course: string;
+    holeCount: number;
+    mode: string;
+    differential: number | null;
+    /** 그린스피드 m (넣은 라운드만) */
+    greenSpeed?: number | null;
+  },
   recs: HoleRecord[],
   /** 같은 사람의 다른 라운드들 홀별 기록 (이번 라운드는 빼고) */
   others: HoleRecord[][],

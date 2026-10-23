@@ -1,7 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "../auth";
 import { useBack } from "../back";
 import { Icon, Wordmark } from "../icons";
+import { NOTICE_STALE_MS, markNoticesSeen, refreshMyRounds, useNotices } from "../notices";
+import { useRound } from "../round";
 import { useUnfolded } from "../rail";
 import { LogoHead } from "./PaneHead";
 
@@ -48,17 +51,51 @@ export default function TopBar({
 
 /** 상단 바 오른쪽 알림 (라운드 진행 화면만 빼고 모든 탭에). 누르면 오른쪽 위로 열린다 */
 export function NoticeButton() {
+  const { user } = useAuth();
+  const uid = user?.uid ?? "";
+  const { openRound } = useRound();
+  const { items, seen, unseen } = useNotices(uid);
   const [open, setOpen] = useState(false);
+  /** 창을 열 때 처음 본 알림 (열어 둔 동안 강조) */
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
   useBack(open, () => setOpen(false));
+
+  // 처음 그릴 때·앱으로 돌아올 때 목록이 오래됐으면 다시 받는다
+  useEffect(() => {
+    if (!uid) return;
+    const pull = () => void refreshMyRounds(uid, NOTICE_STALE_MS).catch((e) => console.warn("알림 목록을 받지 못함", e));
+    pull();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") pull();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [uid]);
+
+  const toggle = () => {
+    if (!open) {
+      setFresh(new Set(items.filter((i) => !seen.has(i.id)).map((i) => i.id)));
+      markNoticesSeen(uid, items);
+      void refreshMyRounds(uid, NOTICE_STALE_MS).catch(() => {});
+    }
+    setOpen((v) => !v);
+  };
+  // 열어 둔 동안 새로 생긴 알림도 본 것으로
+  const key = items.map((i) => i.id).join(",");
+  useEffect(() => {
+    if (open) markNoticesSeen(uid, items);
+  }, [open, key]);
+
   return (
     <>
       <button
-        className="icon-btn"
-        aria-label="알림"
+        className="icon-btn notice-btn"
+        aria-label={unseen ? "알림, 새 알림 있음" : "알림"}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
       >
         <Icon name="bell" size={25} />
+        {unseen && <span className="notice-dot" />}
       </button>
       {/* 상단 바의 흐림 효과 안에서는 화면 전체를 덮지 못해서 body 에 띄운다 */}
       {open &&
@@ -69,7 +106,32 @@ export function NoticeButton() {
               <div className="menu-head">
                 <div className="mn">알림</div>
               </div>
-              <div className="empty-note">새 알림이 없어요.</div>
+              {items.length === 0 ? (
+                <div className="empty-note">새 알림이 없어요.</div>
+              ) : (
+                <div className="notice-list">
+                  {items.map((i) => (
+                    <button
+                      key={i.id}
+                      className={`notice-item ${fresh.has(i.id) ? "new" : ""}`}
+                      onClick={() => {
+                        setOpen(false);
+                        if (i.roundId) openRound(i.roundId);
+                      }}
+                    >
+                      <span className="ni-ic">
+                        <Icon name="flag" size={18} />
+                      </span>
+                      <span className="ni-tx">
+                        <b>{i.title}</b>
+                        <span>{i.sub}</span>
+                        {i.hint && <em>{i.hint}</em>}
+                      </span>
+                      <Icon name="chevronRight" size={16} className="ni-go" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </>,
           document.body
