@@ -9112,3 +9112,98 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
     animation: none;
   }
 }
+
+/* ============ 배지 (Badges): 하이라이트 카드(.hl-card)를 그대로, 아직 없는 배지는 회색 ============ */
+.card.bd-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bd-sum-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.bd-sum-label {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.bd-sum-n {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.bd-sum-n b {
+  font-family: var(--font-num);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--olive);
+}
+.bd-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  overflow: hidden;
+}
+.bd-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--olive);
+}
+.bd-sum-sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.bd-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.hl-grid.bd-grid {
+  margin-bottom: 18px;
+}
+.hl-card.bd-card {
+  position: relative;
+}
+.bd-card .hl-title {
+  padding: 0 6px;
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.3;
+}
+.bd-card .hl-value {
+  font-size: 14px;
+}
+.bd-card.off .hl-badge {
+  opacity: 0.55;
+}
+.bd-card.off .hl-title {
+  color: var(--ink-soft);
+}
+.bd-how {
+  margin-top: 3px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-faint);
+  word-break: keep-all;
+}
+.bd-new {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--loss);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+/* 종 알림: 새 배지 */
+.notice-item .ni-ic.badge {
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}

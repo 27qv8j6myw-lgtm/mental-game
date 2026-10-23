@@ -5,6 +5,7 @@ import { useBack } from "../back";
 import { Icon, Wordmark } from "../icons";
 import { NOTICE_STALE_MS, markNoticesSeen, openNoticePage, refreshMyRounds, useNotices } from "../notices";
 import { checkGoalNotices } from "../goals";
+import { loadBadges } from "../badges";
 import { useRound } from "../round";
 import { useUnfolded } from "../rail";
 import { LogoHead } from "./PaneHead";
@@ -66,7 +67,10 @@ export function NoticeButton() {
   useEffect(() => {
     if (!uid) return;
     const pull = () => {
-      void refreshMyRounds(uid, NOTICE_STALE_MS).catch((e) => console.warn("알림 목록을 받지 못함", e));
+      // 새 배지는 끝낸 라운드가 바뀌었을 때만 다시 센다 (badges.ts)
+      void refreshMyRounds(uid, NOTICE_STALE_MS)
+        .then((list) => loadBadges(uid, list, user?.goal))
+        .catch((e) => console.warn("알림 목록을 받지 못함", e));
       void checkGoalNotices(uid, user?.goal);
     };
     pull();
@@ -126,7 +130,7 @@ export function NoticeButton() {
                       }}
                     >
                       <span className={`ni-ic ${i.kind}`}>
-                        <Icon name={i.kind === "goal" ? "target" : "flag"} size={18} />
+                        <Icon name={i.kind === "goal" ? "target" : i.kind === "badge" ? "medal" : "flag"} size={18} />
                       </span>
                       <span className="ni-tx">
                         <b>{i.title}</b>

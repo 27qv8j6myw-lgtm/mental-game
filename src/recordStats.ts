@@ -249,18 +249,20 @@ async function fetchStatRows(ids: string[]): Promise<StatRow[]> {
 
 /**
  * 라운드 기록에 넣을 완료 라운드를 최근 순으로: 기록 모드 라운드 + 내 상세 기록(퍼트·티샷 등)을
- * 한 홀이라도 남긴 내기 라운드. 라운드 목록을 이미 갖고 있으면 넘겨서 다시 받지 않는다
+ * 한 홀이라도 남긴 내기 라운드. 라운드 목록을 이미 갖고 있으면 넘겨서 다시 받지 않는다.
+ * all 이면 상세 기록이 없는 내기 라운드도 (배지: 타수만으로 판정하는 것들)
  */
 export async function loadRecordRounds(
   myUid: string,
-  rounds?: RoundListItem[]
+  rounds?: RoundListItem[],
+  { all = false }: { all?: boolean } = {}
 ): Promise<RecordRound[]> {
   const done = (rounds ?? (await listMyRounds())).filter((r) => r.status === "done");
   if (done.length === 0) return [];
   // 상세 기록은 완료 라운드 전체에서 받아, 내 기록이 있는 내기 라운드를 고른다
   const stats = await fetchStatRows(done.map((r) => r.id));
   const recorded = new Set(stats.filter((s) => s.player_uid === myUid).map((s) => s.round_id));
-  const list = done.filter((r) => r.rules.gameMode === "record" || recorded.has(r.id));
+  const list = all ? done : done.filter((r) => r.rules.gameMode === "record" || recorded.has(r.id));
   const ids = list.map((r) => r.id);
   if (ids.length === 0) return [];
   const [pars, scores, players] = await Promise.all([

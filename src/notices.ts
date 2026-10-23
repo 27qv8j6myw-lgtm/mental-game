@@ -6,7 +6,7 @@ import type { RoundListItem } from "./types";
  * 내 라운드 목록(홈과 종 알림이 같이 쓴다)과 오른쪽 위 종 알림.
  * 목록은 마지막으로 받은 것을 기기에 보관해 두고(통신이 없어도 홈에 보여 준다), 라운드를 끝내거나 나가면 바로 고친다.
  * 알림은 목록에서 만든다: 날짜가 지났는데 끝나지 않은 라운드·시작하지 않은 대기실.
- * 다른 기능은 setNoticeSource 로 자기 알림을 올린다 (시즌 목표 달성 goals.ts 등)
+ * 다른 기능은 setNoticeSource 로 자기 알림을 올린다 (시즌 목표 달성 goals.ts, 새 배지 badges.ts)
  */
 
 const LIST_KEY = "mentalgame-rounds-cache";
@@ -100,7 +100,7 @@ export function patchListRound(id: string, patch: Partial<RoundListItem> | null)
 // ── 종 알림 ──
 
 /** 알림을 눌러 여는 페이지 (내 정보 안) */
-export type NoticePage = "goals";
+export type NoticePage = "goals" | "badges";
 const PAGE_EVENT = "mg-open-page";
 /** 알림에서 페이지 열기 (App 이 받아 내 정보의 그 페이지로) */
 export const openNoticePage = (page: NoticePage) =>
@@ -114,7 +114,7 @@ export function onNoticePage(fn: (page: NoticePage) => void) {
 export interface NoticeItem {
   /** 본 알림을 기억하는 키 */
   id: string;
-  kind: "overdue" | "goal";
+  kind: "overdue" | "goal" | "badge";
   title: string;
   /** 골프장 · 날짜 */
   sub: string;

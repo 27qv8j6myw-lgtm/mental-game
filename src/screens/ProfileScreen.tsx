@@ -12,6 +12,8 @@ import Rules from "../rules/Rules";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import PaneHead, { LogoHead } from "./PaneHead";
 import SeasonGoals from "./SeasonGoals";
+import Badges from "./Badges";
+import { BADGES, useBadgeCount } from "../badges";
 import { goalSummary, hasGoal } from "../goals";
 import type { NoticePage } from "../notices";
 
@@ -23,7 +25,7 @@ const PROVIDER_LABEL: Record<string, string> = { kakao: "카카오", google: "Go
 
 /** 한 단계 들어가는 페이지 (펼친 iPhone Duo 에서는 오른쪽 칸) */
 type Sub = "accounts" | NoticePage;
-const SUB_TITLE: Record<Sub, string> = { accounts: "로그인 계정 연결", goals: "시즌 목표" };
+const SUB_TITLE: Record<Sub, string> = { accounts: "로그인 계정 연결", goals: "시즌 목표", badges: "배지" };
 
 /**
  * 내 정보 (인스타그램 '설정 및 활동'처럼): 아래 탭 오른쪽 내 사진을 누르면 열리는 페이지.
@@ -88,6 +90,7 @@ export default function ProfileScreen({
   );
 
   const goal = hasGoal(user?.goal) ? user?.goal : null;
+  const badgeCount = useBadgeCount(user?.uid ?? "");
   const list = (
     <>
       <div className="section-title">내 활동</div>
@@ -98,6 +101,13 @@ export default function ProfileScreen({
           value={goal ? goalSummary(goal) : "정하기"}
           on={split && shown === "goals"}
           onClick={() => setSub("goals")}
+        />
+        <Row
+          icon="medal"
+          label="배지"
+          value={badgeCount != null ? `${badgeCount}/${BADGES.length}` : undefined}
+          on={split && shown === "badges"}
+          onClick={() => setSub("badges")}
         />
       </div>
 
@@ -141,7 +151,8 @@ export default function ProfileScreen({
     </>
   );
 
-  const detail = shown === "accounts" ? <Accounts /> : shown === "goals" ? <SeasonGoals /> : null;
+  const detail =
+    shown === "accounts" ? <Accounts /> : shown === "goals" ? <SeasonGoals /> : shown === "badges" ? <Badges /> : null;
 
   return (
     <div className="app">
