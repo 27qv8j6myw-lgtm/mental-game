@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useAuth } from "../auth";
 import { useBack } from "../back";
 import { Icon, Wordmark } from "../icons";
-import { NOTICE_STALE_MS, markNoticesSeen, refreshMyRounds, useNotices } from "../notices";
+import { NOTICE_STALE_MS, markNoticesSeen, openNoticePage, refreshMyRounds, useNotices } from "../notices";
+import { checkGoalNotices } from "../goals";
 import { useRound } from "../round";
 import { useUnfolded } from "../rail";
 import { LogoHead } from "./PaneHead";
@@ -60,17 +61,21 @@ export function NoticeButton() {
   const [fresh, setFresh] = useState<Set<string>>(new Set());
   useBack(open, () => setOpen(false));
 
-  // 처음 그릴 때·앱으로 돌아올 때 목록이 오래됐으면 다시 받는다
+  // 처음 그릴 때·앱으로 돌아올 때 목록이 오래됐으면 다시 받는다 (시즌 목표는 가끔 확인)
+  const goalKey = JSON.stringify(user?.goal ?? null);
   useEffect(() => {
     if (!uid) return;
-    const pull = () => void refreshMyRounds(uid, NOTICE_STALE_MS).catch((e) => console.warn("알림 목록을 받지 못함", e));
+    const pull = () => {
+      void refreshMyRounds(uid, NOTICE_STALE_MS).catch((e) => console.warn("알림 목록을 받지 못함", e));
+      void checkGoalNotices(uid, user?.goal);
+    };
     pull();
     const onVisible = () => {
       if (document.visibilityState === "visible") pull();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [uid]);
+  }, [uid, goalKey]);
 
   const toggle = () => {
     if (!open) {
@@ -117,10 +122,11 @@ export function NoticeButton() {
                       onClick={() => {
                         setOpen(false);
                         if (i.roundId) openRound(i.roundId);
+                        else if (i.page) openNoticePage(i.page);
                       }}
                     >
-                      <span className="ni-ic">
-                        <Icon name="flag" size={18} />
+                      <span className={`ni-ic ${i.kind}`}>
+                        <Icon name={i.kind === "goal" ? "target" : "flag"} size={18} />
                       </span>
                       <span className="ni-tx">
                         <b>{i.title}</b>

@@ -9,6 +9,7 @@ import {
 import { isSupabaseConfigured, supabase } from "./supabase";
 import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin, requestAppleLogin } from "./native";
 import { apiUrl } from "./scorecard";
+import { parseGoal, type SeasonGoal } from "./goals";
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
@@ -30,6 +31,8 @@ export interface AuthUser {
   nameSet: boolean;
   /** 로그인한 서비스(카카오·구글)의 이름. 이름을 정할 때 미리 채워 둔다 */
   providerName: string | null;
+  /** 시즌 목표 (goals.ts). 정한 적 없으면 null */
+  goal: SeasonGoal | null;
 }
 
 interface AuthCtx {
@@ -54,6 +57,8 @@ interface AuthCtx {
   saveGender: (gender: "male" | "female") => Promise<void>;
   /** 앱에서 쓸 이름(실명)을 저장한다 (성별도 고르면 함께). 성공하면 true */
   saveName: (name: string, gender?: "male" | "female") => Promise<boolean>;
+  /** 시즌 목표 저장 (null 이면 지운다). 성공하면 true */
+  saveGoal: (goal: SeasonGoal | null) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
   /** 게스트 세션에서 로그인해 게스트로 친 라운드를 이 계정으로 옮겼으면 그 결과 (홈에 알린다) */
@@ -212,6 +217,7 @@ function mapUser(u: {
         ? { name: meta.bank_name, account: meta.bank_account }
         : null,
     gender: meta.mg_gender === "female" || meta.mg_gender === "male" ? meta.mg_gender : null,
+    goal: parseGoal(meta.mg_goal),
   };
 }
 
@@ -387,6 +393,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data, error: e } = await supabase.auth.updateUser({
           data: { mg_name: name.trim(), ...(gender && { mg_gender: gender }) },
         });
+        if (e) {
+          console.error(e);
+          return false;
+        }
+        if (data.user) setUser(mapUser(data.user));
+        return true;
+      },
+      saveGoal: async (goal) => {
+        if (!supabase) return false;
+        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_goal: goal } });
         if (e) {
           console.error(e);
           return false;

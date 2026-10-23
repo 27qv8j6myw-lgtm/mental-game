@@ -11,6 +11,9 @@ import Guide from "../guide/Guide";
 import Rules from "../rules/Rules";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import PaneHead, { LogoHead } from "./PaneHead";
+import SeasonGoals from "./SeasonGoals";
+import { goalSummary, hasGoal } from "../goals";
+import type { NoticePage } from "../notices";
 
 const LINKABLE: { id: OAuthProvider; label: string }[] = [
   { id: "kakao", label: "카카오" },
@@ -19,8 +22,8 @@ const LINKABLE: { id: OAuthProvider; label: string }[] = [
 const PROVIDER_LABEL: Record<string, string> = { kakao: "카카오", google: "Google", apple: "Apple" };
 
 /** 한 단계 들어가는 페이지 (펼친 iPhone Duo 에서는 오른쪽 칸) */
-type Sub = "accounts";
-const SUB_TITLE: Record<Sub, string> = { accounts: "로그인 계정 연결" };
+type Sub = "accounts" | NoticePage;
+const SUB_TITLE: Record<Sub, string> = { accounts: "로그인 계정 연결", goals: "시즌 목표" };
 
 /**
  * 내 정보 (인스타그램 '설정 및 활동'처럼): 아래 탭 오른쪽 내 사진을 누르면 열리는 페이지.
@@ -31,21 +34,24 @@ export default function ProfileScreen({
   onClose,
   onAdmin,
   onRankingManage,
+  initialSub = null,
 }: {
   onClose: () => void;
   onAdmin: () => void;
   /** 랭킹 공개 범위 (랭킹 관리 화면) */
   onRankingManage: () => void;
+  /** 종 알림에서 바로 연 페이지 */
+  initialSub?: Sub | null;
 }) {
   const { user, signOutUser, deleteAccount } = useAuth();
   const split = useUnfolded();
-  const [sub, setSubState] = useState<Sub | null>(null);
+  const [sub, setSubState] = useState<Sub | null>(initialSub);
   const setSub = (s: Sub | null) => {
     setSubState(s);
     window.scrollTo(0, 0);
   };
   // 펼친 화면은 오른쪽 칸에 늘 하나를 보여 준다
-  const shown: Sub | null = sub ?? (split ? "accounts" : null);
+  const shown: Sub | null = sub ?? (split ? "goals" : null);
   // 기기 뒤로가기: 들어간 페이지 → 목록 (목록 → 홈은 App)
   useBack(!split && sub !== null, () => setSub(null));
 
@@ -81,8 +87,20 @@ export default function ProfileScreen({
     </div>
   );
 
+  const goal = hasGoal(user?.goal) ? user?.goal : null;
   const list = (
     <>
+      <div className="section-title">내 활동</div>
+      <div className="card pf-group">
+        <Row
+          icon="target"
+          label="시즌 목표"
+          value={goal ? goalSummary(goal) : "정하기"}
+          on={split && shown === "goals"}
+          onClick={() => setSub("goals")}
+        />
+      </div>
+
       <div className="section-title">계정</div>
       <div className="card pf-group">
         <Row
@@ -123,7 +141,7 @@ export default function ProfileScreen({
     </>
   );
 
-  const detail = shown === "accounts" && <Accounts />;
+  const detail = shown === "accounts" ? <Accounts /> : shown === "goals" ? <SeasonGoals /> : null;
 
   return (
     <div className="app">

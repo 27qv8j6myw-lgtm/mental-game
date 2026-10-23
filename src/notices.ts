@@ -5,7 +5,8 @@ import type { RoundListItem } from "./types";
 /*
  * 내 라운드 목록(홈과 종 알림이 같이 쓴다)과 오른쪽 위 종 알림.
  * 목록은 마지막으로 받은 것을 기기에 보관해 두고(통신이 없어도 홈에 보여 준다), 라운드를 끝내거나 나가면 바로 고친다.
- * 알림은 목록에서 만든다: 날짜가 지났는데 끝나지 않은 라운드·시작하지 않은 대기실. (뒤에 배지·목표 달성도 여기에)
+ * 알림은 목록에서 만든다: 날짜가 지났는데 끝나지 않은 라운드·시작하지 않은 대기실.
+ * 다른 기능은 setNoticeSource 로 자기 알림을 올린다 (시즌 목표 달성 goals.ts 등)
  */
 
 const LIST_KEY = "mentalgame-rounds-cache";
@@ -17,6 +18,8 @@ type ListState = { uid: string; list: RoundListItem[]; at: number };
 let state: ListState = { uid: "", list: [], at: 0 };
 let seen: { uid: string; ids: Set<string> } = { uid: "", ids: new Set() };
 let inflight: Promise<RoundListItem[]> | null = null;
+/** 다른 기능이 올린 알림 (기능 이름 → 알림) */
+let sources: Record<string, NoticeItem[]> = {};
 
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((fn) => fn());
@@ -46,6 +49,7 @@ function ensure(uid: string) {
   if (state.uid === uid) return;
   state = { uid, list: uid ? readListCache(uid) : [], at: 0 };
   inflight = null;
+  sources = {};
 }
 
 /** 내 라운드 목록 (최근 만든 순) */
@@ -95,10 +99,22 @@ export function patchListRound(id: string, patch: Partial<RoundListItem> | null)
 
 // ── 종 알림 ──
 
+/** 알림을 눌러 여는 페이지 (내 정보 안) */
+export type NoticePage = "goals";
+const PAGE_EVENT = "mg-open-page";
+/** 알림에서 페이지 열기 (App 이 받아 내 정보의 그 페이지로) */
+export const openNoticePage = (page: NoticePage) =>
+  window.dispatchEvent(new CustomEvent<NoticePage>(PAGE_EVENT, { detail: page }));
+export function onNoticePage(fn: (page: NoticePage) => void) {
+  const h = (e: Event) => fn((e as CustomEvent<NoticePage>).detail);
+  window.addEventListener(PAGE_EVENT, h);
+  return () => window.removeEventListener(PAGE_EVENT, h);
+}
+
 export interface NoticeItem {
   /** 본 알림을 기억하는 키 */
   id: string;
-  kind: "overdue";
+  kind: "overdue" | "goal";
   title: string;
   /** 골프장 · 날짜 */
   sub: string;
@@ -106,7 +122,17 @@ export interface NoticeItem {
   hint?: string;
   /** 누르면 열 라운드 */
   roundId?: string;
+  /** 누르면 열 페이지 */
+  page?: NoticePage;
 }
+
+export function setNoticeSource(key: string, items: NoticeItem[]) {
+  const prev = sources[key] ?? [];
+  if (prev.length === items.length && prev.every((p, i) => p.id === items[i].id && p.sub === items[i].sub)) return;
+  sources = { ...sources, [key]: items };
+  emit();
+}
+const sourcesSnapshot = () => sources;
 
 const todaySeoul = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 const roundDay = (r: RoundListItem) =>
@@ -179,7 +205,8 @@ export function useNotices(uid: string): { items: NoticeItem[]; seen: Set<string
     ensureSeen(uid);
     return seenSnapshot();
   });
-  const items = uid ? overdueNotices(uid, list) : [];
+  const extra = useSyncExternalStore(subscribe, sourcesSnapshot);
+  const items = uid ? [...Object.values(extra).flat(), ...overdueNotices(uid, list)] : [];
   return { items, seen: seenIds, unseen: items.some((i) => !seenIds.has(i.id)) };
 }
 

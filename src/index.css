@@ -8428,11 +8428,16 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   font-weight: 700;
 }
 .pf-value {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 58%;
   display: flex;
   align-items: center;
   font-size: 13px;
   color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pf-go {
   flex: none;
@@ -8482,4 +8487,628 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 }
 .ml-row.pf-acct .ml-name {
   font-size: 15px;
+}
+
+/* 종 알림: 시즌 목표 달성 */
+.notice-item .ni-ic.goal {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+
+/* ============ 시즌 목표 (SeasonGoals) ============ */
+/* 시즌 카드: 홈 '코드로 참여' 상자와 같은 파란 상자, 오른쪽 위에 큰 과녁을 옅게 */
+.card.gl-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 18px 18px;
+  border: none;
+  background: linear-gradient(135deg, var(--olive), var(--olive-deep));
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.gl-hero-mark {
+  position: absolute;
+  top: -26px;
+  right: -26px;
+  color: #fff;
+  opacity: 0.14;
+  pointer-events: none;
+}
+.gl-hero-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gl-eyebrow {
+  position: relative;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.82);
+}
+.gl-dday {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gl-motto {
+  position: relative;
+  margin: 2px 0 0;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+.gl-sign {
+  position: relative;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+}
+.gl-tally {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.gl-tally-bar {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+.gl-tally-bar span {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.gl-tally-bar span.on {
+  background: #fff;
+}
+.gl-tally b {
+  flex: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+/* 목표가 없을 때 */
+.gl-ask {
+  position: relative;
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+  word-break: keep-all;
+}
+.gl-lead {
+  position: relative;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.85);
+  word-break: keep-all;
+}
+.gl-now {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.gl-now span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 12px;
+  font-weight: 700;
+}
+/* 파란 상자 안 버튼: 흰 버튼 (홈 참여 버튼처럼) */
+.gl-hero .btn-primary.gl-hero-btn {
+  position: relative;
+  margin-top: 8px;
+  background: #fff;
+  color: var(--olive-deep);
+  box-shadow: none;
+}
+
+/* 목표 카드: 원형 게이지 · 목표 · 응원 한 줄 */
+.card.gl-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.gl-ring {
+  position: relative;
+  flex: none;
+}
+.gl-ring svg {
+  width: 100%;
+  height: 100%;
+}
+.gl-ring-track {
+  fill: none;
+  stroke: var(--paper-3);
+  stroke-width: 7;
+}
+.gl-ring-fill {
+  fill: none;
+  stroke: var(--olive);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease;
+}
+.gl-ring.done .gl-ring-fill {
+  stroke: var(--gain);
+}
+.gl-ring-in {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.gl-ring-in b {
+  font-family: var(--font-num);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.gl-ring-in span {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.gl-card-tx {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.gl-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.gl-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.gl-done {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.gl-target {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.gl-msg {
+  margin-top: 1px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+.gl-redo {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+.gl-redo:active {
+  background: var(--paper-2);
+}
+.gl-private {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* 목표 세우기: 화면 전체 (사용 방법·골프 룰 화면과 같은 층) */
+.guide-layer.gl-flow {
+  z-index: 70;
+}
+.gl-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-right: 6px;
+}
+.gl-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.gl-dots i.past {
+  background: #9dbaf5;
+}
+.gl-dots i.on {
+  width: 18px;
+  background: var(--olive);
+}
+.sheet.gl-flow-sheet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+  animation: gl-rise 0.25s ease;
+}
+@keyframes gl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.gl-step-eyebrow {
+  margin: 0 2px 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--olive);
+}
+.page-title.gl-flow-title {
+  margin-bottom: 8px;
+  word-break: keep-all;
+}
+.gl-flow-sub {
+  margin: 0 2px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+.gl-flow-foot {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 16px calc(var(--safe-bottom) + 16px);
+  background: linear-gradient(to top, var(--sand) 70%, rgba(250, 250, 249, 0));
+}
+.gl-flow-foot .btn-primary:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+}
+/* 무엇을 이룰지: 카드 세 장 */
+.gl-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.card.gl-pick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.card.gl-pick.on {
+  border-color: var(--olive);
+  background: var(--olive-soft);
+}
+.gl-pick-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+.gl-pick-ic.avg {
+  background: var(--olive-soft);
+  color: var(--olive);
+}
+.gl-pick-ic.best {
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}
+.gl-pick-ic.rounds {
+  background: var(--gain-soft);
+  color: var(--gain);
+}
+.card.gl-pick.on .gl-pick-ic {
+  background: #fff;
+}
+.gl-pick-tx {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gl-pick-tx b {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.gl-pick-tx span {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.gl-check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+}
+.card.gl-pick.on .gl-check {
+  border-color: var(--olive);
+  background: var(--olive)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E")
+    center / 15px no-repeat;
+}
+.gl-clear {
+  align-self: center;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* 큰 숫자 고르기 */
+.card.gl-picker-card {
+  padding: 22px 16px 16px;
+}
+.gl-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.gl-stepper {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: var(--border);
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.gl-stepper:active {
+  background: var(--paper-3);
+}
+.gl-big {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+}
+.gl-big b {
+  font-family: var(--font-num);
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.gl-big span {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--olive);
+}
+.gl-big-sub {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+.gl-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.gl-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 11px 4px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.gl-preset span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.gl-preset b {
+  font-family: var(--font-num);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.gl-preset.on {
+  border-color: var(--olive);
+  background: var(--olive-soft);
+}
+.gl-preset.on span,
+.gl-preset.on b {
+  color: var(--olive-deep);
+}
+.gl-hint {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mustard);
+}
+/* 한 줄 다짐 */
+.input.gl-motto-in {
+  font-size: 16px;
+  font-weight: 700;
+}
+.gl-ideas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.gl-idea {
+  padding: 6px 11px;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.gl-idea.on {
+  border-color: var(--olive);
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.section-title.gl-preview-title {
+  margin-top: 22px;
+}
+.gl-err {
+  margin: 10px 2px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--loss);
+}
+/* 다짐 완료 */
+.gl-sealed {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-bottom: 40px;
+}
+.gl-sealed-ic {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: var(--olive-soft);
+  color: var(--olive);
+  animation: gl-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes gl-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* 목표 달성 축하 (알림 창 모양) */
+.alert-backdrop.gl-cele {
+  z-index: 75;
+  overflow: hidden;
+}
+.alert-box.gl-cele-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 26px;
+  animation: gl-pop 0.4s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.gl-cele-ic {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--mustard-soft);
+  color: var(--mustard);
+}
+.gl-cele-box h3 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.gl-cele-box p {
+  margin: 4px 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.gl-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.gl-confetti i {
+  position: absolute;
+  top: -12px;
+  width: 7px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--olive);
+  animation: gl-fall 2.6s linear infinite;
+}
+.gl-confetti i:nth-child(3n) {
+  background: var(--mustard);
+}
+.gl-confetti i:nth-child(4n + 1) {
+  background: var(--gain);
+}
+.gl-confetti i:nth-child(5n + 2) {
+  background: var(--terra);
+}
+@keyframes gl-fall {
+  to {
+    transform: translateY(110vh) rotate(540deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gl-confetti {
+    display: none;
+  }
+  .gl-sealed-ic,
+  .gl-cele-box,
+  .sheet.gl-flow-sheet {
+    animation: none;
+  }
 }

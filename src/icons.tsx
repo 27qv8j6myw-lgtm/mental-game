@@ -8,6 +8,7 @@ type IconName =
   | "trophy"
   | "layers"
   | "plus"
+  | "minus"
   | "close"
   | "finish"
   | "user"
@@ -33,6 +34,7 @@ type IconName =
   | "book"
   | "bell"
   | "link"
+  | "target"
   | "shield"
   | "help"
   | "medal"
@@ -59,6 +61,7 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M3 13l9 5 9-5M3 18l9 5 9-5" />
     </>
   ),
+  minus: <path d="M5 12h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   finish: (
@@ -171,6 +174,14 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
       <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  // 시즌 목표: 과녁
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="0.8" fill="currentColor" />
     </>
   ),
   // 개인정보: 방패

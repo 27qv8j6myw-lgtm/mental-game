@@ -22,6 +22,7 @@ import { Avatar, Icon } from "./icons";
 import { useBack } from "./back";
 import { useOnline } from "./online";
 import { useUnfolded } from "./rail";
+import { onNoticePage, type NoticePage } from "./notices";
 import type { Session } from "./types";
 
 export default function App() {
@@ -69,6 +70,19 @@ function MemberFlow() {
   const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking" | "profile">("home");
   /** 내 정보 → 랭킹 공개 범위로 연 랭킹 관리 (닫으면 내 정보로 돌아간다) */
   const [rankingManage, setRankingManage] = useState(false);
+  /** 종 알림에서 연 내 정보 페이지 (n 이 바뀌면 내 정보를 그 페이지로 새로 연다) */
+  const [profileOpen, setProfileOpen] = useState<{ sub: NoticePage | null; n: number }>({ sub: null, n: 0 });
+  useEffect(
+    () =>
+      onNoticePage((sub) => {
+        round.closeRound();
+        setRankingManage(false);
+        setProfileOpen((p) => ({ sub, n: p.n + 1 }));
+        setView("profile");
+        window.scrollTo(0, 0);
+      }),
+    [round.closeRound]
+  );
   // 펼친 iPhone Duo: 라운드 만들기·대기실은 라운드 탭 왼쪽 칸에 (오른쪽은 진행 중 목록 그대로)
   const split = useUnfolded();
 
@@ -157,6 +171,7 @@ function MemberFlow() {
           aria-pressed={tab === "profile"}
           onClick={() => {
             setRankingManage(false);
+            setProfileOpen((p) => ({ sub: null, n: view === "profile" ? p.n + 1 : p.n }));
             setView("profile");
             window.scrollTo(0, 0);
           }}
@@ -183,6 +198,8 @@ function MemberFlow() {
         />
       ) : view === "profile" ? (
         <ProfileScreen
+          key={profileOpen.n}
+          initialSub={profileOpen.sub}
           onClose={() => setView("home")}
           onAdmin={() => setView("admin")}
           onRankingManage={() => {
