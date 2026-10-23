@@ -58,8 +58,6 @@ xcrun simctl launch --terminate-running-process booted kr.mentalgame.golf
 | `MentalGame/Info.plist` | 로그인 돌아오는 주소 스킴, 시작 화면, 카메라·사진 권한 안내 |
 | `MentalGame/Resources/ko.lproj/InfoPlist.strings` | 앱 이름 '멘탈게임' |
 
-## 앱스토어 출시 전에 남은 일
+## 앱스토어 심사 제출
 
-- Apple 로그인 사용자가 탈퇴할 때 Apple 토큰 취소(REST API revoke): Apple 키(.p8)와 서버 함수가 필요해요
-- **개인정보처리방침** 웹 주소, 지원 주소
-- 아이콘·스크린샷(6.9인치·6.5인치), 앱 설명('골프 스코어 기록·정산 계산기'), TestFlight
+[AppStore/README.md](AppStore/README.md) 에 체크리스트, 붙여 넣을 앱 설명·심사 메모, 개인정보·연령 등급 답안, 6.9형 화면 사진을 모아 두었어요.

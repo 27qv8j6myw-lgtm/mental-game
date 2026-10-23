@@ -8,6 +8,7 @@ import {
 } from "react";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin, requestAppleLogin } from "./native";
+import { apiUrl } from "./scorecard";
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
@@ -128,6 +129,27 @@ async function appleIdToken(): Promise<
   if (result.cancelled) return null;
   if (!result.idToken) return { error: result.error ?? "no token" };
   return { token: result.idToken, nonce: raw, fullName: result.fullName ?? undefined };
+}
+
+/**
+ * 회원 탈퇴 전에 Apple 토큰을 취소한다 (앱스토어 규정, api/apple-revoke.ts).
+ * Apple 로그인 창을 한 번 더 띄워 받은 인증 코드를 서버에 넘긴다. 취소하거나 실패해도 탈퇴는 그대로 한다
+ */
+async function revokeAppleToken(): Promise<void> {
+  try {
+    const result = await requestAppleLogin(await sha256(randomNonce()));
+    // 창을 닫았거나 인증 코드를 넘기지 않는 예전 앱
+    if (!result.authCode || !supabase) return;
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    const res = await fetch(apiUrl("apple-revoke"), {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token ?? ""}` },
+      body: JSON.stringify({ code: result.authCode }),
+    });
+    if (!res.ok) console.warn("Apple 토큰을 취소하지 못함", res.status);
+  } catch (e) {
+    console.warn("Apple 토큰을 취소하지 못함", e);
+  }
 }
 
 function oauthOptions(provider: OAuthProvider) {
@@ -410,6 +432,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       deleteAccount: async () => {
         if (!supabase) return false;
+        // Apple 로 로그인(연결)한 계정은 앱에서 Apple 토큰도 취소한다 (계정이 지워지기 전에, 로그인한 채로)
+        if (isNativeApp() && user?.providers.includes("apple")) await revokeAppleToken();
         const { error: rpcErr } = await supabase.rpc("delete_my_account");
         if (rpcErr) {
           console.error("회원 탈퇴 실패", rpcErr);

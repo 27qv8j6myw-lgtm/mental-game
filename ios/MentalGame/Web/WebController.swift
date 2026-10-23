@@ -390,6 +390,10 @@ extension WebController: ASAuthorizationControllerDelegate, ASAuthorizationContr
             return
         }
         var result: [String: Any] = ["idToken": token]
+        // 인증 코드: 회원 탈퇴 때 서버가 이것으로 Apple 토큰을 취소한다 (api/apple-revoke.ts)
+        if let codeData = credential.authorizationCode, let code = String(data: codeData, encoding: .utf8) {
+            result["authCode"] = code
+        }
         // 이름은 처음 로그인할 때만 온다 (한국식: 성 + 이름)
         if let name = credential.fullName {
             let full = [name.familyName, name.givenName].compactMap { $0 }.joined()

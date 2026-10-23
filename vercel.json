@@ -22,6 +22,9 @@
     },
     "api/keepalive.ts": {
       "maxDuration": 10
+    },
+    "api/apple-revoke.ts": {
+      "maxDuration": 15
     }
   },
   "crons": [

@@ -49,6 +49,8 @@ export interface AppleLoginResult {
   idToken?: string;
   /** 처음 로그인할 때만 Apple 이 알려 주는 이름 */
   fullName?: string;
+  /** 인증 코드 (회원 탈퇴 때 Apple 토큰 취소에 쓴다. 빌드 3 부터) */
+  authCode?: string;
   cancelled?: boolean;
   error?: string;
 }

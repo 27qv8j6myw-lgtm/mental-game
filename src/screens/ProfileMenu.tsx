@@ -200,13 +200,19 @@ export default function ProfileMenu({
       )}
       {nameOpen && <NameDialog initial={user?.displayName ?? ""} onClose={() => setNameOpen(false)} />}
       {guideOpen && <Guide onClose={() => setGuideOpen(false)} />}
-      {leaving && <LeaveDialog onCancel={() => setLeaving(false)} onLeave={deleteAccount} />}
+      {leaving && (
+        <LeaveDialog
+          onCancel={() => setLeaving(false)}
+          onLeave={deleteAccount}
+          apple={isNativeApp() && !!user?.providers.includes("apple")}
+        />
+      )}
     </>
   );
 }
 
 /** 회원 탈퇴 확인: 무엇이 지워지고 무엇이 남는지 알리고, 되돌릴 수 없어서 한 번 더 묻는다 */
-function LeaveDialog({ onCancel, onLeave }: { onCancel: () => void; onLeave: () => Promise<boolean> }) {
+function LeaveDialog({ onCancel, onLeave, apple }: { onCancel: () => void; onLeave: () => Promise<boolean>; apple: boolean }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const leave = async () => {
@@ -228,6 +234,7 @@ function LeaveDialog({ onCancel, onLeave }: { onCancel: () => void; onLeave: () 
           <li>내 이름은 '탈퇴한 사용자'로 바뀌어요.</li>
           <li>방장인 라운드는 함께 친 사람에게 넘어가요.</li>
           <li>혼자 친 라운드는 지워져요.</li>
+          {apple && <li>Apple 연결을 끊으려고 Apple 확인 창이 한 번 더 떠요.</li>}
         </ul>
         {failed && <div className="leave-err">탈퇴하지 못했어요. 연결을 확인하고 다시 시도해 주세요.</div>}
         <div className="leave-actions">
