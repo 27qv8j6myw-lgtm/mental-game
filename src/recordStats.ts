@@ -1,5 +1,6 @@
 import { differential, ratingFor } from "./kga";
 import { greenSpeedOf } from "./greenSpeed";
+import { weatherOf, type RoundWeather } from "./weather";
 import { playerRating, teeLie } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
@@ -228,6 +229,8 @@ export interface RecordRound {
   ratingLabel: string | null;
   /** 그린스피드 (m, 넣은 라운드만) */
   greenSpeed: number | null;
+  /** 날씨 (받은 라운드만) */
+  weather: RoundWeather | null;
 }
 
 type StatRow = HoleStat & { round_id: string; hole_index: number; player_uid: string };
@@ -304,6 +307,7 @@ export async function loadRecordRounds(
           gameMode: r.rules.gameMode ?? "stroke",
           rating: playerRating(r.rules.rating, r.rules.teeRatings, me?.tee),
           greenSpeed: greenSpeedOf(r.rules),
+          weather: weatherOf(r.rules),
         },
         pars.filter((h) => h.round_id === r.id),
         scores.filter((s) => s.round_id === r.id && s.player_uid === myUid),
@@ -326,6 +330,7 @@ export function recordRound(
     gameMode: GameMode;
     rating: CourseRating | null;
     greenSpeed?: number | null;
+    weather?: RoundWeather | null;
   },
   pars: { hole_index: number; par: number }[],
   scores: { hole_index: number; rel: number }[],
@@ -352,6 +357,7 @@ export function recordRound(
     rating: r.rating,
     ratingLabel: rating ? `KGA ${rating.cr}/${rating.slope}` : null,
     greenSpeed: r.greenSpeed ?? null,
+    weather: r.weather ?? null,
   };
 }
 

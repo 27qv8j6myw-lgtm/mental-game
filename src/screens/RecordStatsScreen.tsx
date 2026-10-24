@@ -20,6 +20,7 @@ import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight"
 import { saveGreenSpeed } from "../greenSpeed";
 import { YearReviewEntry } from "./YearReview";
 import { GreenSpeedButton } from "./GreenSpeed";
+import { weatherText } from "../weather";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 
@@ -448,6 +449,12 @@ function RoundDetail({
           <span className={`mode-tag ${r.gameMode}`}>{GAME_MODE_LABEL[r.gameMode]}</span>
           <GreenSpeedButton value={r.greenSpeed} onSave={onGreenSpeed} />
         </div>
+        {r.weather && (
+          <div className="rr-weather">
+            <Icon name="sun" size={15} />
+            {weatherText(r.weather)}
+          </div>
+        )}
         <div className="rr-total">
           <b>{r.summary.holesPlayed === 0 ? "–" : r.summary.strokes}</b>
           <span>타</span>

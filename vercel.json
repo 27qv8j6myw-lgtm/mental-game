@@ -25,6 +25,9 @@
     },
     "api/apple-revoke.ts": {
       "maxDuration": 15
+    },
+    "api/weather.ts": {
+      "maxDuration": 10
     }
   },
   "crons": [

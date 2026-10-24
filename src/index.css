@@ -4351,6 +4351,21 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-weight: 700;
   color: var(--ink-soft);
 }
+/* 내 기록 카드: 날씨 (그린스피드 줄 아래) */
+.rr-weather {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: -2px 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.rr-weather svg {
+  flex: none;
+  color: var(--mustard);
+}
 .st-golf {
   display: flex;
   flex-wrap: wrap;
@@ -7864,6 +7879,8 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 /* ============ 상단 바: 모든 화면 같은 모양 (인스타그램처럼) ============ */
 /* 가운데 mental game 글자 로고. 왼쪽은 홈에서 +, 다른 화면에서는 뒤로가기. 오른쪽은 화면마다 */
 .topbar.app-top {
+  /* iOS 키보드로 보이는 영역이 내려간 만큼 따라 내려온다 (keyboard.ts) */
+  transform: translateY(var(--vv-top, 0px));
   display: grid;
   /* 양옆 칸을 같은 폭으로 둬서 로고가 늘 가운데 */
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

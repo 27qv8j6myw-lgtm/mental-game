@@ -1,7 +1,7 @@
 -- ============ 기록 모드: 홀별 상세 기록 ============
 -- 기록 모드(내기 없음) 라운드에서 각자 입력하는 퍼트·티샷·벌타·샌드샷.
 -- 스코어 자체는 기존 round_scores 를 그대로 쓴다.
--- 라운드 정보 중 참여자 누구나 넣는 값(그린스피드)도 여기서 연다 (맨 아래).
+-- 라운드 정보 중 참여자 누구나 넣는 값(그린스피드·날씨)도 여기서 연다 (맨 아래).
 -- Supabase 대시보드 > SQL Editor 에서 실행. 여러 번 실행해도 안전하다.
 
 create table if not exists public.round_hole_stats (
@@ -99,3 +99,57 @@ end $$;
 
 revoke all on function public.set_round_green_speed(uuid, numeric) from public, anon;
 grant execute on function public.set_round_green_speed(uuid, numeric) to authenticated;
+
+-- 라운드 날씨 (기온·습도): 첫 홀과 끝나기 2홀 전 스코어를 저장할 때 앱이 api/weather 로 받아 넣는다.
+-- rules.weather = { start?: {temp, humidity, at, src}, end?: {...} }. 참여자만, 그 칸이 비어 있을 때만 (먼저 들어온 값이 남는다).
+-- 넣었으면 true
+create or replace function public.set_round_weather(p_round_id uuid, p_slot text, p_value jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t numeric;
+  h numeric;
+  n int;
+begin
+  if auth.uid() is null then
+    raise exception 'UNAUTHORIZED' using errcode = '42501';
+  end if;
+  if not public.is_round_member(p_round_id) then
+    raise exception 'NOT_MEMBER' using errcode = '42501';
+  end if;
+  if p_slot not in ('start', 'end') then
+    raise exception 'BAD_SLOT' using errcode = '22023';
+  end if;
+  if jsonb_typeof(p_value -> 'temp') <> 'number' or jsonb_typeof(p_value -> 'humidity') <> 'number' then
+    raise exception 'BAD_WEATHER' using errcode = '22023';
+  end if;
+  t := (p_value ->> 'temp')::numeric;
+  h := (p_value ->> 'humidity')::numeric;
+  if t < -40 or t > 55 or h < 0 or h > 100 then
+    raise exception 'BAD_WEATHER' using errcode = '22023';
+  end if;
+  update public.rounds
+     set rules = jsonb_set(
+       coalesce(rules, '{}'::jsonb),
+       '{weather}',
+       coalesce(rules -> 'weather', '{}'::jsonb) || jsonb_build_object(
+         p_slot,
+         jsonb_build_object(
+           'temp', round(t, 1),
+           'humidity', round(h),
+           'at', coalesce(p_value ->> 'at', to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI')),
+           'src', coalesce(p_value ->> 'src', '')
+         )
+       )
+     )
+   where id = p_round_id
+     and (rules -> 'weather' -> p_slot) is null;
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+
+revoke all on function public.set_round_weather(uuid, text, jsonb) from public, anon;
+grant execute on function public.set_round_weather(uuid, text, jsonb) to authenticated;

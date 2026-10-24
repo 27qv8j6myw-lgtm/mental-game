@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useAuth } from "./auth";
 import { patchListRound } from "./notices";
+import { maybeCaptureWeather } from "./weather";
 import { bundleConfig, bundleHoleStats, bundleHoles, firstUnsaved, usesHoleSave } from "./model";
 import {
   applyOp,
@@ -457,8 +458,11 @@ export function RoundProvider({ children }: { children: ReactNode }) {
       }
       setBundle((prev) => (prev ? applyOp(prev, op) : prev));
       queueSave(activeRoundId, op);
+      // 첫 홀 · 끝나기 2홀 전 스코어를 넣으면 그때 날씨를 받아 둔다 (weather.ts)
+      if (op.kind === "hole" || (op.kind === "score" && op.rel != null))
+        maybeCaptureWeather(bundle.round, op.hole, () => void refresh());
     },
-    [activeRoundId, bundle, myUid]
+    [activeRoundId, bundle, myUid, refresh]
   );
 
   const setScore = useCallback(

@@ -14,6 +14,7 @@ import { InsightAction, InsightSummary, useAiAccess, useRoundInsight } from "./I
 import { buildInsightInput, insightFingerprint, isSameCourse } from "../insight";
 import { saveGreenSpeed, withGreenSpeed } from "../greenSpeed";
 import { GreenSpeedButton } from "./GreenSpeed";
+import { weatherText } from "../weather";
 
 /**
  * 보정타수 = (타수 − 코스레이팅) × 113 ÷ 슬로프레이팅.
@@ -212,6 +213,12 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
                   onSave={selected.id === myUid ? setGreenSpeed : undefined}
                 />
               </div>
+              {config.weather && (
+                <div className="rr-weather">
+                  <Icon name="sun" size={15} />
+                  {weatherText(config.weather)}
+                </div>
+              )}
               <div className="rr-total">
                 <b>{mine.s.holesPlayed === 0 ? "–" : mine.s.strokes}</b>
                 <span>타</span>

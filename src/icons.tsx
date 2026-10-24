@@ -35,6 +35,7 @@ type IconName =
   | "bell"
   | "link"
   | "target"
+  | "sun"
   | "shield"
   | "help"
   | "medal"
@@ -174,6 +175,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
       <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  // 날씨: 해
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
     </>
   ),
   // 시즌 목표: 과녁

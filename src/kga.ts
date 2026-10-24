@@ -25,6 +25,9 @@ export interface KgaClub {
   /** 지역 (경기·제주 등) */
   region: string;
   courses: KgaCourse[];
+  /** 골프장 좌표 (라운드 날씨용, scripts/geocode-kga.mjs 로 넣는다. 못 찾은 곳은 없음) */
+  lat?: number;
+  lon?: number;
 }
 export interface KgaData {
   source: string;

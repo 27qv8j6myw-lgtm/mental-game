@@ -1,3 +1,4 @@
+import type { RoundWeather } from "./weather";
 export type Gender = "male" | "female";
 
 export interface Player {
@@ -160,6 +161,8 @@ export interface StoredRules extends BetRules {
   editLog?: EditLogEntry[];
   /** 그린스피드 (스팀프미터 m, 0.1 단위). 라운드에 한 값, 참여자 누구나 기록 화면에서 넣는다 (record.sql set_round_green_speed) */
   greenSpeed?: number;
+  /** 날씨: 첫 홀 · 끝나기 2홀 전 스코어 저장 때 받은 기온·습도 (weather.ts, record.sql set_round_weather) */
+  weather?: RoundWeather;
 }
 
 /** '수정 완료' 한 번에 바뀐 항목들. items 는 "1번 홀 박영수: 5타(+1) → 4타(E)" 같은 문장 */
@@ -193,6 +196,8 @@ export interface GameConfig {
   teeRatings: Partial<Record<TeeBox, CourseRating>>;
   /** 그린스피드 (m). 넣지 않았으면 null */
   greenSpeed: number | null;
+  /** 날씨 (받은 라운드만) */
+  weather: RoundWeather | null;
 }
 
 export type ParValue = 3 | 4 | 5;
