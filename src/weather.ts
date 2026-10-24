@@ -2,11 +2,18 @@ import { supabase } from "./supabase";
 import { apiUrl } from "./scorecard";
 import { loadKga } from "./kga";
 import type { StoredRules } from "./types";
+import { isNativeApp, nativeAtLeast, requestNativeLocation } from "./native";
+
+/** 폰 위치를 쓰기 시작하는 날 (개인정보처리방침 시행일, 7일 전에 알림) */
+export const LOCATION_FROM = "2026-10-31";
+const LOCATION_TIMEOUT = 15_000;
 
 /*
  * 라운드 날씨 (기온·습도). 첫 홀과 끝나기 2홀 전(18홀이면 16번, 9홀이면 7번) 스코어를 저장할 때 한 번씩,
  * 그 저장을 한 폰이 골프장 좌표로 api/weather 에서 받아 라운드에 넣는다 (record.sql set_round_weather, 먼저 들어온 값이 남는다).
- * 좌표: KGA 목록에서 고른 골프장이면 미리 넣어 둔 좌표 (scripts/geocode-kga.mjs). 없으면 비워 둔다.
+ * 좌표: KGA 목록에서 고른 골프장이면 미리 넣어 둔 좌표 (scripts/geocode-kga.mjs).
+ * 목록에 없는 골프장(해외 포함)이면 그 폰의 대략적인 위치를 한 번 (iOS 앱 1.0.1 부터·브라우저, 이용자가 허락할 때만,
+ * 개인정보처리방침 시행일 LOCATION_FROM 부터). 위치는 날씨를 받는 데만 쓰고 저장하지 않는다. 둘 다 없으면 비워 둔다.
  * 오프라인 저장이거나 받지 못하면 조용히 건너뛴다 (라운드 진행에 영향 없음)
  */
 
@@ -69,6 +76,32 @@ export async function courseCoords(rules: StoredRules): Promise<Coords | null> {
   return c?.lat != null && c?.lon != null ? { lat: c.lat, lon: c.lon } : null;
 }
 
+const todaySeoul = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+
+/** 소수 둘째 자리(약 1km)로 줄여 보낸다 (날씨에는 이 정도면 충분하다) */
+const coarse = (c: Coords): Coords => ({ lat: Math.round(c.lat * 100) / 100, lon: Math.round(c.lon * 100) / 100 });
+
+/** 폰의 대략적인 위치 한 번 (허락하지 않았거나 받지 못하면 null) */
+export async function deviceCoords(today = todaySeoul()): Promise<Coords | null> {
+  if (today < LOCATION_FROM) return null;
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), LOCATION_TIMEOUT));
+  if (isNativeApp()) {
+    // 위치 요청을 받는 앱(1.0.1)부터. 예전 앱은 위치 권한 문구가 없어 묻지 않는다
+    if (!nativeAtLeast("1.0.1")) return null;
+    const r = await Promise.race([requestNativeLocation(), timeout]);
+    return r?.lat != null && r?.lon != null ? coarse({ lat: r.lat, lon: r.lon }) : null;
+  }
+  if (typeof navigator === "undefined" || !navigator.geolocation) return null;
+  const pos = new Promise<Coords | null>((resolve) =>
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve(coarse({ lat: p.coords.latitude, lon: p.coords.longitude })),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: LOCATION_TIMEOUT, maximumAge: 10 * 60_000 }
+    )
+  );
+  return Promise.race([pos, timeout]);
+}
+
 /** 지금 날씨를 받아 라운드에 넣는다. 넣었으면 true (이미 있었거나 받지 못하면 false) */
 export async function captureWeather(roundId: string, slot: WeatherSlot, at: Coords): Promise<boolean> {
   if (!supabase) return false;
@@ -110,7 +143,7 @@ export function maybeCaptureWeather(
   if (tried.has(key)) return;
   tried.add(key);
   void (async () => {
-    const at = await courseCoords(round.rules);
+    const at = (await courseCoords(round.rules)) ?? (await deviceCoords());
     if (!at) return;
     if (await captureWeather(round.id, slot, at)) onSaved?.();
   })().catch((e) => console.warn("날씨를 받지 못함", e));

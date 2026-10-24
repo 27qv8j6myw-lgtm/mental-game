@@ -9558,3 +9558,9 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* 종 알림: 개인정보처리방침 변경 */
+.notice-item .ni-ic.policy {
+  background: var(--olive-soft);
+  color: var(--olive);
+}

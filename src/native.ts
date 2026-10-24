@@ -67,3 +67,33 @@ export interface SaveImageResult {
 
 /** 이미지(PNG base64)를 아이폰 사진 보관함에 바로 저장한다 (iOS 앱에서만) */
 export const saveImageToPhotos = (base64: string) => ask<SaveImageResult>("saveImage", { data: base64 });
+
+/** 앱 버전 (User-Agent 끝 "MentalGameApp/1.0.1"). 앱이 아니면 null */
+export function nativeVersion(): number[] | null {
+  const m = /MentalGameApp\/([\d.]+)/.exec(navigator.userAgent);
+  return m ? m[1].split(".").map(Number) : null;
+}
+/** 앱 버전이 v 이상인지 (새 기능을 그 버전부터 부를 때) */
+export function nativeAtLeast(v: string): boolean {
+  const have = nativeVersion();
+  if (!have) return false;
+  const want = v.split(".").map(Number);
+  for (let i = 0; i < Math.max(have.length, want.length); i++) {
+    const a = have[i] ?? 0;
+    const b = want[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return true;
+}
+
+export interface LocationResult {
+  lat?: number;
+  lon?: number;
+  /** 위치 권한을 거절함 */
+  denied?: boolean;
+  error?: string;
+}
+
+/** 지금 대략적인 위치 한 번 (iOS 앱 1.0.1 부터. 라운드 날씨에만 쓰고 저장하지 않는다) */
+export const requestNativeLocation = () => ask<LocationResult>("location", {});
+

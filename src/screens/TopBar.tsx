@@ -127,10 +127,14 @@ export function NoticeButton() {
                         setOpen(false);
                         if (i.roundId) openRound(i.roundId);
                         else if (i.page) openNoticePage(i.page);
+                        else if (i.href) window.location.assign(i.href);
                       }}
                     >
                       <span className={`ni-ic ${i.kind}`}>
-                        <Icon name={i.kind === "goal" ? "target" : i.kind === "badge" ? "medal" : "flag"} size={18} />
+                        <Icon
+                          name={i.kind === "goal" ? "target" : i.kind === "badge" ? "medal" : i.kind === "policy" ? "shield" : "flag"}
+                          size={18}
+                        />
                       </span>
                       <span className="ni-tx">
                         <b>{i.title}</b>

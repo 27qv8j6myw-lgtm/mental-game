@@ -114,7 +114,7 @@ export function onNoticePage(fn: (page: NoticePage) => void) {
 export interface NoticeItem {
   /** 본 알림을 기억하는 키 */
   id: string;
-  kind: "overdue" | "goal" | "badge";
+  kind: "overdue" | "goal" | "badge" | "policy";
   title: string;
   /** 골프장 · 날짜 */
   sub: string;
@@ -124,6 +124,29 @@ export interface NoticeItem {
   roundId?: string;
   /** 누르면 열 페이지 */
   page?: NoticePage;
+  /** 누르면 열 웹 페이지 (개인정보처리방침 등) */
+  href?: string;
+}
+
+/** 개인정보처리방침이 바뀔 때 알림 (시행 7일 전부터 시행 뒤 7일까지, public/privacy.html) */
+const POLICY_CHANGES = [
+  {
+    id: "policy:2026-10-31",
+    from: "2026-10-24",
+    until: "2026-11-07",
+    title: "개인정보처리방침이 바뀌어요",
+    sub: "10월 31일부터 · 날씨를 받을 때 대략적인 위치를 써요",
+  },
+];
+export function policyNotices(today = todaySeoul()): NoticeItem[] {
+  return POLICY_CHANGES.filter((p) => today >= p.from && today <= p.until).map((p) => ({
+    id: p.id,
+    kind: "policy" as const,
+    title: p.title,
+    sub: p.sub,
+    hint: "눌러서 보기",
+    href: "/privacy",
+  }));
 }
 
 export function setNoticeSource(key: string, items: NoticeItem[]) {
@@ -206,7 +229,7 @@ export function useNotices(uid: string): { items: NoticeItem[]; seen: Set<string
     return seenSnapshot();
   });
   const extra = useSyncExternalStore(subscribe, sourcesSnapshot);
-  const items = uid ? [...Object.values(extra).flat(), ...overdueNotices(uid, list)] : [];
+  const items = uid ? [...Object.values(extra).flat(), ...policyNotices(), ...overdueNotices(uid, list)] : [];
   return { items, seen: seenIds, unseen: items.some((i) => !seenIds.has(i.id)) };
 }
 

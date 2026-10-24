@@ -21,6 +21,8 @@ final class WebController: NSObject {
     @ObservationIgnored private var downloadURL: URL?
     /// 진행 중인 Apple 로그인 요청 번호 (웹에 답할 때 쓴다)
     @ObservationIgnored fileprivate var appleRequestID: Int?
+    /// 라운드 날씨용 대략적인 위치 (처음 쓸 때 만든다)
+    @ObservationIgnored fileprivate lazy var location = LocationOnce()
 
     override init() {
         let contents = WKUserContentController()
@@ -207,6 +209,12 @@ extension WebController: WKScriptMessageHandler {
                   let data = Data(base64Encoded: b64), UIImage(data: data) != nil
             else { return }
             saveToPhotos(data, requestID: id)
+        case "location":
+            // 라운드 날씨: 목록에 없는 골프장이면 지금 대략적인 위치를 한 번 (저장하지 않는다)
+            guard let page = message.frameInfo.request.url, isAppPage(page),
+                  let id = body["id"] as? Int
+            else { return }
+            location.request { [weak self] payload in self?.reply(id, payload) }
         default:
             break
         }
