@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Avatar, Icon } from "../icons";
-import type { Gender, HoleStat } from "../types";
+import type { HoleStat } from "../types";
 import { relLabel, TEE_BOXES, won, wonSigned } from "../util";
 import HoleStatFields from "../screens/HoleStatFields";
 import { BogeyExpect, DifficultyChip } from "../screens/CourseDifficulty";
@@ -14,13 +14,12 @@ import { GameModeField } from "../screens/RoundFields";
 const noop = () => {};
 const btn = { tabIndex: -1 } as const;
 
-type Who = { name: string; gender: Gender };
-const 철수: Who = { name: "철수", gender: "male" };
-const 영희: Who = { name: "영희", gender: "female" };
-const 민수: Who = { name: "민수", gender: "male" };
-const 지훈: Who = { name: "지훈", gender: "male" };
+type Who = { name: string };
+const 철수: Who = { name: "철수" };
+const 영희: Who = { name: "영희" };
+const 민수: Who = { name: "민수" };
 
-const face = (w: Who, size = 22) => <Avatar gender={w.gender} size={size} />;
+const face = (size = 22) => <Avatar size={size} />;
 const tone = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
 
 /* ---------- 홈 ---------- */
@@ -98,17 +97,9 @@ export function ShotLobbyPlayer() {
   return (
     <div className="card lobby-player mine gd-mb0">
       <div className="lp-head">
-        {face(영희, 34)}
+        {face(34)}
         <span className="lp-name-static">영희</span>
         <span className="me-tag">나</span>
-      </div>
-      <div className="segmented sm" style={{ marginTop: 10 }}>
-        <button {...btn}>
-          <Icon name="male" size={15} className="inline-ic" /> 남성
-        </button>
-        <button className="active" {...btn}>
-          <Icon name="female" size={15} className="inline-ic" /> 여성
-        </button>
       </div>
       <div className="lp-tee">
         <span className="lp-tee-label">티 박스</span>
@@ -148,7 +139,7 @@ function ScoreRow({ who, rel, mine, net, note }: { who: Who; rel: number | null;
   return (
     <div className="pscore-block">
       <div className="player-head">
-        {face(who, 26)}
+        {face(26)}
         {mine ? (
           <span className="pname pname-btn">
             {who.name}
@@ -296,7 +287,7 @@ export function ShotSkins() {
         <div className="sp-label">스킨 획득!</div>
         <div className="sp-winners">
           <span className="sp-winner">
-            {face(민수, 30)}
+            {face(30)}
             <b>민수</b>
           </span>
         </div>
@@ -329,7 +320,7 @@ export function ShotCaddie() {
       <div className="cd-card paid gd-mb0">
         <div className="cd-label">이 홀 꼴찌</div>
         <div className="cd-who">
-          {face(지훈, 30)}
+          {face(30)}
           <b>지훈</b>
         </div>
         <div className="cd-money">캐디피 {won(20000)}</div>
@@ -373,7 +364,7 @@ export function ShotMySettle() {
       </div>
       <div className="ms-row">
         <div className="ms-line">
-          {face(철수)}
+          {face()}
           <span className="ms-who">철수에게 보내기</span>
           <b className="neg">{won(2000)}</b>
         </div>
@@ -392,14 +383,14 @@ function Transfer({ from, to, amount }: { from: Who; to: Who; amount: number }) 
   return (
     <div className="transfer">
       <span className="from">
-        {face(from)}
+        {face()}
         {from.name}
       </span>
       <span className="arrow">
         <Icon name="chevronRight" size={16} />
       </span>
       <span className="to">
-        {face(to)}
+        {face()}
         {to.name}
       </span>
       <span className="amt">{won(amount)}</span>
@@ -429,7 +420,7 @@ export function ShotStandings() {
       {rows.map(([w, gross, rel, net], i) => (
         <div className="standing" key={w.name}>
           <div className={`rank ${i === 0 ? "top" : ""}`}>{i + 1}</div>
-          {face(w, 26)}
+          {face(26)}
           <span className="nm">{w.name}</span>
           <span className="st-pill">
             <b>{gross}타</b>
@@ -580,7 +571,7 @@ export function ShotPodium() {
       {rows.map(([w, rank, avg, rounds, chg, chgText]) => (
         <div key={w.name} className={`rk-pod p${rank}`}>
           <span className={`rk-pod-face m${rank}`}>
-            <Avatar gender={w.gender} size={rank === 1 ? 56 : 46} />
+            <Avatar size={rank === 1 ? 56 : 46} />
             <span className="rk-medal">{rank}</span>
           </span>
           <span className="rk-pod-name">{w.name}</span>

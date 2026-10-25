@@ -490,24 +490,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   border-color: var(--olive);
   box-shadow: 0 0 0 3px var(--olive-soft);
 }
-.gender-seg {
-  display: inline-flex;
-  background: var(--paper);
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--line-strong);
-  flex-shrink: 0;
-}
-.gender-seg button {
-  padding: 10px 13px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink-faint);
-}
-.gender-seg button.active {
-  background: var(--olive);
-  color: #fff;
-}
 .del-btn {
   color: var(--ink-faint);
   font-size: 16px;
@@ -1889,7 +1871,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   box-shadow: var(--shadow-sm);
   text-align: center;
 }
-.cc-emblem {
+.cc-card .cc-emblem {
   position: relative;
   flex: none;
   display: grid;
@@ -1901,11 +1883,11 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: #fff;
   background: var(--cc);
 }
-.cc-emblem svg {
+.cc-card .cc-emblem > svg {
   width: 28px;
   height: 28px;
 }
-.cc-lock {
+.cc-card .cc-lock {
   position: absolute;
   right: -5px;
   bottom: -5px;
@@ -1918,7 +1900,11 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink-faint);
   box-shadow: 0 0 0 1px var(--line);
 }
-.cc-title {
+.cc-card .cc-lock svg {
+  width: 12px;
+  height: 12px;
+}
+.cc-card .cc-title {
   padding: 0 4px;
   font-size: 13px;
   font-weight: 800;
@@ -1926,7 +1912,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--ink);
   word-break: keep-all;
 }
-.cc-value {
+.cc-card .cc-value {
   margin-top: 4px;
   padding: 0 4px;
   font-size: 17px;
@@ -1937,15 +1923,16 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   word-break: keep-all;
   font-variant-numeric: tabular-nums;
 }
-.cc-meta {
+.cc-card .cc-meta {
   width: 100%;
   margin-top: auto;
   padding: 8px 4px 0;
   border-top: 1px dashed var(--line);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 600;
   line-height: 1.45;
   color: var(--ink-faint);
+  opacity: 0.7;
   word-break: keep-all;
   overflow: hidden;
   display: -webkit-box;
@@ -1953,11 +1940,11 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   -webkit-line-clamp: 2;
   font-variant-numeric: tabular-nums;
 }
-/* 날짜·골프장은 카드 맨 아래 (값과는 최소 10px) */
-.cc-value {
-  margin-bottom: 10px;
+/* 날짜·골프장은 카드 맨 아래 (값과는 최소 14px) */
+.cc-card .cc-value {
+  margin-bottom: 14px;
 }
-.cc-tag {
+.cc-card .cc-tag {
   position: absolute;
   top: 8px;
   right: 8px;
@@ -2404,32 +2391,32 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   box-shadow: var(--shadow-lg);
   margin-bottom: 20px;
 }
-.cc-label {
+.code-card .cc-label {
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
   opacity: 0.6;
   font-weight: 700;
 }
-.cc-code {
+.code-card .cc-code {
   font-size: 44px;
   font-weight: 900;
   letter-spacing: 8px;
   font-family: var(--font-num);
   margin: 8px 0 16px;
 }
-.cc-course {
+.code-card .cc-course {
   font-weight: 800;
   font-size: 15px;
   margin-top: 14px;
 }
-.cc-meta {
+.code-card .cc-meta {
   font-size: 12.5px;
   opacity: 0.7;
   margin-top: 4px;
 }
 /* 초대 코드 카드의 코스 난이도 줄: 칩 + 보기 플레이어 예상 */
-.cc-meta.cc-diff {
+.code-card .cc-meta.cc-diff {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2583,15 +2570,11 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   display: block;
   word-break: keep-all;
 }
-.avatar[data-gender="male"] {
+/* 사진이 없는 사람: 앱 색 바탕에 사람 이모지 */
+.avatar.no-photo {
   background: #e6f0ff;
   color: #2563eb;
   border-color: #cfe0ff;
-}
-.avatar[data-gender="female"] {
-  background: #ffe4ee;
-  color: #db2777;
-  border-color: #ffd0e2;
 }
 .avatar:has(img) {
   background: var(--paper-3);
@@ -4340,7 +4323,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-variant-numeric: tabular-nums;
 }
 .st-chips,
-/* 내 기록 카드 맨 위: 날짜·골프장·티 */
+/* 내 기록 카드 맨 위: 골프장 이름 (크게) */
+.rr-course {
+  margin-bottom: 4px;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  word-break: keep-all;
+}
+/* 그 아래: 날짜·티·그린스피드 */
 .rr-meta {
   display: flex;
   align-items: center;
@@ -4401,6 +4394,56 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   margin: 0 1px;
   color: var(--ink);
   font-weight: 800;
+}
+/* 내 기록: 전반·후반 칩은 누르는 칸 (누르면 아래 분석·스코어카드가 그 9홀로) */
+.st-golf .half-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.st-golf .half-chip:active {
+  background: var(--paper-2);
+}
+.st-golf .half-chip.on {
+  border-color: var(--olive);
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.st-golf .half-chip.on b {
+  color: var(--olive-deep);
+}
+/* 섹션 제목 옆: 지금 보는 9홀 · 전/후반 비교 뱃지 (모드 태그와 같은 크기) */
+.half-tag,
+.half-cmp {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+.half-tag {
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+}
+.half-cmp {
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: inherit;
+  cursor: pointer;
+}
+.half-cmp.on {
+  border-color: var(--olive);
+  background: var(--olive);
+  color: #fff;
 }
 
 /* 사람 목록·라운드 기록 */
@@ -4709,6 +4752,54 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .rm-note {
   font-size: 11.5px;
   color: var(--ink-faint);
+}
+/* 전/후반 비교: 전반 값(흐리게) → 후반 값(굵게), 아래 화살표와 바뀐 만큼 */
+.rm-wide {
+  grid-column: 1 / -1;
+}
+.rm-cmp {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  min-width: 0;
+}
+.rm-from {
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.rm-to-ic {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink-faint);
+}
+.rm-chg {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: var(--paper-2);
+  color: var(--ink-faint);
+}
+.rm-chg.good {
+  background: var(--gain-soft);
+  color: #047857;
+}
+.rm-chg.bad {
+  background: var(--loss-soft);
+  color: var(--loss);
+}
+.rm-cmp-hint {
+  margin: -4px 2px 12px;
 }
 /* 스코어카드: 전반·후반 표 */
 .rsc {
@@ -6726,6 +6817,82 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   cursor: pointer;
 }
 
+/* 라운드 종료 확인: 파3·파4·파5 홀 수 + 합계 파 */
+.alert-box.fin-box {
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.fin-box h3 {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
+}
+.fin-pars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.fin-par {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px 8px;
+  border-radius: 12px;
+  background: var(--paper-2);
+}
+.fin-par span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.fin-par b {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.fin-par small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.fin-par.total {
+  background: var(--olive-soft);
+}
+.fin-par.total span,
+.fin-par.total b,
+.fin-par.total small {
+  color: var(--olive-deep);
+}
+.fin-box .fin-q {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+.fin-q b {
+  color: var(--olive-deep);
+}
+.fin-box .fin-note {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.fin-box .fin-warn {
+  font-weight: 700;
+  color: var(--loss);
+}
+.fin-box .btn-primary {
+  margin-top: 6px;
+}
+
 /* 이름(실명) 정하기 팝업 */
 .alert-box.name-box {
   display: flex;
@@ -7194,27 +7361,6 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .hint.tee-note {
   margin-top: 4px;
   word-break: keep-all;
-}
-
-/* 이름 입력 옆 성별 */
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.name-row .input {
-  flex: 1;
-  min-width: 0;
-}
-.segmented.sm.name-gender {
-  flex: none;
-}
-.segmented.sm.name-gender button {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 8px 10px;
-  white-space: nowrap;
 }
 
 /* ============ 사용 방법 (설명서) ============ */

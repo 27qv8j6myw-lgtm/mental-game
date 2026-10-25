@@ -1,21 +1,18 @@
 import type { RoundWeather } from "./weather";
-export type Gender = "male" | "female";
-
 export interface Player {
   id: string;
   name: string;
-  gender: Gender;
   /** 평균 타수 (72 기준). 핸디 = avgScore - 72 로 자동 산출 후 수동 조정 가능 */
   avgScore: number;
   handicap: number;
-  /** 로그인(구글) 사용자의 프로필 사진. 있으면 성별 이모지 대신 표시 */
+  /** 로그인(구글) 사용자의 프로필 사진. 없으면 사람 이모지 */
   photoUrl?: string | null;
   /** 계좌이체 라운드에서 받을 계좌 */
   bankName?: string | null;
   bankAccount?: string | null;
   /** 타수 보정 방식에서 파4·파5 홀마다 잡아주는 타수 (0·1·2). 다른 방식이면 0 */
   strokeAdj?: number;
-  /** 이 사람이 친 티 박스 (남녀 혼성 등). 없으면 라운드 티 */
+  /** 이 사람이 친 티 박스 (레드 티면 여성 레이팅). 없으면 라운드 티 */
   tee?: TeeBox | null;
 }
 
@@ -258,7 +255,6 @@ export interface RoundPlayerRow {
   round_id: string;
   user_uid: string;
   name: string;
-  gender: Gender;
   avg_score: number | null;
   handicap: number;
   seat_order: number;

@@ -15,6 +15,7 @@ import {
   ratingFor,
   searchClubs,
   teeBoxFromName,
+  teeSex,
   type KgaClub,
   type KgaData,
 } from "../kga";
@@ -96,7 +97,8 @@ export default function ScorecardImportScreen({
   const course = club && courseIdx >= 0 ? club.courses[courseIdx] : null;
   const ratingTee = course ? matchTee(course, tee) : null;
   const rating = kga && club && course && ratingTee ? courseRating(kga, club, course, ratingTee) : null;
-  const ratingM = ratingFor(rating, user?.gender === "female" ? "F" : "M");
+  // 레드 티면 여성 레이팅
+  const ratingM = ratingFor(rating, teeSex(tee));
 
   const read = async (picked: { data: string; mediaType: string }) => {
     setStep("reading");
@@ -168,7 +170,6 @@ export default function ScorecardImportScreen({
           holeCount: draft.holeCount,
           me: {
             name: user?.displayName?.trim() || "나",
-            gender: user?.gender ?? "male",
             avgScore: null,
             handicap: 0,
           },

@@ -77,7 +77,7 @@ export function SkinPot({
         <div className="sp-winners">
           {winners.map((w) => (
             <span className="sp-winner" key={w.id}>
-              <Avatar photoUrl={w.photoUrl} gender={w.gender} size={30} />
+              <Avatar photoUrl={w.photoUrl} size={30} />
               <b>{w.name || "?"}</b>
             </span>
           ))}

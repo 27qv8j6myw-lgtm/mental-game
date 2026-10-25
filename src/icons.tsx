@@ -1,6 +1,4 @@
 import { useState } from "react";
-import type { Gender } from "./types";
-import { genderEmoji } from "./util";
 
 type IconName =
   | "camera"
@@ -16,8 +14,6 @@ type IconName =
   | "share"
   | "chevronLeft"
   | "chevronRight"
-  | "male"
-  | "female"
   | "birdie"
   | "spark"
   | "gear"
@@ -93,18 +89,6 @@ const PATHS: Record<IconName, JSX.Element> = {
   ),
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   chevronRight: <path d="M9 6l6 6-6 6" />,
-  male: (
-    <>
-      <circle cx="10" cy="14" r="5" />
-      <path d="M14 10l6-6M15 4h5v5" />
-    </>
-  ),
-  female: (
-    <>
-      <circle cx="12" cy="9" r="5" />
-      <path d="M12 14v7M9 18h6" />
-    </>
-  ),
   birdie: (
     <>
       <path d="M16 7a3 3 0 1 0-6 0c0 4-4 4-4 8a6 6 0 0 0 12 0c0-2-1-3-2-4" />
@@ -342,29 +326,26 @@ function normalizePhoto(url: string, size: number): string {
   return url;
 }
 
+/** 사진이 없는 사람 (성별을 묻지 않아 한 가지 모양) */
+const FACE_EMOJI = "🙎🏻";
+
 /**
  * 참가자/사용자 아바타.
- * 로그인 프로필 사진이 있으면 사진을, 로드 실패하거나 없으면 폴백(성별/사람) 아이콘을 표시한다.
+ * 로그인 프로필 사진이 있으면 사진을, 로드 실패하거나 없으면 폴백(사람 이모지/사람 아이콘)을 표시한다.
  */
 export function Avatar({
   photoUrl,
-  gender,
   size = 36,
-  fallback = "gender",
+  fallback = "face",
 }: {
   photoUrl?: string | null;
-  gender?: Gender;
   size?: number;
-  fallback?: "gender" | "user";
+  fallback?: "face" | "user";
 }) {
   const [err, setErr] = useState(false);
   const showPhoto = !!photoUrl && !err;
   return (
-    <span
-      className="avatar"
-      data-gender={showPhoto ? undefined : gender ?? "male"}
-      style={{ width: size, height: size }}
-    >
+    <span className={`avatar ${showPhoto ? "" : "no-photo"}`} style={{ width: size, height: size }}>
       {showPhoto ? (
         <img
           src={normalizePhoto(photoUrl!, size)}
@@ -378,7 +359,7 @@ export function Avatar({
         <Icon name="user" size={Math.round(size * 0.56)} />
       ) : (
         <span className="avatar-emoji" style={{ fontSize: Math.round(size * 0.62) }}>
-          {genderEmoji(gender ?? "male")}
+          {FACE_EMOJI}
         </span>
       )}
     </span>

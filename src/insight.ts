@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { girOf, summarize, type Frac, type HoleRecord, type RecordSummary } from "./recordStats";
+import { girOf, HALF_LABEL, summarize, type Frac, type Half, type HoleRecord, type RecordSummary } from "./recordStats";
 import { apiUrl } from "./scorecard";
 import type { CourseRating } from "./types";
 
@@ -8,6 +8,7 @@ import type { CourseRating } from "./types";
  * 만든 분석은 round_insights (supabase/insight.sql) 와 이 기기에 저장해 두고, 다음에 열 때 그대로 쓴다
  * (볼 때마다 다시 분석하지 않는다. 다시 만들기를 눌렀을 때만 새로).
  * 분석할 때의 기록 요약(fingerprint)을 함께 저장해, 그 뒤 기록이 바뀌면 화면에서 알려 준다.
+ * 라운드 전체(all)와 전반(out)·후반(in) 분석을 따로 만들고 따로 저장한다 (round_insights.scope).
  */
 
 /** 화면 칸마다 붙일 분석: 지표 칸 · 티샷 결과 · 스코어 분포 · 같은 코스 비교 · 스코어카드 아래 종합 */
@@ -97,17 +98,21 @@ function strokeLeaks(recs: HoleRecord[]) {
   };
 }
 
-/** 여러 라운드 평균 (평소 기록 · 같은 코스 기록에 함께 쓴다) */
-function average(rounds: HoleRecord[][]) {
+/**
+ * 여러 라운드 평균 (평소 기록 · 같은 코스 기록에 함께 쓴다).
+ * nine: 전반·후반 분석이면 다른 라운드의 같은 9홀 (평균 타수도 9홀을 다 친 것으로)
+ */
+function average(rounds: HoleRecord[][], nine = false) {
   const all = summarize(rounds.flat());
   const per = (n: number) => r1(n / rounds.length);
   const leaks = rounds.map(strokeLeaks);
   const perLeak = (f: (l: ReturnType<typeof strokeLeaks>) => number) => r1(leaks.reduce((a, l) => a + f(l), 0) / rounds.length);
-  const full18 = rounds.map((hs) => summarize(hs)).filter((x) => x.holesPlayed === 18);
+  const full = rounds.map((hs) => summarize(hs)).filter((x) => x.holesPlayed === (nine ? 9 : 18));
+  const avgStrokes = full.length ? r1(full.reduce((a, x) => a + x.strokes, 0) / full.length) : null;
+  const avgToPar = full.length ? r1(full.reduce((a, x) => a + x.toPar, 0) / full.length) : null;
   return {
     rounds: rounds.length,
-    avgStrokes18: full18.length ? r1(full18.reduce((a, x) => a + x.strokes, 0) / full18.length) : null,
-    avgToPar18: full18.length ? r1(full18.reduce((a, x) => a + x.toPar, 0) / full18.length) : null,
+    ...(nine ? { avgStrokes9: avgStrokes, avgToPar9: avgToPar } : { avgStrokes18: avgStrokes, avgToPar18: avgToPar }),
     fairwayPct: pct1(all.fairway),
     girPct: pct1(all.gir),
     girThreePuttPct: pct1(all.girThreePutt),
@@ -139,6 +144,7 @@ const played = (rounds: HoleRecord[][]) => rounds.filter((hs) => hs.some((h) => 
  * round: 이번 라운드 합계(분자·분모 포함)와 홀별 기록
  * usual: 같은 사람의 다른 라운드 평균 (없으면 null)
  * sameCourse: 같은 코스에서 친 다른 라운드 평균과 홀별 평균 타수 (없으면 null)
+ * scope 가 전반·후반이면 recs·others·sameCourse 모두 그 9홀만 넘긴다
  */
 export function buildInsightInput(
   meta: {
@@ -149,6 +155,8 @@ export function buildInsightInput(
     differential: number | null;
     /** 그린스피드 m (넣은 라운드만) */
     greenSpeed?: number | null;
+    /** 라운드 전체 · 전반 · 후반 */
+    scope?: Half;
   },
   recs: HoleRecord[],
   /** 같은 사람의 다른 라운드들 홀별 기록 (이번 라운드는 빼고) */
@@ -157,8 +165,12 @@ export function buildInsightInput(
   sameCourse: HoleRecord[][] = []
 ) {
   const s = summarize(recs);
+  const { scope = "all", ...rest } = meta;
+  const nine = scope !== "all";
   const round = {
-    ...meta,
+    ...rest,
+    // 전반·후반만 분석할 때: "전반 9홀 (1~9번)"
+    scope: nine ? `${HALF_LABEL[scope]} 9홀 (${scope === "out" ? "1~9번" : "10~18번"})` : null,
     strokes: s.strokes,
     toPar: s.toPar,
     holesPlayed: s.holesPlayed,
@@ -202,10 +214,10 @@ export function buildInsightInput(
   const courseRounds = played(sameCourse);
   return {
     round,
-    usual: usualRounds.length ? average(usualRounds) : null,
+    usual: usualRounds.length ? average(usualRounds, nine) : null,
     sameCourse: courseRounds.length
       ? {
-          ...average(courseRounds),
+          ...average(courseRounds, nine),
           // 홀별 평균 타수 (그 홀을 친 라운드만)
           holes: recs.map((h) => {
             const xs = courseRounds
@@ -260,19 +272,21 @@ export async function requestInsight(input: unknown): Promise<{ sections: Insigh
 
 /* ---- 저장: 이 기기(바로 보이게) + 서버(다른 기기·다시 설치해도) ---- */
 
-const cacheKey = (roundId: string, playerUid: string) => `mentalgame-insight:${roundId}:${playerUid}`;
+/** 라운드 전체는 예전 키 그대로 (전에 만든 분석을 계속 쓴다) */
+const cacheKey = (roundId: string, playerUid: string, scope: Half) =>
+  `mentalgame-insight:${roundId}:${playerUid}${scope === "all" ? "" : `:${scope}`}`;
 
-export function readCachedInsight(roundId: string, playerUid: string): SavedInsight | null {
+export function readCachedInsight(roundId: string, playerUid: string, scope: Half = "all"): SavedInsight | null {
   try {
-    const v = JSON.parse(localStorage.getItem(cacheKey(roundId, playerUid)) ?? "null") as SavedInsight | null;
+    const v = JSON.parse(localStorage.getItem(cacheKey(roundId, playerUid, scope)) ?? "null") as SavedInsight | null;
     return v?.sections ? { ...v, sections: { ...v.sections, course: v.sections.course ?? "" } } : null;
   } catch {
     return null;
   }
 }
-function writeCachedInsight(roundId: string, playerUid: string, v: SavedInsight) {
+function writeCachedInsight(roundId: string, playerUid: string, scope: Half, v: SavedInsight) {
   try {
-    localStorage.setItem(cacheKey(roundId, playerUid), JSON.stringify(v));
+    localStorage.setItem(cacheKey(roundId, playerUid, scope), JSON.stringify(v));
   } catch {
     /* 저장소를 쓸 수 없으면 서버 보관본만 쓴다 */
   }
@@ -280,16 +294,27 @@ function writeCachedInsight(roundId: string, playerUid: string, v: SavedInsight)
 
 /** 분석 보관 테이블(insight.sql)을 아직 만들지 않은 경우 */
 const isMissingTable = (e: { code?: string } | null) => e?.code === "PGRST205" || e?.code === "42P01";
+/** 전반·후반 칸(scope)을 넣는 insight.sql 을 아직 다시 실행하지 않은 경우 */
+const isMissingScope = (e: { code?: string; message?: string } | null) =>
+  e?.code === "42703" || e?.code === "PGRST204" || (!!e?.message && /scope/.test(e.message));
 
 /** 서버에 저장해 둔 분석 (가져오면 이 기기에도 담아 둔다). 없거나 테이블이 아직 없으면 null */
-export async function loadInsight(roundId: string, playerUid: string): Promise<SavedInsight | null> {
+export async function loadInsight(roundId: string, playerUid: string, scope: Half = "all"): Promise<SavedInsight | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("round_insights")
-    .select("sections,fingerprint,created_at")
-    .eq("round_id", roundId)
-    .eq("player_uid", playerUid)
-    .maybeSingle();
+  const query = (withScope: boolean) => {
+    const q = supabase!
+      .from("round_insights")
+      .select("sections,fingerprint,created_at")
+      .eq("round_id", roundId)
+      .eq("player_uid", playerUid);
+    return (withScope ? q.eq("scope", scope) : q).maybeSingle();
+  };
+  let { data, error } = await query(true);
+  // scope 칸이 아직 없으면 라운드 전체 분석만 예전처럼 (전반·후반은 이 기기에만 있다)
+  if (error && isMissingScope(error)) {
+    if (scope !== "all") return null;
+    ({ data, error } = await query(false));
+  }
   if (error) {
     if (!isMissingTable(error)) console.error(error);
     return null;
@@ -301,7 +326,7 @@ export async function loadInsight(roundId: string, playerUid: string): Promise<S
     fingerprint: row.fingerprint ?? "",
     createdAt: row.created_at,
   };
-  writeCachedInsight(roundId, playerUid, v);
+  writeCachedInsight(roundId, playerUid, scope, v);
   return v;
 }
 
@@ -311,14 +336,18 @@ export async function saveInsight(
   playerUid: string,
   sections: InsightSections,
   model: string,
-  fingerprint: string
+  fingerprint: string,
+  scope: Half = "all"
 ): Promise<boolean> {
   const createdAt = new Date().toISOString();
-  writeCachedInsight(roundId, playerUid, { sections, fingerprint, createdAt });
+  writeCachedInsight(roundId, playerUid, scope, { sections, fingerprint, createdAt });
   if (!supabase) return false;
-  const { error } = await supabase
+  const row = { round_id: roundId, player_uid: playerUid, sections, model, fingerprint, created_at: createdAt };
+  let { error } = await supabase
     .from("round_insights")
-    .upsert({ round_id: roundId, player_uid: playerUid, sections, model, fingerprint, created_at: createdAt });
+    .upsert({ ...row, scope }, { onConflict: "round_id,player_uid,scope" });
+  // scope 칸이 아직 없으면 라운드 전체 분석만 예전처럼 저장한다
+  if (error && isMissingScope(error) && scope === "all") ({ error } = await supabase.from("round_insights").upsert(row));
   if (error) console.error(error);
   return !error;
 }

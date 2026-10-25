@@ -37,7 +37,7 @@ export function CollectCard({
   off?: boolean;
   /** 자물쇠 (아직 못 얻은 배지). 기본은 off 와 같다 */
   lock?: boolean;
-  /** 오른쪽 위 작은 표시 ("새로") */
+  /** 오른쪽 위 작은 표시 ("NEW") */
   tag?: string;
   /** 이름과 값 사이 (시상식: 받은 사람) */
   children?: ReactNode;

@@ -347,7 +347,7 @@ export default function RoundSettingsSheet({
         <div className="card">
           {cfg.players.map((p) => (
             <div className="gplayer name-edit-row" key={p.id}>
-              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+              <Avatar photoUrl={p.photoUrl} size={26} />
               <input
                 className="input"
                 value={names[p.id] ?? ""}
@@ -451,7 +451,7 @@ export default function RoundSettingsSheet({
               style={isAvg ? undefined : { justifyContent: "space-between" }}
             >
               <span className="gp-name">
-                <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                <Avatar photoUrl={p.photoUrl} size={22} />
                 <b>{finalName(p.id, p.name) || "?"}</b>
               </span>
               {isAdjust ? (

@@ -72,19 +72,18 @@ export default function ProfileScreen({
   useBack(leaving, () => setLeaving(false));
 
   const providers = user?.providers ?? [];
-  const gender = user?.gender === "female" ? "여성" : user?.gender === "male" ? "남성" : null;
   const login = providers.map((p) => PROVIDER_LABEL[p]).filter(Boolean).join(" · ");
 
   const head = (
     <div className="card pf-head">
-      <Avatar photoUrl={user?.photoURL} gender={user?.gender ?? undefined} fallback="user" size={64} />
+      <Avatar photoUrl={user?.photoURL} fallback="user" size={64} />
       <div className="pf-who">
         <b>{user?.displayName ?? "사용자"}</b>
-        <span>{[gender, login && `${login} 로그인`].filter(Boolean).join(" · ")}</span>
+        {login && <span>{login} 로그인</span>}
         {user?.email && <span className="pf-mail">{user.email}</span>}
       </div>
       <button className="pf-edit" onClick={() => setNameOpen(true)}>
-        이름·성별 바꾸기
+        이름 바꾸기
       </button>
     </div>
   );

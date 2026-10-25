@@ -1,6 +1,5 @@
 import { supabase } from "./supabase";
 import type {
-  Gender,
   HoleStat,
   RoundListItem,
   RoundPlayerRow,
@@ -11,7 +10,6 @@ import type {
 
 export interface PlayerInfo {
   name: string;
-  gender: Gender;
   avgScore: number | null;
   handicap: number;
 }
@@ -75,7 +73,8 @@ export async function createRound(p: CreateRoundParams): Promise<RoundRow> {
     p_handicap_settle: p.handicapSettle,
     p_hole_count: p.holeCount,
     p_name: p.me.name,
-    p_gender: p.me.gender,
+    // 성별은 묻지 않는다 (예전 DB 함수가 받는 칸이라 비워 보낸다)
+    p_gender: null,
     p_avg_score: p.me.avgScore,
     p_handicap: p.me.handicap,
   });
@@ -138,7 +137,7 @@ export async function joinRoundByCode(
   const { data, error } = await db.rpc("join_round", {
     p_code: code.trim().toUpperCase(),
     p_name: me.name,
-    p_gender: me.gender,
+    p_gender: null,
     p_avg_score: me.avgScore,
     p_handicap: me.handicap,
   });
@@ -210,7 +209,6 @@ export async function updateMyPlayer(
     Pick<
       RoundPlayerRow,
       | "name"
-      | "gender"
       | "avg_score"
       | "handicap"
       | "photo_url"
@@ -325,7 +323,7 @@ export async function addOfflinePlayer(roundId: string, name: string): Promise<v
   const { error } = await db.rpc("add_offline_player", {
     p_round_id: roundId,
     p_name: name,
-    p_gender: "male",
+    p_gender: null,
     p_avg_score: null,
     p_handicap: 0,
   });
@@ -336,14 +334,13 @@ export async function addOfflinePlayer(roundId: string, name: string): Promise<v
 export async function updateOfflinePlayer(
   roundId: string,
   userUid: string,
-  patch: Partial<{ name: string; gender: Gender; avg_score: number | null; handicap: number; tee: TeeBox | null }>
+  patch: Partial<{ name: string; avg_score: number | null; handicap: number; tee: TeeBox | null }>
 ): Promise<void> {
   const db = requireDb();
   const { error } = await db.rpc("update_offline_player", {
     p_round_id: roundId,
     p_user_uid: userUid,
     p_name: patch.name ?? null,
-    p_gender: patch.gender ?? null,
     p_avg_score: patch.avg_score ?? null,
     p_handicap: patch.handicap ?? null,
     p_clear_avg: "avg_score" in patch && patch.avg_score === null,

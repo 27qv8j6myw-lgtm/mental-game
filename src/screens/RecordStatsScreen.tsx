@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
-import { digestRecords, loadRecordRounds, type RecordRound } from "../recordStats";
+import { digestRecords, halfHoles, loadRecordRounds, type HoleRecord, type RecordRound } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import PaneHead, { LogoHead } from "./PaneHead";
 import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
-import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
+import { HalfChips, HalfTitleTags, RecordAnalysis, RecordScorecard, useHalfView } from "./RecordAnalysis";
 import { RatingLines } from "./CourseDifficulty";
 import TrendChart from "./TrendChart";
 import { aggregate, trendSeries, type TrendKey } from "../recordTrend";
@@ -21,6 +21,7 @@ import { saveGreenSpeed } from "../greenSpeed";
 import { YearReviewEntry } from "./YearReview";
 import { GreenSpeedButton } from "./GreenSpeed";
 import { weatherText } from "../weather";
+import { teeSex } from "../kga";
 
 const one = (v: number | null) => (v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1));
 
@@ -396,11 +397,15 @@ function RoundDetail({
   const { ai: canAi } = useAiAccess(user?.uid);
   const past = all.filter((x) => x.roundId !== r.roundId);
   const here = { name: r.courseName, rating: r.rating, holeCount: r.holeCount };
+  // 전반·후반 칩을 누르면 분석·스코어카드·AI 분석이 그 9홀로
+  const hv = useHalfView(r.holes, r.holeCount, r.summary);
+  const part = (hs: HoleRecord[]) => halfHoles(hs, hv.half);
   const ai = useRoundInsight({
     roundId: r.roundId,
     playerUid: user?.uid ?? "",
     enabled: canAi,
-    fingerprint: insightFingerprint(r.holes),
+    scope: hv.half,
+    fingerprint: insightFingerprint(hv.holes),
     build: async () =>
       buildInsightInput(
         {
@@ -408,14 +413,15 @@ function RoundDetail({
           course: courseTitle(r.courseName, r.rating),
           holeCount: r.holeCount,
           mode: GAME_MODE_LABEL[r.gameMode],
-          differential: r.differential,
+          differential: hv.half === "all" ? r.differential : null,
           greenSpeed: r.greenSpeed,
+          scope: hv.half,
         },
-        r.holes,
-        past.map((x) => x.holes),
+        hv.holes,
+        past.map((x) => part(x.holes)),
         past
           .filter((x) => isSameCourse(here, { name: x.courseName, rating: x.rating, holeCount: x.holeCount }))
-          .map((x) => x.holes)
+          .map((x) => part(x.holes))
       ),
   });
   /** 내 스코어카드 이미지 (내기 라운드에서 남긴 내 기록도) */
@@ -460,29 +466,14 @@ function RoundDetail({
           <span>타</span>
           {r.summary.holesPlayed > 0 && <em>{relLabel(r.summary.toPar)}</em>}
         </div>
-        <div className="st-golf">
-          <span>
-            전반 <b>{r.summary.out ?? "–"}</b>
-          </span>
-          {r.holeCount > 9 && (
-            <span>
-              후반 <b>{r.summary.in ?? "–"}</b>
-            </span>
-          )}
-          <span>
-            퍼트 <b>{r.summary.putts ?? "–"}</b>
-          </span>
-          <span>
-            {r.summary.holesPlayed}/{r.holeCount}홀
-          </span>
-        </div>
+        <HalfChips s={r.summary} holeCount={r.holeCount} view={hv} />
         {r.differential != null && (
           <div className="rr-adj">
             <div className="rr-adj-main">
               <span>보정타수</span>
               <b>{r.differential.toFixed(1)}</b>
             </div>
-            {r.rating && <RatingLines rating={r.rating} sex={user?.gender === "female" ? "F" : "M"} />}
+            {r.rating && <RatingLines rating={r.rating} sex={teeSex(r.courseTee)} />}
           </div>
         )}
       </div>
@@ -490,11 +481,17 @@ function RoundDetail({
         <Icon name="share" size={17} />
         스코어카드 이미지로 공유·저장
       </button>
-      {canAi && <InsightAction state={ai} />}
-      <div className="section-title">분석</div>
-      <RecordAnalysis s={r.summary} insight={canAi ? ai.insight ?? undefined : undefined} />
-      <div className="section-title">스코어카드</div>
-      <RecordScorecard holes={r.holes} />
+      {canAi && hv.s.holesPlayed > 0 && <InsightAction state={ai} />}
+      <div className="section-title">
+        분석
+        <HalfTitleTags view={hv} compare />
+      </div>
+      <RecordAnalysis s={hv.s} compare={hv.compare} insight={canAi ? ai.insight ?? undefined : undefined} />
+      <div className="section-title">
+        스코어카드
+        <HalfTitleTags view={hv} />
+      </div>
+      <RecordScorecard holes={hv.holes} />
       {canAi && <InsightSummary state={ai} />}
     </div>
   );

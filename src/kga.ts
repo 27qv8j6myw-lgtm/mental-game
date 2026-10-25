@@ -189,7 +189,10 @@ export function courseRating(
   };
 }
 
-/** 성별에 맞는 레이팅 (없으면 있는 것). 레이팅이 없으면 null */
+/** 어느 레이팅으로 계산할지: 레드 티는 여성 레이팅, 나머지 티는 남성 레이팅 (성별은 묻지 않는다) */
+export const teeSex = (tee: string | null | undefined): "M" | "F" => (tee === "red" ? "F" : "M");
+
+/** 남/여 레이팅 가운데 고른 것 (없으면 있는 것). 레이팅이 없으면 null */
 export function ratingFor(rating: CourseRating | undefined | null, sex: "M" | "F") {
   if (!rating || rating.ratings.length === 0) return null;
   const r = rating.ratings.find((x) => x.sex === sex) ?? rating.ratings[0];

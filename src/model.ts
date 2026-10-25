@@ -19,7 +19,6 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
   const players: Player[] = bundle.players.map((p) => ({
     id: p.user_uid,
     name: r.rules.nameOverrides?.[p.user_uid] ?? p.name,
-    gender: p.gender,
     avgScore:
       (r.rules.avgOverrides && p.user_uid in r.rules.avgOverrides
         ? r.rules.avgOverrides[p.user_uid]

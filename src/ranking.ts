@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { recordRound, type RecordRound } from "./recordStats";
-import type { CourseRating, Fairway, GameMode, Gender, HoleStat, TeeLie } from "./types";
+import type { CourseRating, Fairway, GameMode, HoleStat, TeeLie } from "./types";
 
 /*
  * 랭킹: 모든 이용자의 18홀 평균 타수 순위 (월별·연도별) + 순위 변화.
@@ -11,7 +11,6 @@ export interface RankPlayer {
   uid: string;
   name: string;
   photoUrl: string | null;
-  gender: Gender;
 }
 
 /**
@@ -58,7 +57,7 @@ export async function loadRanking(): Promise<RankingData> {
   if (ex.error) throw isMissingTable(ex.error) ? new RankingSetupError(ex.error.message) : ex.error;
   const v = (data ?? { players: [], rounds: [] }) as {
     visibility?: Visibility;
-    players: { uid: string; name: string; photo_url: string | null; gender: Gender }[];
+    players: { uid: string; name: string; photo_url: string | null }[];
     rounds: { uid: string; round_id: string; date: string; course: string; holes: number; gross: number }[];
   };
   const visibility = v.visibility ?? "played";
@@ -69,7 +68,7 @@ export async function loadRanking(): Promise<RankingData> {
       ((ex.data ?? []) as { excluded_uid: string; name: string }[]).map((x) => [x.excluded_uid, x.name])
     ),
     players: new Map(
-      v.players.map((p) => [p.uid, { uid: p.uid, name: p.name, photoUrl: p.photo_url, gender: p.gender }])
+      v.players.map((p) => [p.uid, { uid: p.uid, name: p.name, photoUrl: p.photo_url }])
     ),
     rounds: v.rounds.map((r) => ({
       uid: r.uid,
@@ -240,7 +239,6 @@ type ProfileRound = {
   rating: CourseRating | null;
   /** 그린스피드 (ranking.sql 을 다시 실행하기 전 DB 에는 없음) */
   green_speed?: number | null;
-  gender: Gender;
 };
 type StatRow = { round_id: string; hole_index: number; putts: number | null; fairway: Fairway | null; lie: TeeLie | null; ob: number; hazard: number; sand: number };
 
@@ -270,8 +268,7 @@ export async function loadProfile(uid: string): Promise<RecordRound[]> {
         },
         v.holes.filter((h) => h.round_id === r.id),
         v.scores.filter((s) => s.round_id === r.id),
-        v.stats.filter((s) => s.round_id === r.id) as (HoleStat & { hole_index: number })[],
-        r.gender === "female"
+        v.stats.filter((s) => s.round_id === r.id) as (HoleStat & { hole_index: number })[]
       )
     )
     .filter((r) => r.summary.holesPlayed > 0);

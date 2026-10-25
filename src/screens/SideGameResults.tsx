@@ -101,7 +101,7 @@ export default function SideGameResults({
           {order.map((p) => (
             <div className="standing sg-standing" key={p.id}>
               <div className={`rank ${ranks[p.id] === 1 ? "top" : ""}`}>{ranks[p.id]}</div>
-              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+              <Avatar photoUrl={p.photoUrl} size={26} />
               <span className="nm sg-nm">
                 <span className="sg-line">
                   <span className="sg-name">{p.name || "?"}</span>
@@ -176,7 +176,7 @@ export default function SideGameResults({
               return (
                 <div className="ms-row" key={i}>
                   <div className="ms-line">
-                    <Avatar photoUrl={other.photoUrl} gender={other.gender} size={22} />
+                    <Avatar photoUrl={other.photoUrl} size={22} />
                     <span className="ms-who">
                       {other.name || "?"}
                       {pay ? "에게 보내기" : "에게서 받기"}
@@ -198,7 +198,7 @@ export default function SideGameResults({
           return (
             <div className="standing sg-standing" key={row.id}>
               <div className={`rank ${row.rank === 1 ? "top" : ""}`}>{row.rank}</div>
-              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+              <Avatar photoUrl={p.photoUrl} size={26} />
               <span className="nm sg-nm">
                 <span className="sg-line">
                   <span className="sg-name">{p.name || "?"}</span>

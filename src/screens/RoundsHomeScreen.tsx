@@ -291,7 +291,6 @@ export default function RoundsHomeScreen({
     try {
       const round = await joinRoundByCode(c, {
         name: user?.displayName?.trim() || "나",
-        gender: user?.gender ?? "male",
         avgScore: null,
         handicap: 0,
       });

@@ -22,8 +22,8 @@ export function BogeyExpect({ cr, slope, par = 72 }: { cr: number; slope: number
 }
 
 /**
- * 코스 정보 3줄: 골프장·티·성별 / 코스레이팅·슬로프레이팅 / 난이도·보기 플레이어 예상 스코어.
- * 고른 성별의 레이팅이 없으면 다른 성별 레이팅으로 ('… 레이팅' 표시)
+ * 코스 정보 3줄: 골프장·티·남/여 레이팅 / 코스레이팅·슬로프레이팅 / 난이도·보기 플레이어 예상 스코어.
+ * sex 는 티로 정한다 (레드 티면 여성). 그 레이팅이 없으면 다른 쪽 레이팅으로 ('… 레이팅' 표시)
  */
 export function RatingLines({ rating, sex }: { rating: CourseRating; sex: "M" | "F" }) {
   const r = ratingFor(rating, sex);

@@ -204,7 +204,7 @@ export default function ResultsScreen({
         return (
           <div className="gplayer" key={p.id} style={{ justifyContent: "space-between" }}>
             <span className="gp-name">
-              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+              <Avatar photoUrl={p.photoUrl} size={22} />
               <b>{p.name || "?"}</b>
             </span>
             <span className={tone(v)} style={{ fontWeight: 900 }}>
@@ -229,14 +229,14 @@ export default function ResultsScreen({
           return (
             <div className={`transfer ${withAccount ? "with-acct" : ""}`} key={i}>
               <span className="from">
-                <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+                <Avatar photoUrl={from.photoUrl} size={22} />
                 {from.name || "?"}
               </span>
               <span className="arrow">
                 <Icon name="chevronRight" size={16} />
               </span>
               <span className="to">
-                <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+                <Avatar photoUrl={to.photoUrl} size={22} />
                 {to.name || "?"}
               </span>
               <span className="amt">{won(t.amount)}</span>
@@ -415,7 +415,7 @@ export default function ResultsScreen({
                   return (
                     <div className="ms-row" key={i}>
                       <div className="ms-line">
-                        <Avatar photoUrl={other.photoUrl} gender={other.gender} size={22} />
+                        <Avatar photoUrl={other.photoUrl} size={22} />
                         <span className="ms-who">
                           {other.name || "?"}
                           {pay ? "에게 보내기" : "에게서 받기"}
@@ -460,7 +460,7 @@ export default function ResultsScreen({
           return (
             <div className="standing" key={s.p.id}>
               <div className={`rank ${i === 0 && s.net > 0 ? "top" : ""}`}>{i + 1}</div>
-              <Avatar photoUrl={s.p.photoUrl} gender={s.p.gender} size={26} />
+              <Avatar photoUrl={s.p.photoUrl} size={26} />
               <span className="nm">
                 {s.p.name || "?"}
                 {s.p.id === myUid && <span className="me-tag">나</span>}
@@ -567,7 +567,7 @@ export default function ResultsScreen({
                         aria-expanded={hasDetail ? open : undefined}
                         onClick={() => setBdOpen((o) => ({ ...o, [p.id]: !o[p.id] }))}
                       >
-                        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+                        <Avatar photoUrl={p.photoUrl} size={26} />
                         <b>{p.name || "?"}</b>
                         <span className="bd-tag">{label}</span>
                         <span className={`bd-total ${tone(v)}`}>
@@ -637,7 +637,7 @@ export default function ResultsScreen({
                 return (
                   <div className="hc-line" key={p.id}>
                     <span className="gp-name">
-                      <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                      <Avatar photoUrl={p.photoUrl} size={22} />
                       <b>{p.name || "?"}</b>
                     </span>
                     <span className="hc-hd">{adjLabel(p.strokeAdj ?? 0)}</span>
@@ -668,7 +668,7 @@ export default function ResultsScreen({
               return (
                 <div className="hc-line" key={p.id}>
                   <span className="gp-name">
-                    <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                    <Avatar photoUrl={p.photoUrl} size={22} />
                     <b>{p.name || "?"}</b>
                   </span>
                   <span className="hc-hd">핸디 {hcLabel(p.handicap)}</span>

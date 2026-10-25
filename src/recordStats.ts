@@ -1,4 +1,4 @@
-import { differential, ratingFor } from "./kga";
+import { differential, ratingFor, teeSex } from "./kga";
 import { greenSpeedOf } from "./greenSpeed";
 import { weatherOf, type RoundWeather } from "./weather";
 import { playerRating, teeLie } from "./model";
@@ -176,6 +176,16 @@ export interface RecordSummary {
   sandSave: Frac;
 }
 
+/** 한 라운드를 나눠 볼 때: all 전체 · out 전반(1~9번) · in 후반(10번부터) */
+export type Half = "all" | "out" | "in";
+export const HALF_LABEL: Record<Half, string> = { all: "전체", out: "전반", in: "후반" };
+
+/** 그 9홀의 기록만 (all 이면 그대로) */
+export function halfHoles<T extends { hole: number }>(holes: T[], half: Half): T[] {
+  if (half === "all") return holes;
+  return holes.filter((h) => (half === "out" ? h.hole < 9 : h.hole >= 9));
+}
+
 export function summarize(holes: HoleRecord[]): RecordSummary {
   const p = holes.filter(played);
   const nine = (from: number) => {
@@ -225,7 +235,7 @@ export interface RecordRound {
   differential: number | null;
   /** KGA 레이팅 (골프장을 목록에서 고른 라운드만) */
   rating: CourseRating | null;
-  /** 내 성별 레이팅 "KGA 71/130" (스코어카드 이미지용) */
+  /** 내 티의 레이팅 "KGA 71/130" (스코어카드 이미지용) */
   ratingLabel: string | null;
   /** 그린스피드 (m, 넣은 라운드만) */
   greenSpeed: number | null;
@@ -279,16 +289,16 @@ export async function loadRecordRounds(
       "round_id,hole_index,player_uid,rel",
       ids
     ),
-    // 보정타수에 쓸 레이팅을 고르려고 라운드마다 내 성별·티를 받는다 (티 칸이 없는 DB 면 성별만)
-    fetchRows<{ round_id: string; user_uid: string; gender: string; tee?: TeeBox | null }>(
+    // 보정타수에 쓸 레이팅을 고르려고 라운드마다 내 티를 받는다 (티 칸이 없는 DB 면 라운드 티)
+    fetchRows<{ round_id: string; user_uid: string; tee?: TeeBox | null }>(
       "round_players",
-      "round_id,user_uid,gender,tee",
+      "round_id,user_uid,tee",
       ids
     ).catch((e) => {
       if (e?.code !== "42703") throw e;
-      return fetchRows<{ round_id: string; user_uid: string; gender: string; tee?: TeeBox | null }>(
+      return fetchRows<{ round_id: string; user_uid: string; tee?: TeeBox | null }>(
         "round_players",
-        "round_id,user_uid,gender",
+        "round_id,user_uid",
         ids
       );
     }),
@@ -311,8 +321,7 @@ export async function loadRecordRounds(
         },
         pars.filter((h) => h.round_id === r.id),
         scores.filter((s) => s.round_id === r.id && s.player_uid === myUid),
-        stats.filter((s) => s.round_id === r.id && s.player_uid === myUid),
-        me?.gender === "female"
+        stats.filter((s) => s.round_id === r.id && s.player_uid === myUid)
       );
     })
     .filter((r) => r.summary.holesPlayed > 0)
@@ -334,13 +343,12 @@ export function recordRound(
   },
   pars: { hole_index: number; par: number }[],
   scores: { hole_index: number; rel: number }[],
-  stats: (HoleStat & { hole_index: number })[],
-  female: boolean
+  stats: (HoleStat & { hole_index: number })[]
 ): RecordRound {
   const holes = roundHoles(r.holeCount, pars, scores, stats);
   const summary = summarize(holes);
-  // 보정타수에 쓸 레이팅은 그 사람 성별로
-  const rating = ratingFor(r.rating, female ? "F" : "M");
+  // 보정타수에 쓸 레이팅은 그 사람이 친 티로 (레드 티면 여성 레이팅)
+  const rating = ratingFor(r.rating, teeSex(r.courseTee));
   return {
     roundId: r.id,
     date: r.date,

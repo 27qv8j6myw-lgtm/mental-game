@@ -43,7 +43,7 @@ export function CaddieCard({
       <div className="cd-card paid">
         <div className="cd-label">이 홀 꼴찌</div>
         <div className="cd-who">
-          <Avatar photoUrl={p?.photoUrl} gender={p?.gender} size={30} />
+          <Avatar photoUrl={p?.photoUrl} size={30} />
           <b>{p?.name || "?"}</b>
         </div>
         <div className="cd-money">캐디피 {won(hole.stake)}</div>
@@ -61,7 +61,7 @@ export function CaddieCard({
             const p = who(id);
             return (
               <span className="cd-tied" key={id}>
-                <Avatar photoUrl={p?.photoUrl} gender={p?.gender} size={24} />
+                <Avatar photoUrl={p?.photoUrl} size={24} />
                 {p?.name || "?"}
               </span>
             );
@@ -117,7 +117,7 @@ export function CaddiePayRow({ player, amount, note }: { player?: Player; amount
   return (
     <div className="transfer caddie-pay">
       <span className="from">
-        <Avatar photoUrl={player?.photoUrl} gender={player?.gender} size={22} />
+        <Avatar photoUrl={player?.photoUrl} size={22} />
         {player?.name || "?"}
       </span>
       <span className="arrow">

@@ -118,20 +118,39 @@ revoke all on function public.admin_ai_grants() from public, anon;
 grant execute on function public.admin_ai_grants() to authenticated;
 
 -- ---- 분석 보관 ----
--- 라운드 하나 · 사람 하나에 분석 하나 (다시 만들면 덮어쓴다). 라운드를 지우면 함께 지워진다.
+-- 라운드 하나 · 사람 하나 · 범위(scope) 하나에 분석 하나 (다시 만들면 덮어쓴다). 라운드를 지우면 함께 지워진다.
+-- scope: all 라운드 전체 · out 전반 9홀 · in 후반 9홀 (기록 화면의 전반·후반 칩)
 -- fingerprint: 분석할 때의 기록 요약. 그 뒤 기록을 고치면 앱이 '기록이 바뀌었어요'로 알려 준다
 create table if not exists public.round_insights (
   round_id uuid not null references public.rounds (id) on delete cascade,
   player_uid uuid not null,
+  scope text not null default 'all',
   -- {"stats": "...", "teeShot": "...", "scoring": "...", "course": "...", "summary": "..."}
   sections jsonb not null,
   model text not null default '',
   fingerprint text not null default '',
   created_by uuid not null default auth.uid(),
   created_at timestamptz not null default now(),
-  primary key (round_id, player_uid)
+  primary key (round_id, player_uid, scope)
 );
 alter table public.round_insights add column if not exists fingerprint text not null default '';
+
+-- 전반·후반 분석 (예전에 만든 표: 칸을 더하고, 기본 키를 라운드·사람·범위로 바꾼다. 예전 분석은 라운드 전체)
+alter table public.round_insights add column if not exists scope text not null default 'all';
+alter table public.round_insights drop constraint if exists round_insights_scope_check;
+alter table public.round_insights add constraint round_insights_scope_check check (scope in ('all', 'out', 'in'));
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+    where c.conrelid = 'public.round_insights'::regclass and c.contype = 'p' and a.attname = 'scope'
+  ) then
+    alter table public.round_insights drop constraint if exists round_insights_pkey;
+    alter table public.round_insights add primary key (round_id, player_uid, scope);
+  end if;
+end $$;
 
 alter table public.round_insights enable row level security;
 

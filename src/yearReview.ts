@@ -1,6 +1,6 @@
 import type { RecordRound } from "./recordStats";
 import type { StatsResult } from "./stats";
-import type { Gender, RoundListItem } from "./types";
+import type { RoundListItem } from "./types";
 import { BADGES, type Earned } from "./badges";
 
 /*
@@ -22,7 +22,7 @@ export interface YearReview {
   courses: number;
   topCourse: { name: string; count: number } | null;
   busiestMonth: { month: number; count: number } | null;
-  companions: { uid: string; name: string; photoUrl: string | null; gender: Gender; count: number }[];
+  companions: { uid: string; name: string; photoUrl: string | null; count: number }[];
   companionCount: number;
   birdies: number;
   eagles: number;
@@ -72,7 +72,7 @@ export function computeYearReview(
   const topCourse = [...byCourse].sort((a, b) => b[1] - a[1])[0];
   const busiest = [...byMonth].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
 
-  // 함께 친 사람: 그해 끝낸 라운드의 참여자 (나 빼고). 사진·성별은 전적에서
+  // 함께 친 사람: 그해 끝낸 라운드의 참여자 (나 빼고). 사진은 전적에서
   const ids = new Set(rs.map((r) => r.roundId));
   const people = new Map<string, { name: string; count: number }>();
   for (const r of list) {
@@ -90,7 +90,6 @@ export function computeYearReview(
       name: v.name,
       count: v.count,
       photoUrl: photo.get(uid)?.photoUrl ?? null,
-      gender: photo.get(uid)?.gender ?? ("male" as Gender),
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 

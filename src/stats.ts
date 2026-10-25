@@ -5,7 +5,7 @@ import { rankResult, rankScoreText } from "./rankGame";
 import { won } from "./util";
 import { bundleConfig, bundleHoles } from "./model";
 import { listMyRounds, type RoundBundle } from "./rounds";
-import type { GameMode, Gender, RoundListItem, RoundPlayerRow } from "./types";
+import type { GameMode, RoundListItem, RoundPlayerRow } from "./types";
 
 /*
  * 전적: 내가 볼 수 있는(=내가 참여한) 정산 확정 라운드로 사람마다 기록과 누적 금액을 모은다.
@@ -39,7 +39,6 @@ export interface PersonStats {
   uid: string;
   name: string;
   photoUrl: string | null;
-  gender: Gender;
   rounds: number;
   /** 금액 1위(0원보다 많이 딴 경우만) */
   firsts: number;
@@ -153,7 +152,6 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
           uid: key,
           name: p.name,
           photoUrl: null,
-          gender: p.gender,
           rounds: 0,
           firsts: 0,
           wins: 0,
@@ -170,7 +168,6 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
         } as PersonStats);
       cur.name = p.name || cur.name;
       cur.photoUrl = p.photoUrl ?? cur.photoUrl;
-      cur.gender = p.gender;
       cur.rounds++;
       // 1위: 돈을 주고받은 라운드는 딴 1위만, 캐디피·등수 내기는 그 라운드 1등
       if (rank === 1 && (isMoney ? mine > 0 : true)) cur.firsts++;

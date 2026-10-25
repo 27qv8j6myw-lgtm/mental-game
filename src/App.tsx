@@ -15,6 +15,7 @@ import StatsScreen from "./screens/StatsScreen";
 import NameDialog from "./screens/NameDialog";
 import RankingScreen from "./screens/RankingScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import FinishDialog from "./screens/FinishDialog";
 import TopBar, { BackButton } from "./screens/TopBar";
 import { LogoHead } from "./screens/PaneHead";
 import { DockButton } from "./screens/PlayBar";
@@ -23,6 +24,7 @@ import { useBack } from "./back";
 import { useOnline } from "./online";
 import { useUnfolded } from "./rail";
 import { onNoticePage, type NoticePage } from "./notices";
+import { loadDraft } from "./drafts";
 import type { Session } from "./types";
 
 export default function App() {
@@ -48,11 +50,10 @@ export default function App() {
   );
 }
 
-/** 처음 로그인했을 때: 앱에서 쓸 이름(실명)·성별을 정하기 전까지 띄운다 (게스트는 묻지 않는다) */
+/** 처음 로그인했을 때: 앱에서 쓸 이름(실명)을 정하기 전까지 띄운다 (게스트는 묻지 않는다) */
 function NamePrompt() {
   const { user } = useAuth();
-  // 이름이나 성별을 아직 안 정했으면 (예전에 이름만 정한 사람도 성별을 한 번 묻는다)
-  if (!user || user.isAnonymous || (user.nameSet && user.gender)) return null;
+  if (!user || user.isAnonymous || user.nameSet) return null;
   // Apple 로그인은 이름을 로그인 직후에 따로 저장해서, 이름이 들어오면 다시 그려 미리 채운다
   return (
     <NameDialog
@@ -235,7 +236,8 @@ function RoundPlay({ session }: { session: Session }) {
   // 기록 모드: 정산 대신 기록 분석
   const isRecord = session.config.gameMode === "record";
 
-  // 홀 수정·내 기록 초안이 열려 있는 동안: 상단 버튼·탭바를 잠가(숨기지 않고: 화면이 밀리지 않게) 저장/취소로 끝내게 한다
+  // 홀 수정·내 기록 초안이 열려 있는 동안: 홈·종료는 잠가(숨기지 않고: 화면이 밀리지 않게) 저장/취소로 끝내게 한다.
+  // 위쪽 정산 결과·홀 진행 아이콘은 그대로 쓴다 (초안은 기기에 보관돼 홀 진행으로 돌아오면 되살아난다)
   const [busy, setBusy] = useState(false);
   const onBusyChange = useCallback((b: boolean) => setBusy(b), []);
   const online = useOnline();
@@ -265,16 +267,19 @@ function RoundPlay({ session }: { session: Session }) {
       finishing.current = false;
     }
   };
-  /** 라운드 종료(최종 확정): 방장만, 늘 확인 창으로 한 번 더 묻는다 */
+  /** 라운드 종료(최종 확정): 방장만, 늘 확인 창(파3·파4·파5 합계)으로 한 번 더 묻는다 */
+  const [confirming, setConfirming] = useState(false);
   const finalize = () => {
     if (!round.isHost || session.status !== "playing") return;
-    const msg = isRecord
-      ? "라운드를 종료할까요?\n종료 뒤에도 내 기록은 고칠 수 있어요."
-      : session.holeSave && unsaved > 0
-        ? `라운드를 종료할까요?\n저장 안 된 홀이 ${unsaved}개 있어요.\n저장한 ${session.holes.length - unsaved}개 홀만 정산해요.`
-        : "라운드를 종료할까요?\n종료하면 정산이 확정돼요.\n이후엔 방장만 스코어를 고쳐요.";
-    if (window.confirm(msg)) void doFinish();
+    setConfirming(true);
   };
+  const finishNotes = isRecord
+    ? ["종료 뒤에도 내 기록은 고칠 수 있어요."]
+    : session.holeSave && unsaved > 0
+      ? [`저장 안 된 홀이 ${unsaved}개 있어요. 저장한 ${session.holes.length - unsaved}개 홀만 정산해요.`]
+      : ["종료하면 정산이 확정돼요. 이후엔 방장만 스코어를 고쳐요."];
+  // 정산 결과를 보러 가며 남겨 둔 초안 (홀 수정·내 기록·기록 입력)
+  const draft = confirming ? loadDraft(round.activeRoundId) : null;
 
   // 방장이 최종 확정하면 참여자 화면도 정산 결과로
   const prevStatus = useRef(session.status);
@@ -290,13 +295,11 @@ function RoundPlay({ session }: { session: Session }) {
       {!split && (
         <TopBar
           className="round-top"
-          locked={busy}
           left={
             <button
               className={`icon-btn ${tab === "result" ? "on" : ""}`}
               aria-label={isRecord ? "기록 분석" : "정산 결과"}
               aria-pressed={tab === "result"}
-              disabled={busy}
               onClick={() => showTab("result")}
             >
               <Icon name={isRecord ? "graph" : "trophy"} size={24} />
@@ -307,7 +310,6 @@ function RoundPlay({ session }: { session: Session }) {
               className={`icon-btn ${tab === "game" ? "on" : ""}`}
               aria-label="홀 진행"
               aria-pressed={tab === "game"}
-              disabled={busy}
               onClick={() => showTab("game")}
             >
               <Icon name="flag" size={24} />
@@ -364,6 +366,19 @@ function RoundPlay({ session }: { session: Session }) {
       {/* 통신이 끊겼거나 저장이 밀려 있으면: 입력은 이 폰에 보관했다가 연결되면 올린다 */}
       {(!online || !!session.pendingSaves) && (
         <span className="offline-pill round-net">{online ? "저장 대기" : "오프라인"}</span>
+      )}
+      {confirming && (
+        <FinishDialog
+          pars={session.holes.map((h) => h.par)}
+          notes={finishNotes}
+          warn={draft ? `${draft.hole + 1}번 홀에 저장하지 않은 입력이 있어요. 종료 전에 저장해 주세요.` : null}
+          confirmLabel={isRecord ? "종료" : "확정"}
+          onConfirm={() => {
+            setConfirming(false);
+            void doFinish();
+          }}
+          onClose={() => setConfirming(false)}
+        />
       )}
 
     </div>

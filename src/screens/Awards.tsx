@@ -73,7 +73,7 @@ export default function RoundAwards({
                 <div className="aw-who">
                   <span className="aw-faces">
                     {winners.slice(0, 3).map((p) => (
-                      <Avatar key={p.id} photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                      <Avatar key={p.id} photoUrl={p.photoUrl} size={22} />
                     ))}
                   </span>
                   <span className="aw-names">{winners.map((p) => p.name || "?").join(" · ")}</span>

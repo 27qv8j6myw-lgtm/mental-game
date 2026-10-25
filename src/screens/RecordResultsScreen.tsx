@@ -1,12 +1,12 @@
 import { playerRating } from "../model";
 import { useMemo, useState } from "react";
 import { useRound } from "../round";
-import { EMPTY_STAT, loadRecordRounds, summarize, type HoleRecord } from "../recordStats";
+import { EMPTY_STAT, halfHoles, loadRecordRounds, summarize, type HoleRecord } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
-import { differential, ratingFor } from "../kga";
+import { differential, ratingFor, teeSex } from "../kga";
 import type { CourseRating, Session } from "../types";
-import { RecordAnalysis, RecordScorecard } from "./RecordAnalysis";
+import { HalfChips, HalfTitleTags, RecordAnalysis, RecordScorecard, useHalfView } from "./RecordAnalysis";
 import { RatingLines } from "./CourseDifficulty";
 import ShareImageSheet from "./ShareImageSheet";
 import { courseTitle, renderScorecard } from "../shareImage";
@@ -42,6 +42,8 @@ function AdjustedScore({
     </div>
   );
 }
+
+const NO_RECS: HoleRecord[] = [];
 
 /** 기록 분석 탭: 한 사람(기본: 나)의 이 라운드 분석과 스코어카드. 여럿이면 타수 순위도 */
 export default function RecordResultsScreen({ session }: { session: Session }) {
@@ -82,6 +84,8 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
   );
 
   const mine = byPlayer.get(selectedId);
+  // 전반·후반 칩을 누르면 분석·스코어카드·AI 분석이 그 9홀로
+  const hv = useHalfView(mine?.recs ?? NO_RECS, holes.length, mine?.s);
   // 타수 순위: 파 대비 합이 적은 순 (친 홀이 없는 사람은 맨 뒤)
   const ranking = [...players]
     .map((p) => ({ p, s: byPlayer.get(p.id)!.s }))
@@ -93,10 +97,9 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
   // 고른 사람이 라운드 티와 다른 티를 쳤으면(남녀 혼성) 그 티와 그 티의 레이팅
   const tee = teeLabel(selected?.tee || config.courseTee);
   const [sharing, setSharing] = useState(false);
-  const rSel = ratingFor(
-    playerRating(config.rating, config.teeRatings, selected?.tee),
-    selected?.gender === "female" ? "F" : "M"
-  );
+  // 레드 티면 여성 레이팅
+  const sexSel = teeSex(selected?.tee || config.courseTee);
+  const rSel = ratingFor(playerRating(config.rating, config.teeRatings, selected?.tee), sexSel);
   const diffSel =
     rSel && mine && holes.length === 18 && mine.s.holesPlayed === 18
       ? differential(mine.s.strokes, rSel.cr, rSel.slope)
@@ -109,25 +112,29 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
     roundId: activeRoundId,
     playerUid: selectedId,
     enabled: canAi,
-    fingerprint: insightFingerprint(mine?.recs ?? []),
+    scope: hv.half,
+    fingerprint: insightFingerprint(hv.holes),
     build: async () => {
       const past =
         selectedId === myUid ? (await loadRecordRounds(myUid)).filter((x) => x.roundId !== activeRoundId) : [];
       const here = { name: config.courseName, rating: config.rating, holeCount: holes.length };
+      // 전반·후반 분석이면 다른 라운드도 같은 9홀만
+      const part = (hs: HoleRecord[]) => halfHoles(hs, hv.half);
       return buildInsightInput(
         {
           date: config.date,
           course: courseTitle(config.courseName, config.rating),
           holeCount: holes.length,
           mode: GAME_MODE_LABEL[config.gameMode],
-          differential: diffSel,
+          differential: hv.half === "all" ? diffSel : null,
           greenSpeed: config.greenSpeed,
+          scope: hv.half,
         },
-        mine?.recs ?? [],
-        past.map((x) => x.holes),
+        hv.holes,
+        past.map((x) => part(x.holes)),
         past
           .filter((x) => isSameCourse(here, { name: x.courseName, rating: x.rating, holeCount: x.holeCount }))
-          .map((x) => x.holes)
+          .map((x) => part(x.holes))
       );
     },
   });
@@ -179,7 +186,7 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
                   onClick={() => setPick(p.id)}
                 >
                   <span className={`rank ${i === 0 && s.holesPlayed > 0 ? "top" : ""}`}>{i + 1}</span>
-                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={28} />
+                  <Avatar photoUrl={p.photoUrl} size={28} />
                   <span className="st-row-main">
                     <span className="st-row-name">
                       {p.name || "?"}
@@ -205,9 +212,10 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
               {selected.id === myUid ? "내 기록" : `${selected.name || "?"} 기록`}
             </div>
             <div className="card rr-sum">
-              {/* 날짜·골프장·티 (예전 위쪽 '라운드 기록' 머리 대신 카드 안에) */}
+              {/* 골프장 이름 크게, 아래에 날짜·티·그린스피드, 그 아래 날씨 */}
+              <div className="rr-course">{config.courseName || "이름 없는 라운드"}</div>
               <div className="rr-meta">
-                {[config.date, config.courseName, tee].filter(Boolean).join(" · ")}
+                {[config.date, tee].filter(Boolean).join(" · ")}
                 <GreenSpeedButton
                   value={config.greenSpeed}
                   onSave={selected.id === myUid ? setGreenSpeed : undefined}
@@ -224,25 +232,10 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
                 <span>타</span>
                 {mine.s.holesPlayed > 0 && <em>{relLabel(mine.s.toPar)}</em>}
               </div>
-              <div className="st-golf">
-                <span>
-                  전반 <b>{mine.s.out ?? "–"}</b>
-                </span>
-                {holes.length > 9 && (
-                  <span>
-                    후반 <b>{mine.s.in ?? "–"}</b>
-                  </span>
-                )}
-                <span>
-                  퍼트 <b>{mine.s.putts ?? "–"}</b>
-                </span>
-                <span>
-                  {mine.s.holesPlayed}/{holes.length}홀
-                </span>
-              </div>
+              <HalfChips s={mine.s} holeCount={holes.length} view={hv} />
               <AdjustedScore
                 rating={playerRating(config.rating, config.teeRatings, selected.tee)}
-                sex={selected.gender === "female" ? "F" : "M"}
+                sex={sexSel}
                 gross={holes.length === 18 && mine.s.holesPlayed === 18 ? mine.s.strokes : null}
               />
             </div>
@@ -253,12 +246,22 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
               </button>
             )}
 
-            {canAi && mine.s.holesPlayed > 0 && <InsightAction state={ai} />}
-            <div className="section-title">분석</div>
-            <RecordAnalysis s={mine.s} insight={canAi ? ai.insight ?? undefined : undefined} />
+            {canAi && hv.s.holesPlayed > 0 && <InsightAction state={ai} />}
+            <div className="section-title">
+              분석
+              <HalfTitleTags view={hv} compare />
+            </div>
+            <RecordAnalysis
+              s={hv.s}
+              compare={hv.compare}
+              insight={canAi ? ai.insight ?? undefined : undefined}
+            />
 
-            <div className="section-title">스코어카드</div>
-            <RecordScorecard holes={mine.recs} />
+            <div className="section-title">
+              스코어카드
+              <HalfTitleTags view={hv} />
+            </div>
+            <RecordScorecard holes={hv.holes} />
             {canAi && <InsightSummary state={ai} />}
           </>
         )}

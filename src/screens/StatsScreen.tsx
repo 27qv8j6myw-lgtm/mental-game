@@ -90,7 +90,7 @@ function PersonHero({
       onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
     >
       <div className="st-hero-top">
-        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={56} />
+        <Avatar photoUrl={p.photoUrl} size={56} />
         <div className="st-hero-name">
           {label && <span>{label}</span>}
           <b>{p.name || "?"}</b>
@@ -151,7 +151,7 @@ function StrokeHero({ p, label, onOpen }: { p: PersonStats; label: string; onOpe
       onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
     >
       <div className="st-hero-top">
-        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={56} />
+        <Avatar photoUrl={p.photoUrl} size={56} />
         <div className="st-hero-name">
           <span>{label}</span>
           <b>{p.name || "?"}</b>
@@ -342,7 +342,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                   <span className={`rank ${i === 0 && vs && vs.diff < 0 ? "top" : ""}`}>
                     {me || vs ? i + 1 : "–"}
                   </span>
-                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
+                  <Avatar photoUrl={p.photoUrl} size={30} />
                   <span className="st-row-main">
                     <span className="st-row-name">
                       {p.name || "?"}
@@ -379,7 +379,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
             {others.map((p, i) => (
               <button className="st-row" key={p.uid} onClick={() => open(p.uid)}>
                 <span className={`rank ${i === 0 && p.total > 0 ? "top" : ""}`}>{i + 1}</span>
-                <Avatar photoUrl={p.photoUrl} gender={p.gender} size={30} />
+                <Avatar photoUrl={p.photoUrl} size={30} />
                 <span className="st-row-main">
                   <span className="st-row-name">{p.name || "?"}</span>
                   {/* 누르면 나오는 '나와 맞대결'과 같은 기준: 내 승수 먼저 */}

@@ -272,7 +272,7 @@ function PeopleSection({ review }: { review: Review }) {
           {review.companions.map((p, i) => (
             <div key={p.uid} className="yr-person">
               <span className={`yr-rank r${i + 1}`}>{i + 1}</span>
-              <Avatar photoUrl={p.photoUrl} gender={p.gender} size={40} />
+              <Avatar photoUrl={p.photoUrl} size={40} />
               <b>{p.name}</b>
               <span>{p.count}번</span>
             </div>

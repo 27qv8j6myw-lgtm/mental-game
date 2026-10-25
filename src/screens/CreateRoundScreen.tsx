@@ -247,7 +247,6 @@ export default function CreateRoundScreen({
         holeCount,
         me: {
           name: user?.displayName?.trim() || "나",
-          gender: user?.gender ?? "male",
           avgScore: null,
           handicap: 0,
         },
@@ -416,8 +415,8 @@ export default function CreateRoundScreen({
             </div>
           )}
           <p className="hint tee-note">
-            티는 대기실에서 각자 골라요 (기본 화이트, 여성 레드). 보정타수·스코어카드는 각자 고른 티
-            기준이에요.
+            티는 대기실에서 각자 골라요 (기본 화이트). 보정타수·스코어카드는 각자 고른 티 기준이고, 레드
+            티는 여성 레이팅으로 계산해요.
           </p>
         </div>
 

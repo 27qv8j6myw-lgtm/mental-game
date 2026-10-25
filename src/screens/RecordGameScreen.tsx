@@ -40,7 +40,7 @@ export default function RecordGameScreen({
   onBusyChange,
 }: {
   session: Session;
-  /** 저장 안 한 초안이 있는 동안 true (상단 버튼을 잠근다) */
+  /** 저장 안 한 초안이 있는 동안 true (홈·종료를 잠근다. 초안은 기기에 보관된다) */
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { myUid, activeRoundId } = useRound();
@@ -57,8 +57,14 @@ export default function RecordGameScreen({
   const d: Draft =
     draft && draft.hole === idx ? draft : { hole: idx, par: hole.par, rel: savedRel, stat: savedStat };
   const dirty = d.par !== hole.par || d.rel !== savedRel || !sameStat(d.stat, savedStat);
-  // 홀을 옮기면 (초안이 있으면 옮길 수 없다) 비운다
-  useEffect(() => setDraft(null), [idx]);
+  // 홀을 옮기면 (초안이 있으면 옮길 수 없다) 비운다. 처음 열 때는 비우지 않는다
+  // (홀 진행 탭으로 돌아오거나 앱을 다시 열 때 보관해 둔 초안을 아래에서 되살린다)
+  const shownIdx = useRef(idx);
+  useEffect(() => {
+    if (shownIdx.current === idx) return;
+    shownIdx.current = idx;
+    setDraft(null);
+  }, [idx]);
 
   // 초안 보관: 폰이 잠기거나 앱이 다시 띄워져도 저장 안 한 입력이 남게
   const restore = useRef<StoredDraft | null>(
@@ -189,7 +195,7 @@ export default function RecordGameScreen({
             <div className="section-title">내 기록</div>
             <div className="card rec-card">
               <div className="player-head">
-                <Avatar photoUrl={me.photoUrl} gender={me.gender} size={26} />
+                <Avatar photoUrl={me.photoUrl} size={26} />
                 <span className="pname">{me.name || "나"}</span>
                 {gir != null && (
                   <span className={`gir-chip ${gir ? "on" : ""}`}>{gir ? "GIR" : "GIR 아님"}</span>
@@ -231,7 +237,7 @@ export default function RecordGameScreen({
                 return (
                   <div className="gplayer" key={p.id} style={{ justifyContent: "space-between" }}>
                     <span className="gp-name">
-                      <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                      <Avatar photoUrl={p.photoUrl} size={22} />
                       <b>{p.name || "?"}</b>
                     </span>
                     <span

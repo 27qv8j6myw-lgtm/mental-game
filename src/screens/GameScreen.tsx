@@ -51,7 +51,7 @@ interface HoleDraft {
  * 저장 전 홀은 모두가 함께 입력하고(바로 공유), [N번 홀 저장]을 눌러야 확정돼 정산에 들어간다.
  * 저장된 홀은 잠기고 [수정] → 취소/저장으로만 고친다(수정 내역이 남음). 마지막 홀까지 저장하면 방장이 최종 확정.
  * 아래 바에 이 홀의 상태(저장 전·저장됨·수정 중)와 버튼(저장·수정·취소/저장·최종 확정)을 함께 둔다.
- * onBusyChange: 홀 수정·내 기록 초안이 열려 있는 동안 true (상단 버튼을 잠가 다른 화면으로 못 가게)
+ * onBusyChange: 홀 수정·내 기록 초안이 열려 있는 동안 true (홈·종료를 잠근다. 정산 결과는 볼 수 있고, 돌아오면 초안이 되살아난다)
  */
 export default function GameScreen({
   session,
@@ -109,8 +109,12 @@ export default function GameScreen({
     }
     setRec(null);
   };
-  // 홀을 옮기면 (초안이 있으면 옮길 수 없다) 닫는다
+  // 홀을 옮기면 (초안이 있으면 옮길 수 없다) 닫는다. 처음 열 때는 닫지 않는다
+  // (정산 결과를 보고 홀 진행으로 돌아오거나 앱을 다시 열 때 보관해 둔 초안을 아래에서 되살린다)
+  const shownIdx = useRef(idx);
   useEffect(() => {
+    if (shownIdx.current === idx) return;
+    shownIdx.current = idx;
     setRec(null);
     setDraft((d) => (d && d.hole !== idx ? null : d));
   }, [idx]);
@@ -354,14 +358,14 @@ export default function GameScreen({
       return (
         <div className={`transfer ${birdieStyle ? "birdie" : ""}`} key={i}>
           <span className="from">
-            <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+            <Avatar photoUrl={from.photoUrl} size={22} />
             {from.name || "?"}
           </span>
           <span className="arrow">
             <Icon name="chevronRight" size={16} />
           </span>
           <span className="to">
-            <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+            <Avatar photoUrl={to.photoUrl} size={22} />
             {to.name || "?"}
           </span>
           <span className="amt">{won(t.amount)}</span>
@@ -506,7 +510,7 @@ export default function GameScreen({
             return (
               <div className={`pscore-block ${skinWin ? "skin-win" : ""}`} key={p.id}>
                 <div className="player-head">
-                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={26} />
+                  <Avatar photoUrl={p.photoUrl} size={26} />
                   {mine ? (
                     <button
                       className="pname pname-btn"
@@ -629,7 +633,7 @@ export default function GameScreen({
                   return (
                     <div className="gplayer" key={p.id} style={{ justifyContent: "space-between" }}>
                       <span className="gp-name">
-                        <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                        <Avatar photoUrl={p.photoUrl} size={22} />
                         <b>{p.name || "?"}</b>
                       </span>
                       <span className={`pnet ${pt > 0 ? "pos" : pt < 0 ? "neg" : ""}`}>
@@ -694,7 +698,7 @@ export default function GameScreen({
             return (
               <div className="gplayer" key={p.id} style={{ justifyContent: "space-between" }}>
                 <span className="gp-name">
-                  <Avatar photoUrl={p.photoUrl} gender={p.gender} size={22} />
+                  <Avatar photoUrl={p.photoUrl} size={22} />
                   <b>{p.name || "?"}</b>
                 </span>
                 <span

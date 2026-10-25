@@ -1,6 +1,5 @@
 import type {
   GameMode,
-  Gender,
   HandicapMode,
   HoleScore,
   PaymentMethod,
@@ -100,8 +99,6 @@ export const localDate = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const localTime = (d = new Date()) =>
   `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-
-export const genderEmoji = (g: Gender) => (g === "male" ? "🙎🏻‍♂️" : "🙍🏻‍♀️");
 
 export const won = (n: number) => `${Math.round(n).toLocaleString("ko-KR")}원`;
 

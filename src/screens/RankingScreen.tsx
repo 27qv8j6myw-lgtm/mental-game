@@ -325,7 +325,7 @@ export default function RankingScreen({
                 const p = who(uid);
                 return (
                   <div className="st-row rk-ex-row" key={uid}>
-                    <Avatar photoUrl={p?.photoUrl} gender={p?.gender} size={30} />
+                    <Avatar photoUrl={p?.photoUrl} size={30} />
                     <span className="st-row-main">
                       <span className="st-row-name">{p?.name || name || "?"}</span>
                     </span>
@@ -412,7 +412,7 @@ export default function RankingScreen({
                 return (
                   <button key={r.uid} className={`rk-pod p${rows.indexOf(r) + 1}`} onClick={() => setSelected(r.uid)}>
                     <span className={`rk-pod-face m${place}`}>
-                      <Avatar photoUrl={p?.photoUrl} gender={p?.gender} size={rows.indexOf(r) === 0 ? 56 : 46} />
+                      <Avatar photoUrl={p?.photoUrl} size={rows.indexOf(r) === 0 ? 56 : 46} />
                       <span className="rk-medal">{r.rank}</span>
                     </span>
                     <span className="rk-pod-name">
@@ -450,7 +450,7 @@ export default function RankingScreen({
                       onClick={() => setSelected(r.uid)}
                     >
                       <span className="rank">{r.rank}</span>
-                      <Avatar photoUrl={p?.photoUrl} gender={p?.gender} size={30} />
+                      <Avatar photoUrl={p?.photoUrl} size={30} />
                       <span className="st-row-main">
                         <span className="st-row-name">
                           {p?.name || "?"}
@@ -487,7 +487,7 @@ export default function RankingScreen({
         <>
           <div className="card st-hero">
             <div className="st-hero-top">
-              <Avatar photoUrl={person.photoUrl} gender={person.gender} size={40} />
+              <Avatar photoUrl={person.photoUrl} size={40} />
               <div className="st-hero-name">
                 <span>
                   {activeKey && periodLabel(activeKey)} {personRow ? `${personRow.rank}위` : "순위 없음"}

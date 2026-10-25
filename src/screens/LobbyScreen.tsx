@@ -12,9 +12,9 @@ import { StrokeAdjField } from "./RoundFields";
 import { caddieSummary } from "../caddie";
 import { rankPrizeBalanced, rankRules, rankSummary } from "../rankGame";
 import RoundSettingsSheet from "./RoundSettingsSheet";
-import type { Gender, RoundPlayerRow, TeeBox } from "../types";
+import type { RoundPlayerRow, TeeBox } from "../types";
 import { playerRating } from "../model";
-import { ratingFor } from "../kga";
+import { ratingFor, teeSex } from "../kga";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 
 const STROKE_PRESETS = [5, 10];
@@ -93,7 +93,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
     addOfflinePlayer,
     updateOffline,
   } = useRound();
-  const { user, saveBankAccount, saveGender } = useAuth();
+  const { saveBankAccount } = useAuth();
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
   /** 시작·삭제·나가기·내보내기가 통신 문제로 안 됐을 때 안내 */
@@ -121,11 +121,12 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
   const setBase = (uid: string) =>
     void updateRound({ rules: { ...round.rules, baseUid: uid } });
   const isAdjust = handicapMode === "adjust";
-  // 초대 코드 카드의 코스 난이도: 내가 칠 티·내 성별의 레이팅 (KGA 목록에서 고른 골프장일 때만)
+  // 초대 코드 카드의 코스 난이도: 내가 칠 티의 레이팅 (레드 티면 여성 레이팅, KGA 목록에서 고른 골프장일 때만)
   const meRow = bundle.players.find((p) => p.user_uid === myUid);
+  const myTee = meRow?.tee ?? undefined;
   const myRating = ratingFor(
-    playerRating(round.rules.rating, round.rules.teeRatings, meRow?.tee ?? undefined),
-    meRow?.gender === "female" ? "F" : "M"
+    playerRating(round.rules.rating, round.rules.teeRatings, myTee),
+    teeSex(myTee || round.course_tee)
   );
   const adjOf = (uid: string) => round.rules.strokeAdj?.[uid] ?? 0;
   const setAdj = (uid: string, v: number) =>
@@ -133,7 +134,6 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
       rules: { ...round.rules, strokeAdj: { ...(round.rules.strokeAdj ?? {}), [uid]: v } },
     });
   const me = bundle.players.find((p) => p.user_uid === myUid);
-  const iAmLoggedIn = !!user && !user.isAnonymous;
   const nameOf = (id: string) => players.find((p) => p.id === id)!;
 
   const share = async () => {
@@ -169,20 +169,6 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
   const hasTee = (p: RoundPlayerRow) => "tee" in p;
   const teeOf = (p: RoundPlayerRow) => p.tee ?? roundTee;
   const setTee = (p: RoundPlayerRow, t: TeeBox) => patchPlayer(p.user_uid, { tee: t === roundTee ? null : t });
-  // 성별은 내 것이면 계정에도 저장해 다음 라운드에서도 쓴다 (기록 분석의 남/여 레이팅).
-  // 여성으로 바꾸면 레드 티로, 남성으로 돌아가면 라운드 티로 (라운드 티가 레드가 아닐 때, 바꾼 뒤에 다시 고를 수 있다)
-  const setGender = (p: RoundPlayerRow, g: Gender) => {
-    const tee =
-      !hasTee(p) || !roundTee || roundTee === "red"
-        ? {}
-        : g === "female" && p.tee == null
-          ? { tee: "red" as const }
-          : g === "male" && p.tee === "red"
-            ? { tee: null }
-            : {};
-    patchPlayer(p.user_uid, { gender: g, ...tee });
-    if (p.user_uid === myUid && iAmLoggedIn) void saveGender(g);
-  };
   const onAvgChange = (uid: string, val: string) => {
     if (val.trim() === "") {
       patchPlayer(uid, { avg_score: null });
@@ -279,7 +265,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
             )}
           </div>
           <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
-          {/* 날짜·시간·홀 (티는 사람마다 달라서 뺀다) / 내 티·성별 기준 코스 난이도 / 내기 방식 */}
+          {/* 날짜·시간·홀 (티는 사람마다 달라서 뺀다) / 내 티 기준 코스 난이도 / 내기 방식 */}
           <div className="cc-meta">
             {[round.date, round.tee_time, `${round.hole_count}홀`].filter(Boolean).join(" · ")}
           </div>
@@ -372,7 +358,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
           return (
             <div className={`card lobby-player ${mine ? "mine" : ""}`} key={p.id}>
               <div className="lp-head">
-                <Avatar photoUrl={p.photo_url} gender={p.gender} size={34} />
+                <Avatar photoUrl={p.photo_url} size={34} />
                 {editable ? (
                   <NameField value={p.name} onCommit={(v) => patchPlayer(p.user_uid, { name: v })} />
                 ) : (
@@ -404,21 +390,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
                       폰이 없는 동반자예요. 정보는 방장이 정하고, 스코어는 다른 사람이 대신 입력해요.
                     </p>
                   )}
-                  <div className="segmented sm" style={{ marginTop: 10 }}>
-                    <button
-                      className={p.gender === "male" ? "active" : ""}
-                      onClick={() => setGender(p, "male")}
-                    >
-                      <Icon name="male" size={15} className="inline-ic" /> 남성
-                    </button>
-                    <button
-                      className={p.gender === "female" ? "active" : ""}
-                      onClick={() => setGender(p, "female")}
-                    >
-                      <Icon name="female" size={15} className="inline-ic" /> 여성
-                    </button>
-                  </div>
-                  {/* 티 박스: 비워 두면 라운드 티. 남녀 혼성이면 여성은 레드 티 등으로 */}
+                  {/* 티 박스: 비워 두면 라운드 티. 레드 티면 코스레이팅·보정타수를 여성 레이팅으로 */}
                   {hasTee(p) && (
                     <div className="lp-tee">
                       <span className="lp-tee-label">티 박스</span>
@@ -604,14 +576,14 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
               return (
                 <div className="transfer" key={i}>
                   <span className="from">
-                    <Avatar photoUrl={from.photoUrl} gender={from.gender} size={22} />
+                    <Avatar photoUrl={from.photoUrl} size={22} />
                     {from.name || "?"}
                   </span>
                   <span className="arrow">
                     <Icon name="chevronRight" size={16} />
                   </span>
                   <span className="to">
-                    <Avatar photoUrl={to.photoUrl} gender={to.gender} size={22} />
+                    <Avatar photoUrl={to.photoUrl} size={22} />
                     {to.name || "?"}
                   </span>
                   <span className="amt">{won(t.amount)}</span>

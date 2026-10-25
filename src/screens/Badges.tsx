@@ -172,7 +172,7 @@ export default function Badges() {
                     icon={badgeIcon(b.icon, b.n)}
                     title={b.title}
                     off={!e}
-                    tag={fresh.has(b.id) ? "새로" : undefined}
+                    tag={fresh.has(b.id) ? "NEW" : undefined}
                     value={e ? e.value : <span className="bd-how">{b.how}</span>}
                     meta={
                       e ? (

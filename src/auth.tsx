@@ -25,8 +25,6 @@ export interface AuthUser {
   providers: string[];
   /** 계좌이체 라운드용으로 저장해 둔 내 계좌 (다음 라운드 자동 입력) */
   bank: { name: string; account: string } | null;
-  /** 대기실에서 고른 성별 (다음 라운드에도 쓴다. KGA 남/여 레이팅 선택에 필요). 고른 적 없으면 null */
-  gender: "male" | "female" | null;
   /** 앱에서 쓸 이름(실명)을 직접 정했는지. 안 정했으면 처음에 묻는다 (카카오 닉네임 대신) */
   nameSet: boolean;
   /** 로그인한 서비스(카카오·구글)의 이름. 이름을 정할 때 미리 채워 둔다 */
@@ -53,10 +51,8 @@ interface AuthCtx {
   linkApple: () => Promise<void>;
   /** 내 계정(user_metadata)에 계좌를 저장해 다음 라운드에서도 쓴다 */
   saveBankAccount: (name: string, account: string) => Promise<void>;
-  /** 내 계정(user_metadata)에 성별을 저장해 다음 라운드에서도 쓴다 */
-  saveGender: (gender: "male" | "female") => Promise<void>;
-  /** 앱에서 쓸 이름(실명)을 저장한다 (성별도 고르면 함께). 성공하면 true */
-  saveName: (name: string, gender?: "male" | "female") => Promise<boolean>;
+  /** 앱에서 쓸 이름(실명)을 저장한다. 성공하면 true */
+  saveName: (name: string) => Promise<boolean>;
   /** 시즌 목표 저장 (null 이면 지운다). 성공하면 true */
   saveGoal: (goal: SeasonGoal | null) => Promise<boolean>;
   error: string | null;
@@ -216,10 +212,12 @@ function mapUser(u: {
       typeof meta.bank_name === "string" && typeof meta.bank_account === "string"
         ? { name: meta.bank_name, account: meta.bank_account }
         : null,
-    gender: meta.mg_gender === "female" || meta.mg_gender === "male" ? meta.mg_gender : null,
     goal: parseGoal(meta.mg_goal),
   };
 }
+
+/** 이번 실행에서 예전 성별(mg_gender)을 지우려고 한 번 보냈는지 */
+let clearedGender = false;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -243,6 +241,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       const u = mapUser(sUser);
+      // 예전에 받아 둔 성별은 지운다 (이제 성별을 묻지 않는다). 인증 이벤트 안에서 바로 부르지 않게 한 박자 뒤에
+      if (sUser.user_metadata?.mg_gender != null && !clearedGender) {
+        clearedGender = true;
+        setTimeout(() => {
+          void supabase!.auth.updateUser({ data: { mg_gender: null } }).then(({ error: e }) => {
+            if (e) console.warn("예전 성별을 지우지 못함", e);
+          });
+        }, 0);
+      }
       // 게스트 세션에서 로그인했다: 게스트 기록을 이 계정으로 옮긴 뒤에 화면을 연다
       // (라운드 목록·열려 있던 라운드가 옮긴 기록을 보도록, 그동안은 불러오는 중)
       if (!u.isAnonymous && readClaim()) {
@@ -379,20 +386,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (data.user) setUser(mapUser(data.user));
       },
-      saveGender: async (gender) => {
-        if (!supabase) return;
-        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_gender: gender } });
-        if (e) {
-          console.error(e);
-          return;
-        }
-        if (data.user) setUser(mapUser(data.user));
-      },
-      saveName: async (name, gender) => {
+      saveName: async (name) => {
         if (!supabase) return false;
-        const { data, error: e } = await supabase.auth.updateUser({
-          data: { mg_name: name.trim(), ...(gender && { mg_gender: gender }) },
-        });
+        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_name: name.trim() } });
         if (e) {
           console.error(e);
           return false;
