@@ -1494,14 +1494,23 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   max-width: none;
 }
 .sheet.dash {
-  padding: calc(var(--safe-top) + 16px) 22px calc(var(--safe-bottom) + 40px);
+  padding: 0 22px calc(var(--safe-bottom) + 40px);
 }
+/* 제목 줄은 위에 고정 (스크롤해도 같이 올라가지 않게). 바탕은 화면과 같은 회색 */
 .dash-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 40px;
-  margin: 0 2px 12px;
+  margin: 0 -22px 0;
+  padding: calc(var(--safe-top) + 16px) 24px 12px;
+  background: rgba(250, 250, 249, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transform: translateY(var(--vv-top, 0px));
 }
 .dash-title {
   margin: 0;
@@ -1594,13 +1603,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: var(--loss);
 }
 
-/* 막대 위쪽 시계·와이파이 높이: 앱(빌드 4~)이 넘긴 값, 없으면 접은 화면 174 · 펼친 화면 80
-   (iPhone Duo 시뮬레이터 · 펼친 화면 스크린샷에서 잰 값) */
+/* 막대 위쪽 시계·와이파이 높이: 앱(빌드 4~)이 넘긴 값, 없으면 접은 화면 174 · 펼친 화면 108
+   (iPhone Duo 시뮬레이터 · 실제 펼친 화면 스크린샷에서 잰 값. 펼치면 위치·시계·배터리 고리가 약 107pt 까지 내려온다) */
 :root[data-rail="right"] {
   --status-h: var(--native-status-h, 174px);
 }
 :root[data-unfolded] {
-  --status-h: var(--native-status-h, 80px);
+  --status-h: var(--native-status-h, 108px);
 }
 /* 옆 막대 폰(접힘·펼침)의 위 줄: 인스타그램 듀오처럼 로고는 왼쪽 (뒤로가기가 있으면 그 옆) */
 .rail-title {
@@ -1613,7 +1622,8 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   min-height: calc(var(--safe-top) + 60px);
   padding: calc(var(--safe-top) + 8px) 16px 8px;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.9);
+  /* 아래 화면 바탕과 같은 회색 (흰 줄이 따로 떠 보이지 않게) */
+  background: rgba(250, 250, 249, 0.92);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   transform: translateY(var(--vv-top, 0px));
