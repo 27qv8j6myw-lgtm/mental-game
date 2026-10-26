@@ -5,7 +5,8 @@ import { useBack } from "../back";
 import { loadStats, type PersonStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
-import PaneHead from "./PaneHead";
+import { LogoHead } from "./PaneHead";
+import Dash from "./Dash";
 import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
 import { GAME_MODE_LABEL, wonSigned } from "../util";
@@ -250,13 +251,8 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   };
   // 기기 뒤로가기: 사람 상세 → 전체 보기
   useBack(!!selected, () => setSelected(null));
-  // 펼친 iPhone Duo: 왼쪽 금액 · 오른쪽 타수. 칸마다 사람을 따로 고른다
+  // 펼친 iPhone Duo: 대시보드 (왼쪽 줄 내 카드 · 오른쪽 줄 사람들)
   const split = useUnfolded();
-  const [splitSel, setSplitSel] = useState<Record<RankBy, string | null>>({ money: null, strokes: null });
-  const pick = (k: RankBy, uid: string | null) => {
-    setSplitSel((v) => ({ ...v, [k]: uid }));
-    document.querySelector(`.split-pane.st-${k}`)?.scrollTo(0, 0);
-  };
 
   useEffect(() => {
     if (!myUid) return;
@@ -269,10 +265,6 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   }, [myUid]);
 
   const person = selected ? stats?.people.find((p) => p.uid === selected) ?? null : null;
-  const splitPerson: Record<RankBy, PersonStats | null> = {
-    money: splitSel.money ? stats?.people.find((p) => p.uid === splitSel.money) ?? null : null,
-    strokes: splitSel.strokes ? stats?.people.find((p) => p.uid === splitSel.strokes) ?? null : null,
-  };
   // 함께한 사람들 목록에는 나를 넣지 않는다 (나는 맨 위 카드)
   const others = stats?.people.filter((p) => p.uid !== myUid) ?? [];
   // 타수 순위: 나와 함께 끝까지 친 라운드에서 나와의 평균 타수 차이가 작은(나보다 잘 친) 순.
@@ -291,11 +283,11 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
   // 전체 라운드 평균 (나와 치지 않은 라운드 포함): 랭킹 자료로. 랭킹에서 숨긴 사람·폰 없는 동반자는 없음
   const [rank, setRank] = useState<RankingData | null>(cachedRanking);
   useEffect(() => {
-    if (!(split ? splitSel.strokes : by === "strokes" && selected)) return;
+    if (!(by === "strokes" && selected)) return;
     loadRanking()
       .then(setRank)
       .catch((e) => console.warn("전체 평균(랭킹)을 불러오지 못함", e));
-  }, [by, selected, split, splitSel.strokes]);
+  }, [by, selected]);
   const open = (uid: string) => {
     setSelected(uid);
     window.scrollTo(0, 0);
@@ -325,12 +317,12 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
       )}
     </>
   );
-  /** 금액·타수 한쪽 화면 (펼친 화면에서는 두 칸에 하나씩) */
-  const body = (by: RankBy, person: PersonStats | null, open: (uid: string) => void) => (
+  /** 금액·타수 한쪽 화면. hero: 맨 위 내 카드 (펼친 화면 대시보드는 왼쪽 줄에 따로 둔다) */
+  const body = (by: RankBy, person: PersonStats | null, open: (uid: string) => void, hero = true) => (
     <>
       {stats && stats.roundCount > 0 && !person && by === "strokes" && (
         <>
-          {stats.me && <StrokeHero p={stats.me} label="내 평균 타수 (18홀)" onOpen={() => open(myUid)} />}
+          {hero && stats.me && <StrokeHero p={stats.me} label="내 평균 타수 (18홀)" onOpen={() => open(myUid)} />}
 
           <div className="section-title">함께한 사람들 {others.length}명</div>
           <div className="card st-list">
@@ -370,9 +362,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
 
       {stats && stats.roundCount > 0 && !person && by === "money" && (
         <>
-          {stats.me && (
-            <PersonHero p={stats.me} onOpen={() => open(myUid)} />
-          )}
+          {hero && stats.me && <PersonHero p={stats.me} onOpen={() => open(myUid)} />}
 
           <div className="section-title">함께한 사람들 {others.length}명</div>
           <div className="card st-list">
@@ -551,59 +541,57 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
     </>
   );
 
+  /** 금액 순 / 타수 순 */
+  const byToggle = (
+    <div className="segmented st-by">
+      {(
+        [
+          ["money", "금액"],
+          ["strokes", "타수"],
+        ] as const
+      ).map(([k, label]) => (
+        <button key={k} className={by === k ? "active" : ""} onClick={() => setBy(k)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="app">
       {/* 뒤로가기: 사람 상세 → 전체, 전체 → 홈 */}
       <TopBar
+        tab={!selected || split}
         left={<BackButton onClick={() => (selected ? setSelected(null) : close())} />}
         right={<NoticeButton />}
       />
 
       {split ? (
-        <div className="split-view">
-          {(["money", "strokes"] as const).map((k) => {
-            const p = splitPerson[k];
-            return (
-              <div className={`split-pane st-${k}`} key={k}>
-                <PaneHead
-                  title={p ? p.name || "?" : k === "money" ? "금액" : "타수"}
-                  sub={
-                    p
-                      ? k === "money"
-                        ? p.uid === myUid ? "내 누적 금액" : "함께한 라운드 누적"
-                        : p.uid === myUid ? "내 평균 타수 (18홀)" : "함께한 라운드 평균"
-                      : k === "money"
-                        ? "누적 금액 순"
-                        : "나와의 평균 타수 차이 순"
-                  }
-                  onBack={p ? () => pick(k, null) : undefined}
-                />
-                <div className="sheet">
-                  {status}
-                  {body(k, p, (uid) => pick(k, uid))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        // 펼친 화면 대시보드: 왼쪽 줄 내 금액·타수 카드, 오른쪽 줄 금액/타수 순 사람들 (누르면 그 사람 상세)
+        <Dash
+          title="전적"
+          sub="함께 친 사람과의 금액 · 타수"
+          side={
+            <>
+              {status}
+              {stats && stats.roundCount > 0 && stats.me && (
+                <>
+                  <PersonHero p={stats.me} onOpen={() => open(myUid)} />
+                  <StrokeHero p={stats.me} label="내 평균 타수 (18홀)" onOpen={() => open(myUid)} />
+                </>
+              )}
+            </>
+          }
+        >
+          {person && <LogoHead onBack={() => setSelected(null)} label="함께한 사람들" />}
+          {stats && stats.roundCount > 0 && byToggle}
+          {body(by, person, open, false)}
+        </Dash>
       ) : (
         <div className="sheet">
           <h2 className="page-title">{person ? person.name || "전적" : "전적"}</h2>
           {status}
-          {stats && stats.roundCount > 0 && !person && (
-            <div className="segmented st-by">
-              {(
-                [
-                  ["money", "금액"],
-                  ["strokes", "타수"],
-                ] as const
-              ).map(([k, label]) => (
-                <button key={k} className={by === k ? "active" : ""} onClick={() => setBy(k)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+          {stats && stats.roundCount > 0 && !person && byToggle}
           {body(by, person, open)}
         </div>
       )}

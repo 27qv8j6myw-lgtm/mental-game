@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   adjustedRel,
   birdieHoleNet,
@@ -21,6 +21,7 @@ import { firstUnsaved, settledHoles } from "../model";
 import { EMPTY_STAT, girOf } from "../recordStats";
 import HoleStatFields from "./HoleStatFields";
 import CoachCard from "./CoachCard";
+import ParPicker, { ParAskStatus, useParAsk } from "./ParPicker";
 import { useHoleCoach } from "../coach";
 import { useAiAccess } from "./Insight";
 import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
@@ -90,6 +91,8 @@ export default function GameScreen({
   const filled = config.players.filter((p) => view.scores[p.id] != null).length;
   const allIn = filled === config.players.length;
   const pending = session.pendingHoles.has(idx);
+  // 저장 전 홀로 넘어오면 PAR 를 고르라고 상태 칸에 알리고 버튼을 강조한다
+  const parAsk = useParAsk(activeRoundId, idx, hole.par);
 
   // ---- 내 기록 (퍼트·티샷·벌타): 내 이름을 눌러 열고, 저장/취소로 끝낸다 ----
   const isPlayer = !!myUid && config.players.some((p) => p.id === myUid);
@@ -310,7 +313,10 @@ export default function GameScreen({
           Object.entries(draft.scores).map(([k, v]) => [k, v == null ? v : Math.min(v, p)])
         ),
       });
-    } else if (live) setPar(idx, p);
+    } else if (live) {
+      setPar(idx, p);
+      parAsk.pick();
+    }
   };
   const onScore = (pid: string, s: number) => {
     if (Date.now() < lockUntil.current) return;
@@ -382,7 +388,7 @@ export default function GameScreen({
   // 이 홀 상태 한 줄 (PAR 위 고정 자리)
   // 다 저장했으면 마지막 홀에서 확정. 펼친 화면은 정산 칸 아래 확정이 없으니 어느 홀에서든
   const lastAllSaved = playing && allSaved && (idx === lastIdx || split);
-  const barStatus: [kind: string, text: string] = moved && moved.hole === idx && !editing && !recDirty
+  const barStatus: [kind: string, text: ReactNode] = moved && moved.hole === idx && !editing && !recDirty
     ? ["saved", moved.text]
     : editing
     ? ["editing", "수정 중 · 저장하면 수정 내역에 남아요"]
@@ -393,7 +399,9 @@ export default function GameScreen({
       ? ["done", session.isHost ? "최종 확정 · 고칠 홀은 수정을 눌러요" : "최종 확정 · 방장만 고칠 수 있어요"]
       : ["empty", "저장 안 된 홀 · 정산에서 빠졌어요"]
     : !saved
-    ? ["draft", `저장 전 · ${filled}/${config.players.length}명 입력`]
+    ? live && parAsk.unpicked
+      ? ["draft ask", <ParAskStatus sub={`저장 전 · ${filled}/${config.players.length}명 입력`} />]
+      : ["draft", `저장 전 · ${filled}/${config.players.length}명 입력`]
     : pending
     ? ["wait", session.pendingSaves ? "저장 대기 · 연결되면 올라가요" : "저장 중…"]
     : lastAllSaved
@@ -443,18 +451,7 @@ export default function GameScreen({
             </div>
           )}
         </div>
-        <div className="par-seg">
-          {([3, 4, 5] as ParValue[]).map((p) => (
-            <button
-              key={p}
-              className={view.par === p ? "active" : ""}
-              disabled={!inputOn}
-              onClick={() => onPar(p)}
-            >
-              PAR {p}
-            </button>
-          ))}
-        </div>
+        <ParPicker key={idx} par={view.par} disabled={!inputOn} ask={live && parAsk.unpicked} onPick={onPar} />
 
         {rankNow && <RankBoard result={rankNow} players={config.players} myUid={myUid ?? ""} />}
 

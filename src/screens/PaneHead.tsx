@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon, Wordmark } from "../icons";
+import { Icon } from "../icons";
 
 /**
  * 펼친 iPhone Duo 두 칸 화면의 칸 머리: 라운드 진행의 홀 번호 머리와 같은 높이로 칸 맨 위에 고정 (index.css .split-view).
@@ -41,7 +41,15 @@ export default function PaneHead({
   );
 }
 
-/** 펼친 화면의 왼쪽(한 칸 화면은 맨 위) 머리: 위 바 대신 mental game 글자 로고 */
-export function LogoHead({ onBack, className = "" }: { onBack?: () => void; className?: string }) {
-  return <PaneHead className={`logo-head ${className}`} title={<Wordmark height={25} />} onBack={onBack} />;
+/**
+ * 펼친 화면 칸·넓은 줄 맨 위: 두꺼운 로고 머리 대신, 뒤로 갈 곳이 있을 때만 작은 뒤로 버튼 (로고는 접힌 화면 위 줄에만)
+ */
+export function LogoHead({ onBack, label = "뒤로" }: { onBack?: () => void; label?: string }) {
+  if (!onBack) return null;
+  return (
+    <button className="dash-back" onClick={onBack}>
+      <Icon name="chevronLeft" size={20} />
+      {label}
+    </button>
+  );
 }

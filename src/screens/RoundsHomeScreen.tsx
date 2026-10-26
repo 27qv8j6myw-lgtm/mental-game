@@ -5,9 +5,11 @@ import { useBack } from "../back";
 import { takeInvite } from "../invite";
 import { joinRoundByCode, leaveOrDeleteRound, subscribeRoundScores } from "../rounds";
 import { patchListRound, refreshMyRounds, useMyRounds } from "../notices";
-import { Icon } from "../icons";
+import { Icon, Wordmark } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
-import PaneHead, { LogoHead } from "./PaneHead";
+import HomeMonth from "./HomeMonth";
+import Dash from "./Dash";
+import { YearReviewEntry } from "./YearReview";
 import { useUnfolded } from "../rail";
 import type { RoundListItem, RoundRow } from "../types";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
@@ -154,6 +156,9 @@ function AllRounds({
 }
 
 /** 홈 (라운드 탭): 새 라운드·코드로 참여·진행 중·최근 라운드. 전적·기록은 하단 탭 */
+/** 펼친 화면 제목 줄의 오늘 날짜 ("10월 26일 (월)") */
+const todayLabel = () => new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+
 export default function RoundsHomeScreen({
   onCreate,
   side,
@@ -517,8 +522,7 @@ export default function RoundsHomeScreen({
           {/* 진행 중(대기·진행)은 늘 위에, 끝난 라운드는 최근 5개만 (나머지는 전체 보기) */}
           {(activeRounds.length > 0 || admin || split) && (
             <>
-              {/* 펼친 화면은 칸 머리에 제목 */}
-              {!split && <div className="section-title">진행 중</div>}
+              <div className="section-title">진행 중</div>
               {scopeToggle}
               {!showUsers &&
                 (activeRounds.length > 0 ? (
@@ -582,39 +586,45 @@ export default function RoundsHomeScreen({
     </>
   );
 
+  const createBtn = (
+    <button className="icon-btn" aria-label="새 라운드 만들기" onClick={onCreate}>
+      <Icon name="plus" size={28} />
+    </button>
+  );
+
   return (
     <div className="app">
-      {/* 인스타그램처럼: 왼쪽 새 라운드, 가운데 글자 로고, 오른쪽 알림 (사용 방법·내 정보는 하단 바 내 사진) */}
+      {/* 인스타그램처럼: 왼쪽 새 라운드, 가운데 글자 로고, 오른쪽 알림 (사용 방법·내 정보는 하단 바 내 사진).
+          옆 막대 폰은 새 라운드·알림을 막대 캡슐에 */}
       <TopBar
-        left={
-          <button className="icon-btn" aria-label="새 라운드 만들기" onClick={onCreate}>
-            <Icon name="plus" size={28} />
-          </button>
-        }
+        tab
+        left={createBtn}
+        rail={createBtn}
         right={<NoticeButton />}
       />
 
-      {split ? (
-        <div className="split-view">
-          {side ? (
-            <div className="split-pane home-side">{side}</div>
-          ) : (
-            <div className="split-pane still">
-              <LogoHead />
-              <div className="sheet home-left">
-                {notices}
-                {/* 로그인 화면과 같은 한 줄 소개 */}
-                {tagline}
-                {/* 코드로 참여: 파란 상자 (제목 없이 칸 안 안내 글자로) */}
-                {joinCard}
-              </div>
-            </div>
-          )}
-          <div className="split-pane">
-            <PaneHead title="진행 중" />
-            <div className="sheet">{list}</div>
-          </div>
-        </div>
+      {split && side ? (
+        // 펼친 화면의 라운드 만들기·대기실: 넓은 줄에 그 화면, 왼쪽 줄은 진행 중 목록
+        <Dash title={<Wordmark height={22} />} sub={todayLabel()} side={list}>
+          {side}
+        </Dash>
+      ) : split ? (
+        // 펼친 화면 대시보드: 왼쪽 줄 인사·코드로 참여·이번 달 기록·올해 결산, 오른쪽 줄 진행 중·최근 라운드
+        <Dash
+          title={<Wordmark height={22} />}
+          sub={todayLabel()}
+          side={
+            <>
+              {notices}
+              {tagline}
+              {joinCard}
+              <HomeMonth uid={uid} rounds={rounds} lines={lines} />
+              <YearReviewEntry />
+            </>
+          }
+        >
+          {list}
+        </Dash>
       ) : (
         <div className="sheet">
           {notices}

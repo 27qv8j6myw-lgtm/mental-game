@@ -8,6 +8,7 @@ import type { HoleStat, ParValue, Session } from "../types";
 import { SCORE_OPTS } from "./GameScreen";
 import HoleStatFields from "./HoleStatFields";
 import CoachCard from "./CoachCard";
+import ParPicker, { ParAskStatus, useParAsk } from "./ParPicker";
 import { useHoleCoach } from "../coach";
 import { useAiAccess } from "./Insight";
 import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
@@ -53,6 +54,9 @@ export default function RecordGameScreen({
 
   const savedRel = me ? hole.scores[me.id] ?? null : null;
   const savedStat = (me && holeStats[idx]?.[me.id]) || EMPTY_STAT;
+  // 아직 안 친 홀로 넘어오면 PAR 를 고르라고 상태 칸에 알리고 버튼을 강조한다
+  const parAsk = useParAsk(activeRoundId, idx, hole.par);
+  const askPar = session.status === "playing" && savedRel == null && parAsk.unpicked;
   const [draft, setDraft] = useState<Draft | null>(null);
   const d: Draft =
     draft && draft.hole === idx ? draft : { hole: idx, par: hole.par, rel: savedRel, stat: savedStat };
@@ -108,7 +112,10 @@ export default function RecordGameScreen({
     setDraft({ ...d, rel: next, stat: { ...stat, putts } });
   };
   // PAR 를 낮추면 더블파를 넘는 스코어는 더블파로 맞춘다
-  const onPar = (p: ParValue) => setDraft({ ...d, par: p, rel: rel == null ? null : Math.min(rel, p) });
+  const onPar = (p: ParValue) => {
+    setDraft({ ...d, par: p, rel: rel == null ? null : Math.min(rel, p) });
+    parAsk.pick();
+  };
 
   // AI 홀 코칭 (관리자·AI 고급): 내 기록을 저장할 때마다 두 줄 코칭을 홀 상태 칸에 띄운다
   const aiAccess = useAiAccess(myUid);
@@ -162,10 +169,16 @@ export default function RecordGameScreen({
         {/* 이 홀 내 기록 상태: PAR 위 늘 같은 자리 (끝난 라운드도 내 기록은 고칠 수 있다) */}
         {me && (
           <div className="status-slot">
-            <div className={`hole-status ${dirty ? "draft" : savedRel != null ? "saved" : "empty"}`} role="status">
-              {session.status === "done" && !dirty && "끝난 라운드 · "}
-              {dirty ? "저장 전 · 저장해야 기록돼요" : savedRel != null ? "✓ 저장됨" : "입력 전"}
-            </div>
+            {askPar ? (
+              <div className="hole-status draft ask" role="status">
+                <ParAskStatus sub={dirty ? "저장 전 · 저장해야 기록돼요" : "입력 전"} />
+              </div>
+            ) : (
+              <div className={`hole-status ${dirty ? "draft" : savedRel != null ? "saved" : "empty"}`} role="status">
+                {session.status === "done" && !dirty && "끝난 라운드 · "}
+                {dirty ? "저장 전 · 저장해야 기록돼요" : savedRel != null ? "✓ 저장됨" : "입력 전"}
+              </div>
+            )}
             {coaching && <CoachCard coaching={coaching} onClose={closeCoach} />}
             {session.notice && (
               <div className="notice-bar" role="alert">
@@ -177,18 +190,13 @@ export default function RecordGameScreen({
             )}
           </div>
         )}
-        <div className="par-seg">
-          {([3, 4, 5] as ParValue[]).map((p) => (
-            <button
-              key={p}
-              className={par === p ? "active" : ""}
-              disabled={parLocked}
-              onClick={() => onPar(p)}
-            >
-              PAR {p}
-            </button>
-          ))}
-        </div>
+        <ParPicker
+          key={idx}
+          par={par}
+          disabled={parLocked}
+          ask={askPar}
+          onPick={onPar}
+        />
 
         {me && (
           <>

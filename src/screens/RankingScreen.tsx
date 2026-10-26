@@ -3,7 +3,8 @@ import { useAuth } from "../auth";
 import { useBack } from "../back";
 import { Avatar, Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
-import PaneHead, { LogoHead } from "./PaneHead";
+import { LogoHead } from "./PaneHead";
+import Dash from "./Dash";
 import Highlights, { computeHighlights } from "./Highlights";
 import { useUnfolded } from "../rail";
 import {
@@ -552,6 +553,7 @@ export default function RankingScreen({
     <div className="app">
       {/* 뒤로가기: 랭킹 관리·사람 프로필 → 랭킹, 랭킹 → 홈 */}
       <TopBar
+        tab={(!managing && !selected) || split}
         left={
           <BackButton
             onClick={() => (managing ? closeManage() : selected ? setSelected(null) : close())}
@@ -561,38 +563,41 @@ export default function RankingScreen({
       />
 
       {split ? (
-        <div className="split-view">
-          <div className="split-pane rk-left">
-            <LogoHead />
-            <div className="sheet">
+        // 펼친 화면 대시보드: 왼쪽 줄 순위(시상대·목록), 오른쪽 줄 고른 사람 기록·하이라이트 (또는 랭킹 관리)
+        <Dash
+          title={managing ? "랭킹 관리" : "랭킹"}
+          sub="18홀 평균 타수 순위"
+          actions={
+            data && !managing ? (
+              <button className="rk-manage-btn" onClick={openManage}>
+                랭킹 관리
+              </button>
+            ) : undefined
+          }
+          side={
+            <>
+              {statusBlock}
+              {hiddenBlock}
+              {listBlock}
+            </>
+          }
+        >
+          {managing ? (
+            <>
+              <LogoHead onBack={closeManage} label="랭킹" />
+              {manageBlock}
+            </>
+          ) : (
+            <>
               {profileBlock}
               {data && !data.hidden && !person && rows.length > 0 && (
                 <div className="card">
                   <div className="empty-note">순위에서 사람을 누르면 기록이 여기에 나와요.</div>
                 </div>
               )}
-            </div>
-          </div>
-          <div className="split-pane rk-right">
-            <PaneHead
-              title={managing ? "랭킹 관리" : "랭킹"}
-              onBack={managing ? closeManage : undefined}
-              right={
-                data && !managing ? (
-                  <button className="rk-manage-btn" onClick={openManage}>
-                    랭킹 관리
-                  </button>
-                ) : undefined
-              }
-            />
-            <div className="sheet">
-              {statusBlock}
-              {manageBlock}
-              {hiddenBlock}
-              {listBlock}
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        </Dash>
       ) : (
         <div className="sheet">
           <div className="page-title-row">

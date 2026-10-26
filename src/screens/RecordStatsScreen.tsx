@@ -6,7 +6,8 @@ import { digestRecords, halfHoles, loadRecordRounds, type HoleRecord, type Recor
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
 import { Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
-import PaneHead, { LogoHead } from "./PaneHead";
+import { LogoHead } from "./PaneHead";
+import Dash from "./Dash";
 import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
 import { HalfChips, HalfTitleTags, RecordAnalysis, RecordScorecard, useHalfView } from "./RecordAnalysis";
@@ -320,40 +321,41 @@ export default function RecordStatsScreen({ onClose }: { onClose: () => void }) 
 
   return (
     <div className="app">
-      <TopBar left={<BackButton onClick={close} />} right={<NoticeButton />} />
+      <TopBar tab left={<BackButton onClick={close} />} right={<NoticeButton />} />
 
       {split ? (
-        // 펼친 iPhone Duo: 왼쪽 분석까지 · 오른쪽 라운드별 기록
-        <div className="split-view">
-          <div className="split-pane rec-left">
-            {/* 내기 라운드를 누르면 이 칸에 그 라운드 내 기록 (오른쪽 목록은 그대로) */}
-            {detail ? (
-              <RoundDetail
-                embedded
-                r={detail}
-                all={rounds ?? []}
-                onBack={() => setDetailId(null)}
-                onGreenSpeed={(v) => setGreenSpeed(detail.roundId, v)}
-              />
-            ) : (
-              <>
-                <LogoHead />
-                <div className="sheet results">
-                  {status}
-                  {analysis}
-                </div>
-              </>
-            )}
-          </div>
-          <div className="split-pane">
-            <PaneHead title="라운드별 기록" />
-            <div className="sheet results">
-              {/* 올해의 골프 결산: 라운드별 기록 바로 위 */}
+        // 펼친 화면 대시보드: 왼쪽 줄 올해 결산·라운드별 기록, 오른쪽 줄 분석 (라운드를 누르면 그 라운드 내 기록)
+        <Dash
+          className="results"
+          title="라운드 기록"
+          sub="내 스코어 · 퍼트 · GIR 분석"
+          side={
+            <>
               <YearReviewEntry />
-              {list}
-            </div>
-          </div>
-        </div>
+              {list && (
+                <div>
+                  <div className="section-title">라운드별 기록 {shown.length}개</div>
+                  {list}
+                </div>
+              )}
+            </>
+          }
+        >
+          {detail ? (
+            <RoundDetail
+              embedded
+              r={detail}
+              all={rounds ?? []}
+              onBack={() => setDetailId(null)}
+              onGreenSpeed={(v) => setGreenSpeed(detail.roundId, v)}
+            />
+          ) : (
+            <>
+              {status}
+              {analysis}
+            </>
+          )}
+        </Dash>
       ) : (
         <div className="sheet results">
           <h2 className="page-title">라운드 기록</h2>
@@ -506,7 +508,7 @@ function RoundDetail({
   if (embedded)
     return (
       <>
-        <LogoHead onBack={onBack} />
+        <LogoHead onBack={onBack} label="분석으로" />
         {body}
         {sheet}
       </>

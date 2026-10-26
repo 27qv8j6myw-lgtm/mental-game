@@ -3,55 +3,155 @@ import { useSyncExternalStore } from "react";
 /*
  * 옆에 카메라·상태 막대가 있는 폰(예: iPhone Duo)
  * 세로 화면에서 오른쪽 안전 영역이 넓으면 그 막대가 있는 폰으로 보고 <html data-rail="right"> 를 붙인다.
- * 그러면 아래 탭이 오른쪽 막대 안(와이파이 아래)에 세로로 선다 (index.css)
- * 펼쳐서 화면이 넓어지면 라운드 화면을 왼쪽 정산 · 오른쪽 홀 진행 두 칸으로 나눈다 (useUnfolded)
+ * 그러면 아래 탭이 오른쪽 막대 안에 세로로 선다 (index.css). 막대 위쪽은 시계·와이파이 자리(--status-h)
+ * 펼쳐서 화면이 넓어지면 대시보드 화면으로 (useUnfolded)
+ *
+ * 시계·와이파이가 가리는 높이는 앱(빌드 4~)이 window.mgLayout 으로 넘겨 준다. 없으면 CSS 기본값
  */
 
 /** 이 폭보다 넓으면 옆 막대로 본다 (일반 아이폰 세로 화면은 0) */
 const RAIL_MIN = 40;
 /** 위 안전 영역이 이보다 크면 펼친 채 돌려서 막대가 위로 온 것으로 본다 (일반 아이폰은 많아야 62) */
 const TOP_RAIL_MIN = 72;
-/** 옆 막대가 있고 화면이 이 폭 이상이면 펼친 것으로 본다 (접으면 470쯤, 펼치면 950쯤) */
+/** 옆 막대가 있고 화면이 이 폭 이상이면 펼친 것으로 본다 (접으면 466, 펼치면 951) */
 const UNFOLDED_MIN = 700;
 
+/** 앱이 넘겨 주는 값 (CSS px). 없는 값은 0·null */
+interface NativeLayout {
+  cornerW?: number;
+  cornerH?: number;
+  side?: "right" | "left" | null;
+  hingeX?: number | null;
+}
+declare global {
+  interface Window {
+    __mgLayout?: NativeLayout;
+    mgLayout?: (l: NativeLayout) => void;
+    __duoCheck?: () => string[];
+  }
+}
+
+/** 개발 서버의 듀오 흉내: ?duo=1 로 켜고 ?duo=0 으로 끈다 (브라우저에는 옆 막대 안전 영역이 없어서) */
+const DUO_KEY = "mentalgame-duo";
+/** iPhone Duo 시뮬레이터에서 잰 값: 오른쪽 막대 84pt, 아래 홈 표시줄 34pt */
+const SIM = { right: 84, bottom: 34 };
+
+function duoSim(): boolean {
+  if (!import.meta.env.DEV) return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get("duo");
+    if (q === "1") localStorage.setItem(DUO_KEY, "1");
+    if (q === "0") localStorage.removeItem(DUO_KEY);
+    return localStorage.getItem(DUO_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 let unfolded = false;
+let sideRail = false;
 const listeners = new Set<() => void>();
+const root = () => document.documentElement;
 
 export function watchSideRail() {
+  const sim = duoSim();
   // 폭은 오른쪽, 높이는 위 안전 영역과 같은 보이지 않는 상자. 앱(웹뷰)은 화면이 뜬 뒤에야 안전 영역을 알려 줘서 크기가 바뀔 때마다 다시 본다
   const probe = document.createElement("div");
   probe.style.cssText =
     "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;" +
     "width:env(safe-area-inset-right, 0px);height:env(safe-area-inset-top, 0px)";
   document.body.appendChild(probe);
+  if (sim) {
+    root().style.setProperty("--safe-right", `${SIM.right}px`);
+    root().style.setProperty("--safe-bottom", `${SIM.bottom}px`);
+    simStatus();
+  }
+
   const update = () => {
     const box = probe.getBoundingClientRect();
-    const rail = box.width >= RAIL_MIN;
+    const rail = sim || box.width >= RAIL_MIN;
     // 펼친 채 돌리면 막대가 위로 온다: 위 바를 그 막대 안에 넣고 화면 폭을 다 쓴다 (index.css)
-    if (rail) document.documentElement.dataset.rail = "right";
-    else if (box.height >= TOP_RAIL_MIN) document.documentElement.dataset.rail = "top";
-    else delete document.documentElement.dataset.rail;
+    if (rail) root().dataset.rail = "right";
+    else if (box.height >= TOP_RAIL_MIN) root().dataset.rail = "top";
+    else delete root().dataset.rail;
     const next = rail && window.innerWidth >= UNFOLDED_MIN;
-    if (next) document.documentElement.dataset.unfolded = "";
-    else delete document.documentElement.dataset.unfolded;
-    if (next !== unfolded) {
+    if (next) root().dataset.unfolded = "";
+    else delete root().dataset.unfolded;
+    if (next !== unfolded || rail !== sideRail) {
       unfolded = next;
+      sideRail = rail;
       listeners.forEach((l) => l());
     }
   };
+
+  // 앱이 넘긴 시계·와이파이 높이 (먼저 왔으면 window.__mgLayout 에 남아 있다)
+  const applyNative = (l: NativeLayout | undefined) => {
+    if (l?.cornerH && l.side !== "left") root().style.setProperty("--native-status-h", `${Math.round(l.cornerH)}px`);
+    else root().style.removeProperty("--native-status-h");
+  };
+  window.mgLayout = (l) => {
+    applyNative(l);
+    update();
+  };
+  applyNative(window.__mgLayout);
+
   update();
   if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(probe);
   window.addEventListener("resize", update);
   window.addEventListener("orientationchange", update);
+  if (import.meta.env.DEV) window.__duoCheck = duoCheck;
 }
+
+const subscribe = (onChange: () => void) => {
+  listeners.add(onChange);
+  return () => listeners.delete(onChange);
+};
 
 /** 옆 막대가 있는 폰을 펼쳤는지 */
 export function useUnfolded() {
-  return useSyncExternalStore(
-    (onChange) => {
-      listeners.add(onChange);
-      return () => listeners.delete(onChange);
-    },
-    () => unfolded
-  );
+  return useSyncExternalStore(subscribe, () => unfolded);
+}
+
+/** 옆 막대가 있는 폰인지 (접힘·펼침 모두) */
+export function useSideRail() {
+  return useSyncExternalStore(subscribe, () => sideRail);
+}
+
+/** 막대 안에 두는 것 (아래 탭 · 막대 버튼 · 라운드 아래 줄) */
+const RAIL_ITEMS = ".tabbar, .rail-actions, .play-bar, .round-end, .round-exit";
+
+/**
+ * 개발용 점검: 오른쪽 막대로 삐져나간 본문 버튼·카드, 시계·와이파이와 겹친 막대 버튼.
+ * 화면마다 javascript 로 window.__duoCheck() 를 불러 [] 인지 본다
+ */
+function duoCheck(): string[] {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;top:0;right:0;visibility:hidden;pointer-events:none;width:var(--safe-right, 0px);height:var(--status-h, 0px)";
+  document.body.append(probe);
+  const rail = probe.getBoundingClientRect();
+  probe.remove();
+  const out: string[] = [];
+  if (rail.width === 0) return out;
+  document
+    .querySelectorAll<HTMLElement>("button, a, input, select, textarea, [role=button], .card, .round-item, .navbtn")
+    .forEach((el) => {
+      if (el.closest(".duo-sim")) return;
+      const r = el.getBoundingClientRect();
+      const st = getComputedStyle(el);
+      if (r.width === 0 || r.height === 0 || st.visibility === "hidden" || st.opacity === "0") return;
+      const name = `${el.tagName.toLowerCase()}${el.className ? "." + String(el.className).trim().split(/\s+/).join(".") : ""} "${(el.textContent ?? "").trim().slice(0, 20)}"`;
+      const inRailItem = !!el.closest(RAIL_ITEMS);
+      if (!inRailItem && r.right > rail.left + 1) out.push(`막대 침범: ${name}`);
+      if (inRailItem && r.top < rail.bottom - 1 && r.right > rail.left) out.push(`시계와 겹침: ${name}`);
+    });
+  return out;
+}
+
+/** 개발용 흉내: 오른쪽 막대 위쪽에 가짜 시계·와이파이 */
+function simStatus() {
+  const bar = document.createElement("div");
+  bar.className = "duo-sim duo-sim-bar";
+  bar.innerHTML = "<b>9:41</b><span>●●●</span><span>100</span>";
+  document.body.append(bar);
 }

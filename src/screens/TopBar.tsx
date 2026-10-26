@@ -7,39 +7,60 @@ import { NOTICE_STALE_MS, markNoticesSeen, openNoticePage, refreshMyRounds, useN
 import { checkGoalNotices } from "../goals";
 import { loadBadges } from "../badges";
 import { useRound } from "../round";
-import { useUnfolded } from "../rail";
-import { LogoHead } from "./PaneHead";
+import { useSideRail, useUnfolded } from "../rail";
 
 /**
  * 모든 화면의 상단 바: 가운데 mental game 글자 로고 (인스타그램처럼).
  * 왼쪽은 홈에서 + (새 라운드), 다른 화면에서는 뒤로가기. 오른쪽은 화면마다 (알림·랭킹 관리 등).
  * 화면 제목은 상단 바가 아니라 본문 맨 위(.page-title)에 둔다
+ *
+ * 옆에 상태 막대가 있는 폰(iPhone Duo): 버튼(rail · right)은 오른쪽 막대의 시계·와이파이 아래 유리 캡슐에 세로로.
+ * 접힌 화면은 인스타그램 듀오처럼 로고를 왼쪽 줄에 (뒤로가기가 있으면 그 옆).
+ * 펼친 화면은 위 줄 없이 화면이 대시보드 제목(Dash)부터 시작하고, 뒤로가기도 캡슐 맨 위에
  */
 export default function TopBar({
   left,
   right,
+  rail,
+  tab = false,
   locked = false,
   className = "",
 }: {
   left?: ReactNode;
   right?: ReactNode;
+  /** 막대 캡슐에서 right 위에 둘 버튼 (홈의 + 등). 막대가 없는 폰은 left·right 만 쓴다 */
+  rail?: ReactNode;
+  /** 아래 탭으로 오가는 화면: 막대가 있는 폰은 탭이 막대에 있어 왼쪽 뒤로가기를 그리지 않는다 */
+  tab?: boolean;
   /** 홀 수정·내 기록 초안 중: 버튼을 그 자리에 두고 잠근다 */
   locked?: boolean;
   className?: string;
 }) {
-  // 펼친 iPhone Duo: 위 바 대신 맨 위 로고 머리(두 칸 화면은 왼쪽 칸이 따로 그려서 숨긴다),
-  // 양옆 버튼은 오른쪽 막대의 와이파이 아래에 세로로
+  const sideRail = useSideRail();
   const unfolded = useUnfolded();
-  if (unfolded)
+  if (sideRail) {
+    const back = !tab && left;
+    const inRail = unfolded && back;
     return (
       <>
-        <LogoHead className="page-logo" />
-        <div className={`rail-actions ${locked ? "locked" : ""}`}>
-          {left}
-          {right}
-        </div>
+        {!unfolded && (
+          <div className={`rail-title ${className}`}>
+            {back && <div className={`tb-side ${locked ? "locked" : ""}`}>{back}</div>}
+            <h1 className="tb-logo">
+              <Wordmark height={26} />
+            </h1>
+          </div>
+        )}
+        {(inRail || rail || right) && (
+          <div className={`rail-actions ${locked ? "locked" : ""}`}>
+            {inRail}
+            {rail}
+            {right}
+          </div>
+        )}
       </>
     );
+  }
   return (
     <div className={`topbar app-top ${className}`}>
       <div className={`tb-side tb-left ${locked ? "locked" : ""}`}>{left}</div>

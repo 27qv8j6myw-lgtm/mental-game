@@ -737,6 +737,24 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   color: #fff;
   border-color: var(--olive);
 }
+/* 저장 전 홀로 넘어오면 PAR 버튼을 파란 테두리로 강조 (안내는 위 노란 상태 칸에). 고르면 보통 버튼으로 */
+.par-seg.ask button {
+  border-color: var(--olive);
+  color: var(--olive);
+  box-shadow: 0 0 0 3px var(--olive-soft);
+  animation: par-ask-pulse 1.4s ease-out 2;
+}
+.par-seg.ask button.active {
+  color: #fff;
+}
+@keyframes par-ask-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+}
 
 /* ============ Bet banner ============ */
 .bet-banner {
@@ -1344,7 +1362,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .split-view > .split-pane + .split-pane {
   border-left: var(--border);
 }
-/* 두 칸 머리(홀 번호 · 정산 제목 · 칸 제목)를 같은 높이로 맨 위에 고정 (칸을 내려도 남는다) */
+/* 칸 머리(홀 번호 · 정산 제목 · 칸 제목)는 칸 맨 위에 고정 (칸을 내려도 남는다). 높이는 내용만큼 */
 .split-view > .split-pane > .hole-nav,
 .split-view > .split-pane > .result-hero,
 .split-view > .split-pane > .pane-head,
@@ -1353,9 +1371,15 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   top: 0;
   z-index: 10;
   flex: none;
-  height: calc(var(--safe-top) + 92px);
-  padding-top: var(--safe-top);
-  padding-bottom: 0;
+  padding-top: calc(var(--safe-top) + 14px);
+}
+.split-view > .split-pane > .pane-head,
+.split-view > .split-pane > .pane-screen > .pane-head {
+  padding-bottom: 12px;
+}
+/* 라운드 진행(펼침): 홀 입력 칸은 입력에 맞는 폭, 정산 결과가 나머지 */
+.round-panes.split-view {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
 }
 .split-view > .split-pane > .result-hero {
   display: flex;
@@ -1443,10 +1467,6 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   overflow: visible;
   color: var(--ink);
 }
-/* 정산 결과 머리(중간 등수 등)는 펼친 화면에서 로고 머리로 바뀐다 */
-.split-view > .split-pane.result > .result-hero {
-  display: none;
-}
 /* 한 칸 화면(대기실·라운드 만들기 등)의 맨 위 로고 머리: 칸 머리와 같은 높이로 위에 고정 */
 .pane-head.page-logo {
   position: sticky;
@@ -1468,31 +1488,194 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   padding: 6px 14px;
   font-size: 13px;
 }
-/* 펼친 화면: 위 바 대신 양옆 버튼을 막대의 와이파이 아래에 세로로 (TopBar) */
-.rail-actions {
-  position: fixed;
-  z-index: 30;
-  top: calc(var(--safe-top) + 108px);
-  right: calc((var(--safe-right) - 44px) / 2 + var(--rail-nudge, 0px));
-  width: 44px;
+/* ============ 펼친 iPhone Duo 대시보드 (Dash) ============
+   두꺼운 머리 없이 맨 위 작은 제목 줄, 왼쪽 좁은 줄(요약) · 오른쪽 넓은 줄. 반으로 나누지 않고 한 번에 스크롤 */
+:root[data-unfolded] #root:has(.dash) {
+  max-width: none;
+}
+.sheet.dash {
+  padding: calc(var(--safe-top) + 16px) 22px calc(var(--safe-bottom) + 40px);
+}
+.dash-head {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  margin: 0 2px 12px;
+}
+.dash-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.dash-sub {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-actions {
+  flex: none;
+  margin-left: auto;
+  display: flex;
   align-items: center;
   gap: 8px;
 }
-.rail-actions .icon-btn {
-  width: 44px;
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 0 22px;
+  align-items: start;
+}
+.dash-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dash-side {
+  gap: 14px;
+}
+.dash-side > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.dash-col > .section-title:first-child,
+.dash-col > .segmented:first-child {
+  margin-top: 0;
+}
+/* 넓은 줄 안에서 한 단계 들어간 화면(사람 상세 · 라운드 상세)의 뒤로 */
+.dash-back {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 10px -6px;
+  padding: 6px 10px 6px 4px;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 700;
+}
+/* 넓은 줄의 라운드 만들기·대기실: 아래 버튼은 그 줄 아래에 붙인다 */
+.dash-main .pane-screen > .actionbar {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  right: auto;
+  max-width: none;
+  margin: auto -2px 0;
+}
+.dash-main .pane-screen > .sheet,
+.dash-main > .sheet {
+  padding: 0 0 24px;
+}
+.hm-card .hm-title {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.hm-card .rm-value {
+  font-size: 20px;
+}
+.hm-card .rm-value.pos {
+  color: var(--gain);
+}
+.hm-card .rm-value.neg {
+  color: var(--loss);
+}
+
+/* 막대 위쪽 시계·와이파이 높이: 앱(빌드 4~)이 넘긴 값, 없으면 접은 화면 174 · 펼친 화면 80
+   (iPhone Duo 시뮬레이터 · 펼친 화면 스크린샷에서 잰 값) */
+:root[data-rail="right"] {
+  --status-h: var(--native-status-h, 174px);
+}
+:root[data-unfolded] {
+  --status-h: var(--native-status-h, 80px);
+}
+/* 옆 막대 폰(접힘·펼침)의 위 줄: 인스타그램 듀오처럼 로고는 왼쪽 (뒤로가기가 있으면 그 옆) */
+.rail-title {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: calc(var(--safe-top) + 60px);
+  padding: calc(var(--safe-top) + 8px) 16px 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transform: translateY(var(--vv-top, 0px));
+}
+.rail-title .tb-logo {
+  justify-content: flex-start;
+}
+.rail-title .tb-side {
+  margin-left: -8px;
+}
+.rail-title .icon-btn {
+  width: 40px;
   height: 44px;
   border-radius: 12px;
   color: var(--ink);
+}
+.rail-title .tb-side.locked {
+  opacity: 0.35;
+  pointer-events: none;
+}
+/* 두 칸 화면(펼침)은 칸마다 머리가 있어서 위 줄을 숨긴다 */
+.app:has(> .split-view) > .rail-title {
+  display: none;
+}
+/* 위 줄의 버튼(+ · 알림 · 라운드 탭 등): 막대의 시계·와이파이 아래 유리 캡슐에 세로로 (아래 탭과 같은 모양) */
+.rail-actions {
+  position: fixed;
+  z-index: 30;
+  top: calc(var(--status-h, 96px) + 12px);
+  right: calc((var(--safe-right) - var(--rail-w, 60px)) / 2 + var(--rail-nudge, 0px));
+  width: var(--rail-w, 60px);
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.rail-actions .icon-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  color: var(--ink);
+}
+.rail-actions .icon-btn.on {
+  background: rgba(0, 0, 0, 0.065);
 }
 .rail-actions.locked {
   opacity: 0.35;
   pointer-events: none;
 }
 /* 알림 창: 막대 왼쪽, 버튼 높이에서 */
-:root[data-unfolded] .menu.notice-menu {
-  top: calc(var(--safe-top) + 108px);
+:root[data-rail="right"] .menu.notice-menu {
+  top: calc(var(--status-h, 96px) + 12px);
   right: calc(var(--safe-right) + 6px);
 }
 /* 오프라인·저장 대기: 아래 바가 막대로 갔으니 본문 아래 가운데 */
@@ -4291,12 +4474,14 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 /* 전적 사람 카드: 사진을 크게, 이름·칩 사이를 넉넉히 */
 .st-hero-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 6px 14px;
 }
+/* 이름이 "박…"처럼 잘리지 않게 최소 폭을 두고, 좁은 카드(접은 듀오·대시보드 왼쪽 줄)에서는 금액이 다음 줄 오른쪽으로 */
 .st-hero-name {
   flex: 1;
-  min-width: 0;
+  min-width: 72px;
   display: flex;
   flex-direction: column;
 }
@@ -4316,6 +4501,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .st-hero-amt {
   flex: none;
+  margin-left: auto;
   font-family: var(--font-num);
   font-size: 24px;
   font-weight: 900;
@@ -5413,6 +5599,22 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .hole-status.editing {
   background: var(--olive-soft);
   color: var(--olive-deep);
+}
+/* PAR 안내 (ParAskStatus): 같은 높이에 두 줄 */
+.hole-status.ask {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.3;
+}
+.hole-status.ask .ask-main {
+  font-size: 14px;
+}
+.hole-status.ask .ask-sub {
+  font-size: 11.5px;
+  font-weight: 700;
+  opacity: 0.75;
 }
 /* AI 홀 코칭 (CoachCard): 홀 상태 칸 자리에 겹쳐 뜬다. 누르면 닫힌다 */
 .coach-card {
@@ -9709,4 +9911,26 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .notice-item .ni-ic.policy {
   background: var(--olive-soft);
   color: var(--olive);
+}
+
+/* ============ 개발용 듀오 흉내 (rail.ts ?duo=1): 오른쪽 막대 위쪽 가짜 시계·와이파이 ============ */
+.duo-sim {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+}
+.duo-sim-bar {
+  top: 0;
+  right: 0;
+  width: var(--safe-right);
+  height: var(--status-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  font-size: 12px;
+  border-bottom-left-radius: 16px;
 }

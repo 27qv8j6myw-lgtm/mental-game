@@ -10,7 +10,7 @@ import NameDialog from "./NameDialog";
 import Guide from "../guide/Guide";
 import Rules from "../rules/Rules";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
-import PaneHead, { LogoHead } from "./PaneHead";
+import Dash from "./Dash";
 import SeasonGoals from "./SeasonGoals";
 import Badges from "./Badges";
 import { BADGES, useBadgeCount } from "../badges";
@@ -156,24 +156,25 @@ export default function ProfileScreen({
   return (
     <div className="app">
       <TopBar
+        tab={split || !sub}
         left={<BackButton onClick={() => (!split && sub ? setSub(null) : onClose())} />}
         right={<NoticeButton />}
       />
 
       {split ? (
-        <div className="split-view">
-          <div className="split-pane pf-left">
-            <LogoHead />
-            <div className="sheet">
+        // 펼친 화면 대시보드: 왼쪽 줄 내 정보·메뉴, 오른쪽 줄 고른 페이지 (시즌 목표 · 배지 · 계정 연결)
+        <Dash
+          title="내 정보"
+          sub={shown ? SUB_TITLE[shown] : undefined}
+          side={
+            <>
               {head}
-              {list}
-            </div>
-          </div>
-          <div className="split-pane">
-            <PaneHead title={shown ? SUB_TITLE[shown] : "내 정보"} />
-            <div className="sheet">{detail}</div>
-          </div>
-        </div>
+              <div>{list}</div>
+            </>
+          }
+        >
+          {detail}
+        </Dash>
       ) : sub ? (
         <div className="sheet">
           <h2 className="page-title">{SUB_TITLE[sub]}</h2>

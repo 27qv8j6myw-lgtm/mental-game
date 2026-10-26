@@ -288,6 +288,18 @@ function RoundPlay({ session }: { session: Session }) {
     prevStatus.current = session.status;
   }, [session.status]);
 
+  // 위 바 왼쪽 정산 결과 아이콘 (옆 막대 폰은 막대 캡슐에서 홀 진행 위에)
+  const resultBtn = (
+    <button
+      className={`icon-btn ${tab === "result" ? "on" : ""}`}
+      aria-label={isRecord ? "기록 분석" : "정산 결과"}
+      aria-pressed={tab === "result"}
+      onClick={() => showTab("result")}
+    >
+      <Icon name={isRecord ? "graph" : "trophy"} size={24} />
+    </button>
+  );
+
   return (
     <div className="app">
       {/* 왼쪽 정산 결과(기록 분석) ↔ 오른쪽 홀 진행 (펼친 화면의 두 칸과 같은 쪽). 라운드 목록으로는 아래 홈.
@@ -295,16 +307,9 @@ function RoundPlay({ session }: { session: Session }) {
       {!split && (
         <TopBar
           className="round-top"
-          left={
-            <button
-              className={`icon-btn ${tab === "result" ? "on" : ""}`}
-              aria-label={isRecord ? "기록 분석" : "정산 결과"}
-              aria-pressed={tab === "result"}
-              onClick={() => showTab("result")}
-            >
-              <Icon name={isRecord ? "graph" : "trophy"} size={24} />
-            </button>
-          }
+          tab
+          left={resultBtn}
+          rail={resultBtn}
           right={
             <button
               className={`icon-btn ${tab === "game" ? "on" : ""}`}
