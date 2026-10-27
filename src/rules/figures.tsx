@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { CartPathIllust, DropIllust } from "./illust";
 
 /*
  * 골프 룰 그림: R&A 규칙 해설 그림처럼 홀을 위에서 내려다보고(홀은 위쪽), 드롭할 수 있는 곳을 파란 음영으로 칠한다.
@@ -32,6 +33,9 @@ export function FigureDefs() {
   return (
     <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
       <defs>
+        <filter id="rl-lift" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="0.8" stdDeviation="1" floodColor="#000" floodOpacity="0.3" />
+        </filter>
         <pattern id="rl-rough" width="14" height="14" patternUnits="userSpaceOnUse">
           <rect width="14" height="14" fill="#cfe6b3" />
           <path d="M2 5 l1 -3 M8 12 l1 -3 M11 4 l1 -2.5" stroke="#b7d897" strokeWidth="1" strokeLinecap="round" />
@@ -343,108 +347,6 @@ function Bubble({ x, y, w, h = 36, tail, children }: P & { w: number; h?: number
 }
 
 /* ---------- 사람 ---------- */
-
-/**
- * 팔다리 모양: 가운데 선(pts)을 부드러운 곡선(Catmull-Rom)으로 잇고, 점마다 굵기(ws)를 주어 끝이 둥근 모양으로 감싼다
- * (굵기가 줄어드는 허벅지→종아리, 위팔→아래팔을 자연스럽게 그린다)
- */
-function limb(pts: P[], ws: number[]): string {
-  const cs: P[] = [];
-  const cw: number[] = [];
-  const n = pts.length;
-  for (let i = 0; i < n - 1; i++) {
-    const [p0, p1, p2, p3] = [pts[Math.max(0, i - 1)], pts[i], pts[i + 1], pts[Math.min(n - 1, i + 2)]];
-    for (let k = 0; k < 8; k++) {
-      const t = k / 8;
-      const f = (a: number, b: number, c: number, d: number) =>
-        0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t * t * t);
-      cs.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
-      cw.push(ws[i] + (ws[i + 1] - ws[i]) * t);
-    }
-  }
-  cs.push(pts[n - 1]);
-  cw.push(ws[n - 1]);
-  const L: P[] = [];
-  const R: P[] = [];
-  cs.forEach((p, i) => {
-    const a = cs[Math.max(0, i - 1)];
-    const b = cs[Math.min(cs.length - 1, i + 1)];
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    const nx = -(b.y - a.y) / len;
-    const ny = (b.x - a.x) / len;
-    const h = cw[i] / 2;
-    L.push({ x: p.x + nx * h, y: p.y + ny * h });
-    R.push({ x: p.x - nx * h, y: p.y - ny * h });
-  });
-  const f = (p: P) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
-  const e = cw[cw.length - 1] / 2;
-  const s0 = cw[0] / 2;
-  return (
-    `M${f(L[0])} ${L.slice(1).map((p) => `L${f(p)}`).join(" ")} A${e} ${e} 0 0 0 ${f(R[R.length - 1])} ` +
-    `${R.slice(0, -1).reverse().map((p) => `L${f(p)}`).join(" ")} A${s0} ${s0} 0 0 0 ${f(L[0])}Z`
-  );
-}
-
-/** 옆에서 본 골프화 (뒤꿈치 x, 바닥 168, 앞코는 오른쪽) */
-const SideShoe = ({ x, fill }: { x: number; fill: string }) => (
-  <g>
-    <path d={`M${x} 168 L${x} 161 Q${x} 156.5 ${x + 5} 156.5 L${x + 12} 156.5 Q${x + 16} 157.5 ${x + 19} 161.5 Q${x + 24} 163.5 ${x + 25} 168Z`} fill={fill} stroke="#94a3b8" strokeWidth={1} strokeLinejoin="round" />
-    <path d={`M${x} 168 h25`} stroke="#475569" strokeWidth={2.2} strokeLinecap="round" />
-    <path d={`M${x + 8} 159 l5 -1 M${x + 9} 161.5 l6 -1`} stroke="#cbd5e1" strokeWidth={1} strokeLinecap="round" />
-  </g>
-);
-
-/**
- * 옆에서 본 골퍼: 오른쪽을 보고 허리를 숙여, 앞팔을 내려 무릎 높이(y 132)에서 공을 잡고 있다. 뒷팔은 자연스럽게 늘어뜨린다.
- * 발은 y 168 위. 그리는 차례: 그림자 → 뒷다리 → 뒷팔 → 엉덩이 → 앞다리 → 몸통 → 머리 → 앞팔
- */
-function DropGolfer() {
-  const shirtBack = "#1d4ed8";
-  return (
-    <g>
-      <ellipse cx={104} cy={169} rx={38} ry={4} fill="rgba(0,0,0,0.18)" />
-      {/* 뒷다리 · 뒷신발 */}
-      <path d={limb([{ x: 98, y: 98 }, { x: 98, y: 131 }, { x: 93, y: 157 }], [18, 12.5, 9.5])} fill={C.pantsDark} />
-      <SideShoe x={86} fill="#e5e7eb" />
-      {/* 뒷팔 (몸 너머로 늘어뜨림) */}
-      <path d={limb([{ x: 119, y: 63 }, { x: 124, y: 77 }], [12.5, 11.5])} fill={shirtBack} />
-      <path d={limb([{ x: 124, y: 77 }, { x: 129, y: 91 }, { x: 133, y: 111 }], [8.5, 7.5, 6])} fill={C.skinDark} />
-      <ellipse cx={134.5} cy={116} rx={4.2} ry={5.2} fill={C.skinDark} transform="rotate(-15 134.5 116)" />
-      {/* 엉덩이 · 앞다리 · 앞신발 */}
-      <path d={limb([{ x: 97, y: 99 }, { x: 107, y: 103 }], [22, 22])} fill={C.pants} />
-      <path d={limb([{ x: 104, y: 100 }, { x: 114, y: 131 }, { x: 108, y: 157 }], [19, 13, 10])} fill={C.pants} />
-      <path d="M109 112 q3 8 4 17" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth={1.2} strokeLinecap="round" />
-      <SideShoe x={102} fill="#f8fafc" />
-      {/* 몸통 (폴로셔츠) · 벨트 */}
-      <path d={limb([{ x: 103, y: 90 }, { x: 111, y: 78 }, { x: 122, y: 65 }], [24, 26.5, 24])} fill={C.shirt} />
-      <path d="M91.5 88.5 L113.5 99.5" stroke={C.pantsDark} strokeWidth={4.5} strokeLinecap="round" />
-      <rect x={100.5} y={91} width={5} height={4} rx={1} fill="#cbd5e1" transform="rotate(27 103 93)" />
-      <path d="M93 90 Q99 76 108 67" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={3} strokeLinecap="round" />
-      {/* 목 · 깃 */}
-      <path d={limb([{ x: 125, y: 60 }, { x: 130, y: 52 }], [9, 8])} fill={C.skin} />
-      <path d="M121.5 60.5 l5 6.5 l3.5 -8z" fill="#eff6ff" />
-      {/* 머리: 귀 · 눈 · 코 · 모자 · 뒷머리 */}
-      <circle cx={135.5} cy={43} r={10.5} fill={C.skin} />
-      <path d="M137 52.5 q6 0.5 8.5 -4" fill="none" stroke={C.skinDark} strokeWidth={1} strokeLinecap="round" />
-      <circle cx={131.5} cy={45} r={2.6} fill={C.skinDark} />
-      <circle cx={140.5} cy={42.5} r={1.2} fill="#1f2937" />
-      <path d="M139 39.5 l3.5 -0.6" stroke="#3f2d22" strokeWidth={1.1} strokeLinecap="round" />
-      <path d="M145.3 42.5 q2.8 2.2 0.2 4.3" fill={C.skin} stroke={C.skinDark} strokeWidth={0.9} strokeLinejoin="round" />
-      <path d="M125.2 42 q-1.5 6 2.8 9.5 l2.4 -1.6 q-3 -3 -2.2 -7.9z" fill="#3f2d22" />
-      <path d="M124.8 42.5 Q124.2 30.5 135.5 30.5 Q146.8 31 146.6 41.6 Z" fill={C.cap} />
-      <path d="M144.4 39.8 q9.8 -0.6 13.4 3.4 q-6.6 2.2 -13.8 0.6z" fill="#0f172a" />
-      <circle cx={135.5} cy={31} r={1.2} fill="#475569" />
-      {/* 앞팔: 소매 · 위팔 · 아래팔 · 공을 잡은 손 */}
-      <path d={limb([{ x: 125, y: 64 }, { x: 131, y: 79 }], [14, 12.5])} fill={C.shirtDark} />
-      <path d={limb([{ x: 131, y: 79 }, { x: 138, y: 93 }, { x: 146, y: 118 }], [9, 8, 6.5])} fill={C.skin} />
-    </g>
-  );
-}
-
-/** 공을 잡은 손 (공 위로 손가락을 감싼다, DropGolfer 앞팔 끝) */
-const DropHand = () => (
-  <path d="M142.8 117.5 q5.5 -2.5 8.8 1.8 q2.6 3.8 1.2 8.6 q-1.6 2.2 -3.4 0.6 q0.4 -2.8 -1.6 -4.2 q-2.4 1.6 -4.2 0.2 q-2.2 -3.6 -0.8 -7z" fill={C.skin} stroke={C.skinDark} strokeWidth={0.9} strokeLinejoin="round" />
-);
 
 /** 상반신 (오른쪽을 본다). x 는 얼굴 가운데 */
 function Bust({ x, shirt }: { x: number; shirt: string }) {
@@ -918,47 +820,6 @@ function Unplayable() {
   );
 }
 
-function CartPath() {
-  const hole = { x: 110, y: 30 };
-  const near = { x: 228, y: 118 };
-  return (
-    <Fig label="카트 도로: 가운데 선을 기준으로 공이 있는 쪽 가장 가까운 지점에서 한 클럽 이내, 벌타 없음">
-      <Rough />
-      <Fairway x={36} w={124} />
-      <Green x={100} y={24} rx={36} ry={18} />
-      <rect x={172} y={0} width={40} height={200} fill="url(#rl-path)" />
-      <Line from={{ x: 172, y: 0 }} to={{ x: 172, y: 200 }} c="#a8a29e" w={1.6} />
-      <Line from={{ x: 212, y: 0 }} to={{ x: 212, y: 200 }} c="#a8a29e" w={1.6} />
-      <Line from={{ x: 192, y: 0 }} to={{ x: 192, y: 200 }} c="#f59e0b" w={1.8} dash="7 5" />
-      <T x={192} y={194} s={10} c="#b45309">
-        가운데 선
-      </T>
-      <Flag {...hole} />
-      <HalfDisc at={near} r={26} hole={hole} />
-      <Ball x={202} y={116} />
-      <circle cx={near.x} cy={near.y} r={3} fill={C.blue} />
-      <Line from={{ x: 209, y: 116 }} to={{ x: 223, y: 118 }} c={C.blue} arrow />
-      <T x={236} y={86} a="start" c={C.blue}>
-        공이 있는 쪽
-      </T>
-      <T x={236} y={100} a="start" c={C.blue}>
-        가까운 지점
-      </T>
-      <T x={256} y={164} a="start" c={C.blue}>
-        한 클럽
-      </T>
-      <Ball x={152} y={120} ghost />
-      <No x={136} y={120} />
-      <T x={136} y={150} c={C.bad}>
-        먼 쪽으로
-      </T>
-      <T x={136} y={164} c={C.bad}>
-        빼면 안 돼요
-      </T>
-    </Fig>
-  );
-}
-
 /** 공이 움직였을 때: 바람 · 나 · 다른 공 세 칸 */
 function BallMoved() {
   const cols = [53, 160, 267];
@@ -1204,32 +1065,6 @@ function WrongGreen() {
   );
 }
 
-function Drop() {
-  return (
-    <Fig label="드롭은 무릎 높이에서 똑바로 떨어뜨린다">
-      <SideBg ground={168} />
-      <DropGolfer />
-      <Line from={{ x: 40, y: 131 }} to={{ x: 304, y: 131 }} c={C.blue} dash="5 4" w={1.5} />
-      <T x={304} y={124} a="end" c={C.blue}>
-        무릎 높이
-      </T>
-      <Ball x={150} y={130} r={4.6} />
-      <DropHand />
-      <Line from={{ x: 150, y: 139 }} to={{ x: 150, y: 161 }} c={C.blue} arrow />
-      <Ok x={169} y={150} />
-      <Line from={{ x: 160, y: 64 }} to={{ x: 304, y: 64 }} c="#9ca3af" dash="3 4" w={1.2} />
-      <Ball x={226} y={64} ghost />
-      <No x={244} y={64} />
-      <T x={304} y={88} a="end" c={C.bad}>
-        어깨 높이는
-      </T>
-      <T x={304} y={102} a="end" c={C.bad}>
-        예전 방식
-      </T>
-    </Fig>
-  );
-}
-
 /** 옆에서 본 벙커 한 칸 (x 부터 너비 150) */
 function SandScene({ x, touch }: { x: number; touch: boolean }) {
   const bx = x + 96;
@@ -1463,9 +1298,9 @@ export const FIGURES: Record<string, () => ReactNode> = {
   "pa-yellow": PaYellow,
   "pa-red": PaRed,
   unplayable: Unplayable,
-  "cart-path": CartPath,
+  "cart-path": CartPathIllust,
   "wrong-green": WrongGreen,
-  drop: Drop,
+  drop: DropIllust,
   "bunker-sand": BunkerSand,
   "bunker-unplayable": BunkerUnplayable,
   flagstick: Flagstick,
