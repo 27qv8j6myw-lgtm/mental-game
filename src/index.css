@@ -1269,12 +1269,14 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   margin: 0;
   padding: 6px 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
+/* 막대 버튼은 46pt 로 조금 촘촘하게: 노래·실시간 현황이 뜨면 위쪽 시계 칸이 220pt 넘게 내려와서
+   그 아래 + · 알림 캡슐 자리를 남긴다 (접힘·펼침 모두) */
 :root[data-rail="right"] .tabbar button {
   flex: none;
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
 }
 /* 아래 탭 자리가 필요 없으니 탭이 있는 화면은 본문 아래 여백을 줄인다 */
 :root[data-rail="right"] body:has(.tabbar) .sheet:not(.with-actionbar) {
@@ -1661,7 +1663,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
@@ -1672,9 +1674,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
     0 1px 3px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
+/* 앱이 넘긴 시계 칸 높이가 바뀌면(노래·실시간 현황) 캡슐이 부드럽게 따라 움직인다 (rail.ts) */
+:root[data-rail-moves] .rail-actions {
+  transition: bottom 0.3s ease;
+}
 .rail-actions .icon-btn {
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
   color: var(--ink);
 }

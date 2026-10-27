@@ -50,6 +50,8 @@ function duoSim(): boolean {
 
 let unfolded = false;
 let sideRail = false;
+/** 앱이 넘긴 시계 칸 높이 (CSS px). 0 이면 모른다 (1.0 앱 · 브라우저) */
+let nativeStatusH = 0;
 const listeners = new Set<() => void>();
 const root = () => document.documentElement;
 
@@ -87,7 +89,8 @@ export function watchSideRail() {
 
   // 앱이 넘긴 시계·와이파이 높이 (먼저 왔으면 window.__mgLayout 에 남아 있다)
   const applyNative = (l: NativeLayout | undefined) => {
-    if (l?.cornerH && l.side !== "left") root().style.setProperty("--native-status-h", `${Math.round(l.cornerH)}px`);
+    nativeStatusH = l?.cornerH && l.side !== "left" ? Math.round(l.cornerH) : 0;
+    if (nativeStatusH) root().style.setProperty("--native-status-h", `${nativeStatusH}px`);
     else root().style.removeProperty("--native-status-h");
   };
   window.mgLayout = (l) => {
@@ -126,21 +129,38 @@ const RAIL_ITEMS = ".tabbar, .rail-actions, .play-bar, .round-end, .round-exit";
 const RAIL_DOCK = ".tabbar, .play-bar, .round-end, .round-exit";
 
 /**
- * 막대 버튼 캡슐(+ · 알림 · 라운드 탭)은 아래 탭(라운드는 아래 버튼 줄) 바로 위에 붙인다 (index.css .rail-actions).
- * 노래를 틀거나 실시간 현황이 뜨면 막대 위쪽 시계 칸이 길어져서, 시계 바로 아래에 두면 가려진다
+ * 막대 버튼 캡슐(+ · 알림 · 라운드 탭) 자리 (index.css .rail-actions 의 bottom).
+ * 노래를 틀거나 실시간 현황이 뜨면 막대 위쪽 시계 칸이 길어진다.
+ * - 앱(빌드 4~)이 시계 칸 높이를 넘기면: 시계 바로 아래. 길어지면 따라 내려가고, 아래 탭(라운드는 아래 버튼 줄) 위에서 멈춘다
+ * - 모르면(1.0 앱 · 브라우저): 길어져도 가려지지 않게 아래 탭 바로 위
  */
 function placeRailActions() {
-  let top = Infinity;
+  let dockTop = Infinity;
   if (sideRail)
     document.querySelectorAll<HTMLElement>(RAIL_DOCK).forEach((el) => {
       const r = el.getBoundingClientRect();
-      if (r.width && r.height) top = Math.min(top, r.top);
+      if (r.width && r.height) dockTop = Math.min(dockTop, r.top);
     });
-  const next = top === Infinity ? "" : `${Math.round(window.innerHeight - top + 12)}px`;
-  if (root().style.getPropertyValue("--rail-actions-bottom") === next) return;
-  if (next) root().style.setProperty("--rail-actions-bottom", next);
-  else root().style.removeProperty("--rail-actions-bottom");
+  const h = window.innerHeight;
+  // 가장 낮은 자리: 아래 탭 바로 위 (탭이 없는 화면은 CSS 기본값 --float-bottom)
+  let bottom = dockTop === Infinity ? 0 : h - dockTop + 10;
+  const cap = sideRail && nativeStatusH ? document.querySelector<HTMLElement>(".rail-actions") : null;
+  if (cap) {
+    const underClock = h - (nativeStatusH + 12) - cap.offsetHeight;
+    bottom = Math.max(bottom, underClock);
+  }
+  const next = bottom ? `${Math.round(bottom)}px` : "";
+  if (root().style.getPropertyValue("--rail-actions-bottom") !== next) {
+    if (next) root().style.setProperty("--rail-actions-bottom", next);
+    else root().style.removeProperty("--rail-actions-bottom");
+  }
+  // 처음 자리를 잡은 뒤부터만 움직임을 부드럽게 (화면을 열 때 아래에서 미끄러져 올라오지 않게)
+  if (sideRail && !railMoves) {
+    railMoves = true;
+    setTimeout(() => (root().dataset.railMoves = ""), 300);
+  }
 }
+let railMoves = false;
 
 /**
  * 개발용 점검: 오른쪽 막대로 삐져나간 본문 버튼·카드, 시계·와이파이와 겹친 막대 버튼.
