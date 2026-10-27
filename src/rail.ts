@@ -82,6 +82,7 @@ export function watchSideRail() {
       sideRail = rail;
       listeners.forEach((l) => l());
     }
+    placeRailActions();
   };
 
   // 앱이 넘긴 시계·와이파이 높이 (먼저 왔으면 window.__mgLayout 에 남아 있다)
@@ -96,6 +97,8 @@ export function watchSideRail() {
   applyNative(window.__mgLayout);
 
   update();
+  // 화면이 바뀌어 아래 탭·라운드 버튼 줄이 생기거나 바뀌면 막대 버튼 캡슐 자리를 다시 잡는다 (그리기 전에 불린다)
+  new MutationObserver(placeRailActions).observe(document.body, { childList: true, subtree: true });
   if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(probe);
   window.addEventListener("resize", update);
   window.addEventListener("orientationchange", update);
@@ -119,6 +122,25 @@ export function useSideRail() {
 
 /** 막대 안에 두는 것 (아래 탭 · 막대 버튼 · 라운드 아래 줄) */
 const RAIL_ITEMS = ".tabbar, .rail-actions, .play-bar, .round-end, .round-exit";
+/** 막대 아래쪽에 쌓이는 것 (아래 탭 · 라운드 아래 줄) */
+const RAIL_DOCK = ".tabbar, .play-bar, .round-end, .round-exit";
+
+/**
+ * 막대 버튼 캡슐(+ · 알림 · 라운드 탭)은 아래 탭(라운드는 아래 버튼 줄) 바로 위에 붙인다 (index.css .rail-actions).
+ * 노래를 틀거나 실시간 현황이 뜨면 막대 위쪽 시계 칸이 길어져서, 시계 바로 아래에 두면 가려진다
+ */
+function placeRailActions() {
+  let top = Infinity;
+  if (sideRail)
+    document.querySelectorAll<HTMLElement>(RAIL_DOCK).forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) top = Math.min(top, r.top);
+    });
+  const next = top === Infinity ? "" : `${Math.round(window.innerHeight - top + 12)}px`;
+  if (root().style.getPropertyValue("--rail-actions-bottom") === next) return;
+  if (next) root().style.setProperty("--rail-actions-bottom", next);
+  else root().style.removeProperty("--rail-actions-bottom");
+}
 
 /**
  * 개발용 점검: 오른쪽 막대로 삐져나간 본문 버튼·카드, 시계·와이파이와 겹친 막대 버튼.

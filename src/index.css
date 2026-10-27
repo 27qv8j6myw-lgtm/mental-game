@@ -1648,11 +1648,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .app:has(> .split-view) > .rail-title {
   display: none;
 }
-/* 위 줄의 버튼(+ · 알림 · 라운드 탭 등): 막대의 시계·와이파이 아래 유리 캡슐에 세로로 (아래 탭과 같은 모양) */
+/* 위 줄의 버튼(+ · 알림 · 라운드 탭 등): 막대 안 유리 캡슐에 세로로 (아래 탭과 같은 모양).
+   아래 탭(라운드는 아래 버튼 줄) 바로 위에 붙인다 (rail.ts 가 --rail-actions-bottom 을 잰다).
+   노래·실시간 현황이 뜨면 위쪽 시계 칸이 길어져서 시계 바로 아래에 두면 가려진다 */
 .rail-actions {
   position: fixed;
   z-index: 30;
-  top: calc(var(--status-h, 96px) + 12px);
+  bottom: var(--rail-actions-bottom, var(--float-bottom));
   right: calc((var(--safe-right) - var(--rail-w, 60px)) / 2 + var(--rail-nudge, 0px));
   width: var(--rail-w, 60px);
   padding: 6px 0;
@@ -1683,10 +1685,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   opacity: 0.35;
   pointer-events: none;
 }
-/* 알림 창: 막대 왼쪽, 버튼 높이에서 */
+/* 알림 창: 막대 왼쪽, 아래쪽이 버튼 캡슐 아래와 같은 높이 (위로 펼친다) */
 :root[data-rail="right"] .menu.notice-menu {
-  top: calc(var(--status-h, 96px) + 12px);
+  top: auto;
+  bottom: var(--rail-actions-bottom, var(--float-bottom));
   right: calc(var(--safe-right) + 6px);
+  max-height: calc(100dvh - var(--rail-actions-bottom, var(--float-bottom)) - var(--safe-top) - 16px);
+  overflow-y: auto;
 }
 /* 오프라인·저장 대기: 아래 바가 막대로 갔으니 본문 아래 가운데 */
 :root[data-rail="right"] .offline-pill.round-net {
@@ -4508,6 +4513,13 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.st-hero-end {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 .st-hero-amt {
   flex: none;

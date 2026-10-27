@@ -96,8 +96,11 @@ function PersonHero({
           {label && <span>{label}</span>}
           <b>{p.name || "?"}</b>
         </div>
-        <div className={`st-hero-amt ${tone(p.total)}`}>{money(p.total)}</div>
-        {onOpen && <Icon name="chevronRight" size={18} className="st-row-go" />}
+        {/* 좁은 카드에서 줄이 넘어가도 금액과 화살표가 같이 다음 줄 오른쪽으로 */}
+        <div className="st-hero-end">
+          <div className={`st-hero-amt ${tone(p.total)}`}>{money(p.total)}</div>
+          {onOpen && <Icon name="chevronRight" size={18} className="st-row-go" />}
+        </div>
       </div>
       <div className="st-chips">
         <span>
