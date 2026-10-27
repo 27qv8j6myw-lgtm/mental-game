@@ -14,8 +14,12 @@ final class WebController: NSObject {
     /// 한 번이라도 화면을 다 불러왔는지 (그 뒤로는 시작 로고를 다시 덮지 않는다)
     private(set) var hasLoaded = false
 
-    @ObservationIgnored let webView: WKWebView
+    @ObservationIgnored let webView: MGWebView
     @ObservationIgnored private var authSession: ASWebAuthenticationSession?
+    /// 마지막으로 웹에 보낸 화면 배치(JSON). 같으면 다시 보내지 않는다
+    @ObservationIgnored private var sentLayout: String?
+    /// 앱이 앞에 있는 동안 화면 배치를 1초마다 다시 보는 반복 작업
+    @ObservationIgnored fileprivate var layoutTicker: Task<Void, Never>?
     /// 통신이 안 돼서 기기에 남은 화면으로 열어 봤는지
     @ObservationIgnored private var triedCache = false
     @ObservationIgnored private var downloadURL: URL?
@@ -32,10 +36,15 @@ final class WebController: NSObject {
         config.allowsInlineMediaPlayback = true
         config.applicationNameForUserAgent = AppConfig.userAgentApplicationName
 
-        webView = WKWebView(frame: .zero, configuration: config)
+        webView = MGWebView(frame: .zero, configuration: config)
         super.init()
 
         contents.add(WeakMessageHandler(self), name: "mg")
+        webView.onLayout = { [weak self] in self?.pushLayout() }
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(startLayoutTicker), name: UIApplication.didBecomeActiveNotification, object: nil)
+        center.addObserver(self, selector: #selector(stopLayoutTicker), name: UIApplication.willResignActiveNotification, object: nil)
+        if UIApplication.shared.applicationState == .active { startLayoutTicker() }
         webView.navigationDelegate = self
         webView.uiDelegate = self
         // 화면 왼쪽 끝에서 밀면 웹의 뒤로가기 (열린 시트·하위 화면을 닫는다)
@@ -185,6 +194,65 @@ extension WebController {
     }
 }
 
+// MARK: - 화면 배치 → 웹: 상태 막대가 가리는 모서리, 접히는 곳 (아이폰 듀오)
+
+extension WebController {
+    /// 아이폰 듀오는 상태 막대가 옆 세로 막대에 있어 안전 영역은 위아래 전체로 잡히지만, 실제로 가리는 곳은 위 모서리뿐이다.
+    /// 그 모서리와 펼친 화면의 접히는 곳을 window.__mgLayout = {cornerW, cornerH, side, hingeX} 에 넣고 window.mgLayout 을 부른다 (src/rail.ts).
+    /// 값은 웹뷰 좌표 = CSS px (contentInsetAdjustmentBehavior = .never), 없으면 0·null. 바뀌었을 때만 보낸다
+    func pushLayout() {
+        var layout: [String: Any] = ["cornerW": 0, "cornerH": 0, "side": NSNull(), "hingeX": NSNull()]
+        if #available(iOS 27.1, *) {
+            let bounds = webView.bounds
+            // 세로 상태 막대가 있을 때만: 막대 위 모서리에서 시계·와이파이가 가리는 곳 (여백 포함, 여러 개면 합친다).
+            // 옆 가장자리에 붙은 영역만 센다 (화면 가운데 카메라·다이내믹 아일랜드는 모서리가 아니다)
+            let occluded = webView.traitCollection.verticalBarEdge == .unspecified ? [] :
+                webView.reservedRegions(kind: .occlusion).filter(\.isActive).map(\.frame)
+                    .filter { $0.maxX >= bounds.maxX - 1 || $0.minX <= bounds.minX + 1 }
+            if let first = occluded.first {
+                let corner = occluded.dropFirst().reduce(first) { $0.union($1) }
+                let right = corner.maxX >= bounds.maxX - 1
+                layout["side"] = right ? "right" : "left"
+                layout["cornerW"] = right ? bounds.maxX - corner.minX : corner.maxX - bounds.minX
+                layout["cornerH"] = corner.maxY - bounds.minY
+            }
+            // 펼친 화면의 접히는 곳
+            if let hinge = webView.reservedRegions(kind: .division).first(where: \.isActive) {
+                layout["hingeX"] = hinge.frame.midX - bounds.minX
+            }
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: layout, options: .sortedKeys),
+              let json = String(data: data, encoding: .utf8), json != sentLayout
+        else { return }
+        sentLayout = json
+        // 다음에 여는 페이지도 처음부터 알게 (src/rail.ts 는 시작할 때 window.__mgLayout 을 읽는다)
+        let contents = webView.configuration.userContentController
+        contents.removeAllUserScripts()
+        contents.addUserScript(WKUserScript(
+            source: "window.__mgLayout = \(json)", injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        webView.evaluateJavaScript("window.__mgLayout = \(json); window.mgLayout && window.mgLayout(window.__mgLayout)")
+    }
+
+    /// 노래·실시간 현황이 뜨면 시계 칸이 길어지는데 UIKit 은 알려 주지 않는다: 앱이 앞에 있는 동안 1초마다 다시 본다
+    @objc fileprivate func startLayoutTicker() {
+        pushLayout()
+        layoutTicker?.cancel()
+        layoutTicker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self else { return }
+                self.pushLayout()
+            }
+        }
+    }
+
+    @objc fileprivate func stopLayoutTicker() {
+        layoutTicker?.cancel()
+        layoutTicker = nil
+    }
+}
+
 // MARK: - 웹 → 앱 요청
 
 extension WebController: WKScriptMessageHandler {
@@ -266,6 +334,9 @@ extension WebController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         hasLoaded = true
         phase = .ready
+        // 새 페이지는 앞서 보낸 값을 모른다: 다시 보낸다
+        sentLayout = nil
+        pushLayout()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
