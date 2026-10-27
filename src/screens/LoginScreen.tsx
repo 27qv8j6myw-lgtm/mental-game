@@ -3,6 +3,7 @@ import { useAuth } from "../auth";
 import { AppleLogo, GoogleLogo, Icon, KakaoLogo, Wordmark } from "../icons";
 import { isNativeApp } from "../native";
 import { detectInApp, openExternal } from "../inapp";
+import { APP_STORE_URL, appJoinLink, isAppleMobileBrowser, peekInvite } from "../invite";
 
 export default function LoginScreen() {
   const { signIn, signInWithApple, configured, error, notice, user } = useAuth();
@@ -11,6 +12,9 @@ export default function LoginScreen() {
   const guest = !!user?.isAnonymous;
   const [inApp] = useState(() => detectInApp());
   const [openMsg, setOpenMsg] = useState<string | null>(null);
+  // 초대 링크로 들어왔으면: 앱 없이 로그인하면 바로 참여된다고 알리고, 아이폰이면 앱에서 여는 길도 보여 준다
+  const [invite] = useState(() => (native ? null : peekInvite()));
+  const [iphone] = useState(() => isAppleMobileBrowser());
 
   const goExternal = async () => {
     if (!inApp) return;
@@ -38,6 +42,23 @@ export default function LoginScreen() {
       </div>
 
       <div className="auth-actions">
+        {invite && (
+          <div className="invite-note">
+            <b>라운드 초대를 받았어요 · 코드 {invite}</b>
+            <p>앱을 설치하지 않아도 돼요. 아래에서 로그인하면 바로 참여돼요.</p>
+            {iphone && (
+              <div className="invite-app">
+                <a className="invite-app-btn" href={appJoinLink(invite)}>
+                  앱에서 열기
+                </a>
+                <a className="invite-app-btn line" href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                  앱 받기
+                </a>
+              </div>
+            )}
+            {iphone && <p className="invite-app-note">아이폰에 멘탈게임 앱이 있으면 '앱에서 열기'를 눌러요.</p>}
+          </div>
+        )}
         {/* 예전 '로그인 없이 참여하기' 세션: 로그인하면 게스트로 친 라운드가 새 계정으로 옮겨진다 */}
         {guest && (
           <div className="guest-note">

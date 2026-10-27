@@ -21,8 +21,12 @@ struct WebScreen: View {
         }
         .animation(.easeOut(duration: 0.25), value: web.phase)
         .animation(.easeOut(duration: 0.25), value: web.hasLoaded)
-        // 로그인 창 밖에서 돌아오는 로그인 주소도 받는다 (kr.mentalgame.golf://login-callback)
-        .onOpenURL { web.openLoginCallback($0) }
+        // 앱 주소로 들어온 것: 로그인 결과(kr.mentalgame.golf://login-callback) · 초대(kr.mentalgame.golf://join?join=1234)
+        .onOpenURL { web.openAppURL($0) }
+        // 초대 링크(https://…/?join=1234)를 눌러 앱이 열렸을 때 (유니버설 링크)
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            if let url = activity.webpageURL { web.openWebLink(url) }
+        }
         // 화면 맨 위 가장자리를 누르면 시스템(알림 센터 내리기)보다 웹이 먼저 받는다.
         // 위쪽에 상태 표시줄이 없는 폰(iPhone Duo)에서 위 바 버튼이 눌리지 않던 문제
         .defersSystemGestures(on: .top)

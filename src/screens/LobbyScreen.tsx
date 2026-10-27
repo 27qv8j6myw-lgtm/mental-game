@@ -139,7 +139,10 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
   const share = async () => {
     // 링크를 누르면 로그인 뒤 바로 이 라운드에 참여된다 (앱 안에서 코드를 입력해도 된다)
     const link = inviteLink(round.join_code);
-    const text = `멘탈게임 라운드에 초대해요 (${round.course_name || "골프"})\n초대 코드: ${round.join_code}`;
+    const text =
+      `멘탈게임 라운드에 초대해요 (${round.course_name || "골프"})\n` +
+      `링크를 누르면 앱 설치 없이 바로 참여할 수 있어요. 아이폰에 앱이 있으면 앱에서 열려요.\n` +
+      `초대 코드: ${round.join_code}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: "멘탈게임", text, url: link });

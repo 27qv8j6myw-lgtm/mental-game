@@ -131,6 +131,37 @@ final class WebController: NSObject {
         return url.scheme == "https"
     }
 
+    /// 앱 주소(kr.mentalgame.golf://…)로 들어온 것: 초대(…://join?join=1234)면 그 라운드로, 아니면 로그인 결과
+    func openAppURL(_ url: URL) {
+        guard url.scheme == AppConfig.callbackScheme else { return }
+        if url.host == "join" {
+            let code = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "join" })?.value ?? ""
+            openInvite(code)
+        } else {
+            openLoginCallback(url)
+        }
+    }
+
+    /// 유니버설 링크로 들어온 멘탈게임 웹 주소: 초대 링크면 그 코드로 연다 (다른 주소는 그대로 연다)
+    func openWebLink(_ url: URL) {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if let code = items.first(where: { $0.name == "join" })?.value {
+            openInvite(code)
+        } else if url.host == AppConfig.webURL.host {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
+    /// 초대 코드(숫자 4자리)로 웹 첫 화면을 연다 → 웹이 코드를 받아 로그인 뒤 그 라운드에 참여시킨다 (src/invite.ts)
+    private func openInvite(_ raw: String) {
+        let code = String(raw.filter(\.isNumber).prefix(4))
+        guard code.count == 4, var to = URLComponents(url: AppConfig.webURL, resolvingAgainstBaseURL: false) else { return }
+        to.path = "/"
+        to.queryItems = [URLQueryItem(name: "join", value: code)]
+        if let url = to.url { webView.load(URLRequest(url: url)) }
+    }
+
     /// 로그인 결과(#access_token=… 또는 ?code=…, 실패면 ?error=…)를 웹 첫 화면 주소에 붙여 연다 → 웹이 읽어 로그인
     func openLoginCallback(_ callback: URL) {
         guard callback.scheme == AppConfig.callbackScheme,

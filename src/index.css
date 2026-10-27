@@ -3411,6 +3411,56 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 
 /* 로그인: 인앱 브라우저 안내 (구글은 웹뷰 로그인을 막음) */
+/* 초대 링크로 들어온 로그인 화면: 앱 없이 바로 참여 + 아이폰이면 앱에서 열기 */
+.invite-note {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--olive-soft);
+  border: 1px solid #c7dbff;
+  text-align: left;
+}
+.invite-note b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--olive-deep);
+}
+.invite-note p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--olive-deep);
+}
+.invite-app {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.invite-app-btn {
+  flex: 1;
+  padding: 11px;
+  border-radius: 10px;
+  background: var(--olive);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+}
+.invite-app-btn.line {
+  background: var(--paper);
+  color: var(--olive-deep);
+  border: 1px solid #c7dbff;
+}
+.invite-note .invite-app-note {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.8;
+}
 .inapp-note {
   position: relative;
   z-index: 1;

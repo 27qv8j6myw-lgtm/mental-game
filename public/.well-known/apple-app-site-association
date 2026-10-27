@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["9UK5E72T2X.kr.mentalgame.golf"],
+        "components": [
+          {
+            "/": "/",
+            "?": { "join": "*" },
+            "comment": "라운드 초대 링크 (/?join=1234): 앱이 있으면 앱에서 연다"
+          }
+        ]
+      }
+    ]
+  }
+}

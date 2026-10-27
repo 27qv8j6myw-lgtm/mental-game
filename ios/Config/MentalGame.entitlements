@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 초대 링크(https://…/?join=1234)를 앱에서 연다 (유니버설 링크, 웹의 public/.well-known/apple-app-site-association) -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:mental-game-two.vercel.app</string>
+	</array>
 	<!-- Apple 로 로그인 -->
 	<key>com.apple.developer.applesignin</key>
 	<array>
