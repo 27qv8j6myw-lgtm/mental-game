@@ -76,7 +76,9 @@ export function watchSideRail() {
     if (rail) root().dataset.rail = "right";
     else if (box.height >= TOP_RAIL_MIN) root().dataset.rail = "top";
     else delete root().dataset.rail;
-    const next = rail && window.innerWidth >= UNFOLDED_MIN;
+    // 화면 폭은 <html> 폭으로 잰다: 아이폰 웹뷰의 window.innerWidth 는 접고 펼 때 실제 화면보다 늦게 바뀐다
+    const width = document.documentElement.clientWidth || window.innerWidth;
+    const next = rail && width >= UNFOLDED_MIN;
     if (next) root().dataset.unfolded = "";
     else delete root().dataset.unfolded;
     if (next !== unfolded || rail !== sideRail) {
@@ -102,7 +104,16 @@ export function watchSideRail() {
   update();
   // 화면이 바뀌어 아래 탭·라운드 버튼 줄이 생기거나 바뀌면 막대 버튼 캡슐 자리를 다시 잡는다 (그리기 전에 불린다)
   new MutationObserver(placeRailActions).observe(document.body, { childList: true, subtree: true });
-  if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(probe);
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(update).observe(probe);
+    // 접고 펼 때 앱 값(mgLayout)·resize 가 화면 폭이 바뀌기 전에 올 수 있어, 화면(<html>) 폭이 바뀐 뒤에 한 번 더 본다 (높이만 바뀔 때는 넘어간다)
+    let width = 0;
+    new ResizeObserver(([e]) => {
+      if (e.contentRect.width === width) return;
+      width = e.contentRect.width;
+      update();
+    }).observe(document.documentElement);
+  }
   window.addEventListener("resize", update);
   window.addEventListener("orientationchange", update);
   if (import.meta.env.DEV) window.__duoCheck = duoCheck;
