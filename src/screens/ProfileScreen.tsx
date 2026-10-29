@@ -74,6 +74,29 @@ export default function ProfileScreen({
   const providers = user?.providers ?? [];
   const login = providers.map((p) => PROVIDER_LABEL[p]).filter(Boolean).join(" · ");
 
+  /** 웹 링크 보내기: 안드로이드는 앱이 없어서 이 웹 주소로 쓴다. 공유 창이 없으면(PC 등) 복사 */
+  const [copied, setCopied] = useState(false);
+  const shareWeb = async () => {
+    const url = window.location.origin;
+    const text = "멘탈게임: 골프 스코어만 넣으면 정산까지 자동으로 계산해 줘요.";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "멘탈게임", text, url });
+        return;
+      }
+    } catch (e) {
+      // 공유 창에서 취소했으면 그대로 끝
+      if ((e as { name?: string } | null)?.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const head = (
     <div className="card pf-head">
       <Avatar photoUrl={user?.photoURL} fallback="user" size={64} />
@@ -120,6 +143,11 @@ export default function ProfileScreen({
           onClick={() => setSub("accounts")}
         />
         <Row icon="medal" label="랭킹 공개 범위" onClick={onRankingManage} />
+      </div>
+
+      <div className="section-title">친구에게 알리기</div>
+      <div className="card pf-group">
+        <Row icon="share" label="웹 링크 보내기" value={copied ? "복사됨!" : undefined} onClick={() => void shareWeb()} />
       </div>
 
       <div className="section-title">도움말</div>
