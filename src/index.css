@@ -8590,16 +8590,10 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   border: var(--border);
   background: var(--paper);
 }
-.rl-fig-gap {
-  height: 4px;
-  background: var(--paper);
-}
-.rl-fig svg {
+.rl-photo {
   display: block;
   width: 100%;
   height: auto;
-  font-family: var(--font);
-  letter-spacing: -0.02em;
 }
 .rl-points {
   margin: 0;

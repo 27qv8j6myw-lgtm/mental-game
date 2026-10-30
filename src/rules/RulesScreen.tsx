@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { useBack } from "../back";
 import { Icon } from "../icons";
 import TopBar, { BackButton } from "../screens/TopBar";
-import { FIGURES, FigureDefs } from "./figures";
+import { RuleFigure } from "./figures";
 import { RULES, type Rule } from "./list";
 
 /*
@@ -203,14 +203,6 @@ const PAGES: Record<string, Page> = {
     ],
     mistake: "그린에서 깃대를 맞히면 2벌타라는 건 예전 규칙이에요.",
   },
-  straddle: {
-    points: [
-      "퍼트 선(공에서 홀까지)을 양발로 걸치거나 밟고 서서 치면 안 돼요.",
-      "홀을 보고 다리 사이로 치는 크로켓식 퍼팅이 여기에 들어가요.",
-      "선 옆에 서서 치면 돼요.",
-    ],
-    mistake: "짧은 퍼트를 가랑이 사이로 툭 치는 경우가 많아요.",
-  },
   advice: {
     points: [
       "클럽 선택, 치는 방법 같은 조언을 동반자에게 물으면 안 돼요.",
@@ -221,19 +213,14 @@ const PAGES: Record<string, Page> = {
     ],
     mistake: "친선 라운드에서 가볍게 묻는 경우가 많아요. 정식 룰로는 묻는 사람, 알려 준 사람 모두 2벌타예요.",
   },
-  "double-hit": {
-    points: ["벌타 없이 1타로만 세요.", "공이 멈춘 곳에서 다음 샷을 쳐요."],
-    mistake: "예전 규칙은 1벌타였어요. 지금은 벌타가 없어요.",
-  },
 };
 
 function PenaltyTag({ rule }: { rule: Rule }) {
   return <span className={`rl-pen ${rule.penalty.tone}`}>{rule.penalty.label}</span>;
 }
 
-function RulePage({ rule, index }: { rule: Rule; index: number }) {
+function RulePage({ rule, index, near }: { rule: Rule; index: number; near: boolean }) {
   const page = PAGES[rule.id];
-  const Figure = FIGURES[rule.id];
   return (
     <article className="rl-page" aria-label={`${index + 1}. ${rule.title}`}>
       <div className="rl-meta">
@@ -242,11 +229,7 @@ function RulePage({ rule, index }: { rule: Rule; index: number }) {
       </div>
       <h2 className="rl-title">{rule.title}</h2>
       <p className="rl-lead">{rule.lead}</p>
-      {Figure && (
-        <figure className="rl-fig">
-          <Figure />
-        </figure>
-      )}
+      <RuleFigure id={rule.id} alt={`${rule.title}: ${rule.lead}`} eager={near} />
       <ul className="rl-points">
         {page.points.map((p, i) => (
           <li key={i}>{p}</li>
@@ -317,7 +300,6 @@ export default function RulesScreen({ onClose, start = 0 }: { onClose: () => voi
 
   return (
     <div className="guide-layer rl-layer" role="dialog" aria-modal="true" aria-label="자주 틀리는 골프 룰">
-      <FigureDefs />
       <div className="guide-inner rl-inner">
         <TopBar
           left={<BackButton onClick={listOpen ? () => setListOpen(false) : onClose} />}
@@ -330,7 +312,7 @@ export default function RulesScreen({ onClose, start = 0 }: { onClose: () => voi
         <div className="rl-body">
           <div className="rl-pager" ref={pager} onScroll={onScroll}>
             {RULES.map((r, i) => (
-              <RulePage key={r.id} rule={r} index={i} />
+              <RulePage key={r.id} rule={r} index={i} near={Math.abs(i - index) <= 1} />
             ))}
           </div>
           {listOpen && (

@@ -181,28 +181,12 @@ export const RULES: Rule[] = [
     ref: "13.2a",
   },
   {
-    id: "straddle",
-    title: "가랑이 퍼팅",
-    short: "퍼트 선을 가랑이에 두면 2벌타",
-    lead: "퍼트 선을 가랑이 사이에 두고 치면 2벌타예요.",
-    penalty: { label: "2벌타", tone: "two" },
-    ref: "10.1c",
-  },
-  {
     id: "advice",
     title: "클럽 묻기",
     short: "\"몇 번 쳤어요?\" 묻기만 해도 2벌타",
     lead: "\"몇 번 쳤어요?\"라고 묻기만 해도 2벌타예요.",
     penalty: { label: "2벌타", tone: "two" },
     ref: "10.2a",
-  },
-  {
-    id: "double-hit",
-    title: "두 번 맞음",
-    short: "한 스윙에 두 번 맞아도 1타",
-    lead: "한 번 스윙에 공이 두 번 맞아도 1타예요.",
-    penalty: { label: "벌타 없음", tone: "free" },
-    ref: "10.1a",
   },
 ];
 
