@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { caddieRanks, caddieResult, caddieSummary, type CaddieResult } from "../caddie";
-import { pointsConfig, rankResult, rankScoreText, rankSummary, type RankResult } from "../rankGame";
+import { pointsConfig, rankHandicapPoints, rankResult, rankScoreText, rankSummary, type RankResult } from "../rankGame";
 import { holeBreakdowns, skinsResult } from "../betting";
 import { adjLabel, HANDICAP_MODE_LABEL, PAYMENT_LABEL, relLabel, won, wonSigned } from "../util";
 import { Avatar } from "../icons";
@@ -150,6 +150,8 @@ export default function SideGameResults({
   // ---- 등수 내기 ----
   const r = rankResult(config, holes);
   const method = r.rules.method;
+  /** 순위 줄에 핸디를 보여 주는지: 핸디 타수, 그리고 핸디 포인트가 있는 타당 포인트 */
+  const showHc = method === "net" || (method === "points" && config.handicapMode !== "adjust");
   const me = myUid ? r.order.find((x) => x.id === myUid) : null;
   const isTransfer = config.payment === "transfer";
   const mine = me ? r.transfers.filter((t) => t.fromId === me.id || t.toId === me.id) : [];
@@ -207,11 +209,11 @@ export default function SideGameResults({
                 {/* 금액이 없으면 점수는 오른쪽에만 */}
                 <small className="sg-sub">
                   {r.rules.prize !== "none" && rankScoreText(method, row.score)}
-                  {method === "net" &&
+                  {showHc &&
                     `${r.rules.prize !== "none" ? " · " : ""}${
                       config.handicapMode === "adjust" ? adjLabel(p.strokeAdj ?? 0) : `핸디 ${p.handicap}`
                     }`}
-                  {r.rules.prize === "none" && method !== "net"
+                  {r.rules.prize === "none" && !showHc
                     ? grossText(holes, row.id).replace(/^ · /, "")
                     : grossText(holes, row.id)}
                 </small>
@@ -229,9 +231,10 @@ export default function SideGameResults({
       </div>
       <p className="hint" style={{ margin: "8px 2px 0" }}>
         {method === "points"
-          ? r.rules.multipliers
-            ? "두 명씩 타수 차이를 포인트로 쌓았어요 (배판·이월·버디 추가 포함)."
-            : "두 명씩 타수 차이만 포인트로 쌓았어요 (배판 없음)."
+          ? (r.rules.multipliers
+              ? "두 명씩 타수 차이를 포인트로 쌓았어요 (배판·이월·버디 추가 포함)."
+              : "두 명씩 타수 차이만 포인트로 쌓았어요 (배판 없음).") +
+            (config.handicapMode === "adjust" ? "" : " 핸디 차이도 두 명씩 포인트로 넣었어요 (핸디가 높은 사람이 받아요).")
           : method === "net"
           ? config.handicapMode === "adjust"
             ? "파4·파5 홀마다 잡아준 타수를 빼고(파까지만) 더한 타수예요 (파 대비)."
@@ -313,6 +316,8 @@ function HoleLog({ config, holes }: { config: GameConfig; holes: HoleScore[] }) 
     );
   }
   const bd = holeBreakdowns(pointsConfig(config), holes);
+  const hc = rankHandicapPoints(config);
+  const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`);
   return (
     <>
       <div className="section-title" style={{ marginTop: 20 }}>
@@ -329,6 +334,17 @@ function HoleLog({ config, holes }: { config: GameConfig; holes: HoleScore[] }) 
             </tr>
           </thead>
           <tbody>
+            {/* 평균 타수·최저핸디 대비: 핸디 포인트는 홀과 따로 처음부터 */}
+            {hc && (
+              <tr>
+                <td>핸디</td>
+                {config.players.map((p) => (
+                  <td key={p.id} className={tone(hc[p.id] ?? 0)}>
+                    {signed(hc[p.id] ?? 0)}
+                  </td>
+                ))}
+              </tr>
+            )}
             {bd.map((b, i) => (
               <tr key={i} className={b.multiplier > 1 ? "bae" : ""}>
                 <td>
@@ -339,7 +355,7 @@ function HoleLog({ config, holes }: { config: GameConfig; holes: HoleScore[] }) 
                   const v = holes[i].scores[p.id] == null ? null : b.game[p.id] + (r.multipliers ? b.birdie[p.id] : 0);
                   return (
                     <td key={p.id} className={v == null ? "" : tone(v)}>
-                      {v == null ? "–" : v > 0 ? `+${v}` : v}
+                      {v == null ? "–" : signed(v)}
                     </td>
                   );
                 })}

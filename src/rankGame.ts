@@ -1,10 +1,11 @@
-import { birdieNet, gameNet, judgedScore, settleNet, skinsResult, splitThousands } from "./betting";
+import { birdieNet, gameNet, handicapNet, judgedScore, settleNet, skinsResult, splitThousands } from "./betting";
 import { DEFAULT_RANK_RULES, HANDICAP_MODE_LABEL, RANK_METHOD_LABEL } from "./util";
 import type { GameConfig, HandicapMode, HoleScore, RankRules, Transfer } from "./types";
 
 /*
  * 등수 내기: 홀마다 돈이 오가지 않고 점수로 등수만 정한다. 같은 점수는 같은 등수.
  * - points: 타당처럼 두 명씩 타수 차를 포인트로 (unit 1). 배판을 끄면 조건·이월·버디 추가 없이 타수 차만
+ *   핸디도 타당과 같다: 타수 보정은 홀 판정에, 평균 타수·최저핸디 대비는 두 명씩 핸디 차를 포인트로 (처음부터 더함)
  * - net: 핸디를 반영한 타수 (파 대비). 핸디 방식은 셋 중 하나
  *   · 평균 타수 / 최저핸디 대비: 친 홀 타수 − 핸디 (18홀 기준, 9홀이면 절반, 진행 중에는 친 홀 비율만큼)
  *   · 타수 보정: 파4·파5 홀마다 잡아준 타수를 빼고(파까지만) 더한 타수
@@ -38,12 +39,13 @@ export interface RankResult {
 
 export const rankRules = (config: GameConfig): RankRules => config.rules.rank ?? DEFAULT_RANK_RULES;
 
-/** "등수 · 타당 포인트(배판 없음) · 내는 돈" / "등수 · 핸디 타수(최저핸디 대비)". hm: 그 라운드의 핸디 방식 */
+/** "등수 · 타당 포인트(배판 없음 · 평균 타수) · 내는 돈" / "등수 · 핸디 타수(최저핸디 대비)". hm: 그 라운드의 핸디 방식 */
 export function rankSummary(r: RankRules, hm?: HandicapMode) {
-  const method =
-    RANK_METHOD_LABEL[r.method] +
-    (r.method === "points" && !r.multipliers ? "(배판 없음)" : "") +
-    (r.method === "net" && hm ? `(${HANDICAP_MODE_LABEL[hm]})` : "");
+  const notes = [
+    r.method === "points" && !r.multipliers && "배판 없음",
+    r.method !== "skins" && hm && HANDICAP_MODE_LABEL[hm],
+  ].filter(Boolean);
+  const method = RANK_METHOD_LABEL[r.method] + (notes.length ? `(${notes.join(" · ")})` : "");
   const prize = r.prize === "pay" ? " · 내는 돈" : r.prize === "exchange" ? " · 주고받는 돈" : "";
   return `등수 · ${method}${prize}`;
 }
@@ -71,6 +73,12 @@ export function pointsConfig(config: GameConfig): GameConfig {
   return { ...config, unit: 1, rules };
 }
 
+/** 포인트 방식의 핸디 포인트: 타당의 핸디캡 정산을 1포인트로 (평균 타수·최저핸디 대비만, 아니면 null) */
+export function rankHandicapPoints(config: GameConfig): Record<string, number> | null {
+  if (rankRules(config).method !== "points" || config.handicapMode === "adjust") return null;
+  return handicapNet({ ...config, unit: 1 }).net;
+}
+
 /** 9홀 라운드는 핸디 절반 */
 const effHandicap = (handicap: number, holeCount: number) => (holeCount <= 9 ? handicap / 2 : handicap);
 const round1 = (v: number) => Math.round(v * 10) / 10;
@@ -88,7 +96,8 @@ export function rankScores(config: GameConfig, holes: HoleScore[]) {
     const g = gameNet(cfg, holes).net;
     // 배판을 끄면 버디 추가 포인트도 없다
     const b = r.multipliers ? birdieNet(cfg, holes).net : {};
-    for (const p of config.players) score[p.id] = (g[p.id] ?? 0) + (b[p.id] ?? 0);
+    const hc = rankHandicapPoints(config) ?? {};
+    for (const p of config.players) score[p.id] = (g[p.id] ?? 0) + (b[p.id] ?? 0) + (hc[p.id] ?? 0);
   } else if (r.method === "net" && config.handicapMode === "adjust") {
     // 타수 보정: 홀마다 잡아준 타수를 뺀 판정 타수를 더한다
     for (const p of config.players)

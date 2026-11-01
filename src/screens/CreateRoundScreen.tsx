@@ -47,6 +47,7 @@ import {
   MaxMultiplierField,
   RankMethodField,
   RankPrizeField,
+  RANK_POINTS_HC_NOTE,
   PaymentFields,
   PlayerCountField,
   rankAmountsFor,
@@ -227,8 +228,8 @@ export default function CreateRoundScreen({
                     gameMode,
                     // 주고받는 돈만 지불 방법을 고른다
                     payment: rankPays ? payment : ("cash" as const),
-                    // 핸디 타수는 고른 핸디 방식, 포인트·스킨스는 타수 보정 (기본 0타)
-                    handicapMode: rankRules.method === "net" ? handicapMode : ("adjust" as const),
+                    // 포인트·핸디 타수는 고른 핸디 방식, 스킨스는 타수 보정 (기본 0타)
+                    handicapMode: rankRules.method === "skins" ? ("adjust" as const) : handicapMode,
                     rank: rankRules,
                     ...(rankRules.method === "skins" && { skins: skinsRules }),
                   }
@@ -477,22 +478,26 @@ export default function CreateRoundScreen({
                   <div className={`switch ${rankRules.multipliers ? "on" : ""}`} />
                 </div>
               )}
-              {rankRules.method !== "net" && (
+              {rankRules.method === "skins" && (
                 <p className="hint" style={{ marginTop: 10 }}>
                   핸디는 타수 보정이에요. 방장이 대기실에서 사람마다 잡아줄 타수를 정해요.
                 </p>
               )}
             </div>
 
-            {/* 핸디 타수: 타당과 같은 세 가지 핸디 방식 */}
-            {rankRules.method === "net" && (
+            {/* 포인트·핸디 타수: 타당과 같은 세 가지 핸디 방식 */}
+            {rankRules.method !== "skins" && (
               <>
                 <div className="section-title">
                   핸디캡 설정 방식
                   <More to="hc-modes" />
                 </div>
                 <div className="card">
-                  <HandicapModeField value={handicapMode} onChange={setHandicapMode} />
+                  <HandicapModeField
+                    value={handicapMode}
+                    onChange={setHandicapMode}
+                    note={rankRules.method === "points" ? RANK_POINTS_HC_NOTE : undefined}
+                  />
                 </div>
               </>
             )}

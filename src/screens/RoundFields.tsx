@@ -137,8 +137,19 @@ export const HANDICAP_HINT: Record<HandicapMode, string> = {
     "방장이 대기실에서 사람마다 잡아줄 타수를 정해요. 파4·파5 홀에서 0·1·2타를 빼줘요. 보기 이상일 때만 빼고 파 아래로는 안 내려가요. 핸디 금액 정산은 없어요.",
 };
 
-/** 핸디캡 설정 방식: 평균 타수 / 최저핸디 대비 / 타수 보정 */
-export function HandicapModeField({ value, onChange }: { value: HandicapMode; onChange: (v: HandicapMode) => void }) {
+/** 등수 내기 포인트에서 평균 타수·최저핸디 대비를 골랐을 때 덧붙이는 설명 */
+export const RANK_POINTS_HC_NOTE = "핸디는 타당처럼 두 명씩 핸디 차이만큼 포인트를 먼저 주고 시작해요 (핸디가 높은 사람이 받아요).";
+
+/** 핸디캡 설정 방식: 평균 타수 / 최저핸디 대비 / 타수 보정. note: 타수 보정이 아닐 때 설명 뒤에 덧붙일 문장 */
+export function HandicapModeField({
+  value,
+  onChange,
+  note,
+}: {
+  value: HandicapMode;
+  onChange: (v: HandicapMode) => void;
+  note?: string;
+}) {
   return (
     <>
       <div className="segmented">
@@ -150,6 +161,7 @@ export function HandicapModeField({ value, onChange }: { value: HandicapMode; on
       </div>
       <p className="hint" style={{ marginTop: 10 }}>
         {HANDICAP_HINT[value]}
+        {note && value !== "adjust" && ` ${note}`}
       </p>
     </>
   );

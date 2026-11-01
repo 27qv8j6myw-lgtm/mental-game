@@ -38,6 +38,7 @@ import {
   PaymentFields,
   RankMethodField,
   RankPrizeField,
+  RANK_POINTS_HC_NOTE,
   PlayerCountField,
   rankAmountsFor,
   RuleToggles,
@@ -85,9 +86,9 @@ export default function RoundSettingsSheet({
     setPlayerCountState(n);
     setRank((r) => ({ ...r, amounts: rankAmountsFor(r, Math.max(n, joined)) }));
   };
-  /** 등수 내기 핸디 타수의 핸디 방식 (포인트·스킨스는 늘 타수 보정). 대기실에서만 바꾼다 */
+  /** 등수 내기 포인트·핸디 타수의 핸디 방식 (스킨스는 늘 타수 보정). 대기실에서만 바꾼다 */
   const [rankHm, setRankHm] = useState<HandicapMode>(
-    isRank && rankInit.method === "net" ? cfg.handicapMode : "avg"
+    isRank && rankInit.method !== "skins" ? cfg.handicapMode : "avg"
   );
   const [payment, setPayment] = useState<PaymentMethod>(cfg.payment);
   const [settle, setSettle] = useState<SettleTiming>(cfg.handicapSettle);
@@ -222,7 +223,7 @@ export default function RoundSettingsSheet({
         : isRank
           ? {
               rank,
-              handicapMode: rank.method === "net" ? rankHm : "adjust",
+              handicapMode: rank.method === "skins" ? "adjust" : rankHm,
               payment: rank.prize === "exchange" ? payment : "cash",
             }
           : { gameMode, payment };
@@ -398,11 +399,15 @@ export default function RoundSettingsSheet({
                 </div>
               )}
             </div>
-            {inLobby && rank.method === "net" && (
+            {inLobby && rank.method !== "skins" && (
               <>
                 <div className="section-title">핸디캡 설정 방식</div>
                 <div className="card">
-                  <HandicapModeField value={rankHm} onChange={setRankHm} />
+                  <HandicapModeField
+                    value={rankHm}
+                    onChange={setRankHm}
+                    note={rank.method === "points" ? RANK_POINTS_HC_NOTE : undefined}
+                  />
                 </div>
               </>
             )}
