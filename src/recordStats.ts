@@ -1,7 +1,7 @@
 import { differential, ratingFor, teeSex } from "./kga";
 import { greenSpeedOf } from "./greenSpeed";
 import { weatherOf, type RoundWeather } from "./weather";
-import { playerRating, teeLie } from "./model";
+import { playerRating, teeLie, usesHoleSave } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
 import type { CourseRating, Fairway, GameMode, HoleStat, RoundListItem, TeeBox, TeeLie } from "./types";
@@ -278,12 +278,13 @@ export async function loadRecordRounds(
   const list = all ? done : done.filter((r) => r.rules.gameMode === "record" || recorded.has(r.id));
   const ids = list.map((r) => r.id);
   if (ids.length === 0) return [];
+  type ParRow = { round_id: string; hole_index: number; par: number; saved_at?: string | null };
   const [pars, scores, players] = await Promise.all([
-    fetchRows<{ round_id: string; hole_index: number; par: number }>(
-      "round_holes",
-      "round_id,hole_index,par",
-      ids
-    ),
+    // 홀 저장 칸(saved_at)이 없는 DB 면 그 칸 없이 (roundScores.ts 와 같게)
+    fetchRows<ParRow>("round_holes", "round_id,hole_index,par,saved_at", ids).catch((e) => {
+      if (e?.code !== "42703") throw e;
+      return fetchRows<ParRow>("round_holes", "round_id,hole_index,par", ids);
+    }),
     fetchRows<{ round_id: string; hole_index: number; player_uid: string; rel: number }>(
       "round_scores",
       "round_id,hole_index,player_uid,rel",
@@ -306,6 +307,9 @@ export async function loadRecordRounds(
   return list
     .map((r) => {
       const me = players.find((p) => p.round_id === r.id && p.user_uid === myUid);
+      // 홀 저장 라운드는 저장된 홀만 (저장하지 않고 끝난 홀의 스코어·기록은 정산처럼 뺀다)
+      const holeRows = pars.filter((h) => h.round_id === r.id);
+      const kept = (i: number) => !usesHoleSave(r) || holeRows.some((h) => h.hole_index === i && h.saved_at);
       return recordRound(
         {
           id: r.id,
@@ -319,9 +323,9 @@ export async function loadRecordRounds(
           greenSpeed: greenSpeedOf(r.rules),
           weather: weatherOf(r.rules),
         },
-        pars.filter((h) => h.round_id === r.id),
-        scores.filter((s) => s.round_id === r.id && s.player_uid === myUid),
-        stats.filter((s) => s.round_id === r.id && s.player_uid === myUid)
+        holeRows,
+        scores.filter((s) => s.round_id === r.id && s.player_uid === myUid && kept(s.hole_index)),
+        stats.filter((s) => s.round_id === r.id && s.player_uid === myUid && kept(s.hole_index))
       );
     })
     .filter((r) => r.summary.holesPlayed > 0)

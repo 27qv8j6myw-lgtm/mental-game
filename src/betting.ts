@@ -36,6 +36,10 @@ export function judgedScore(hole: HoleScore, p: Player): number | null {
   return rel == null ? null : adjustedRel(hole.par, rel, p.strokeAdj);
 }
 
+/** 정산에 쓰는 홀 수: 중간에 끝내며 뒤쪽 홀을 지웠으면 원래 홀 수 (지우기 전과 같게 계산한다) */
+export const plannedHoleCount = (config: Pick<GameConfig, "plannedHoles">, holes: HoleScore[]) =>
+  Math.max(holes.length, config.plannedHoles ?? 0);
+
 /** 배수 총 상한. 예전 라운드(값 없음)는 ×2, null 은 무제한 */
 export function multiplierCap(rules: BetRules): number {
   if (rules.maxMultiplier === null) return Infinity;
@@ -457,12 +461,14 @@ export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult
   const total = zero();
   let carryCount = 0;
 
+  // 뒤쪽 홀을 지운 라운드는 원래 홀 수로: 마지막 홀·후반 가중은 지운 홀에 있다
+  const planned = plannedHoleCount(config, holes);
   const out: SkinHole[] = holes.map((hole, i) => {
-    const isLast = i === holes.length - 1;
+    const isLast = i === planned - 1;
     // 이월: 2배 방식은 배수로, 기본 방식은 스킨 개수로 쌓는다
     const base = opts.carryDouble ? 1 : 1 + carryCount;
     const carryF = opts.carryDouble ? 2 ** carryCount : 1;
-    const lateF = opts.late && i >= holes.length - LATE_HOLES ? 2 : 1;
+    const lateF = opts.late && i >= planned - LATE_HOLES ? 2 : 1;
     const preReasons: string[] = [];
     if (carryCount > 0) preReasons.push(opts.carryDouble ? `이월 ×${carryF}` : `이월 +${carryCount}개`);
     if (lateF > 1) preReasons.push("후반 ×2");
@@ -542,7 +548,8 @@ export function skinsResult(config: GameConfig, holes: HoleScore[]): SkinsResult
     holes: out,
     net: total,
     transfers: settleNet(total),
-    leftover: last && last.status === "carried" ? last.stake : 0,
+    // 남은 스킨 소멸은 진짜 마지막 홀에서만 (뒤쪽 홀을 지운 라운드는 지우기 전처럼 0)
+    leftover: last && out.length === planned && last.status === "carried" ? last.stake : 0,
   };
 }
 

@@ -140,6 +140,11 @@ export interface StoredRules extends BetRules {
   teeRatings?: Partial<Record<TeeBox, CourseRating>>;
   /** 값이 없는 예전 라운드는 타당 */
   gameMode?: GameMode;
+  /**
+   * 중간에 끝내며 입력 안 된 뒤쪽 홀을 지운 라운드의 원래 홀 수 (trimholes.sql). rounds.hole_count 는 남긴 홀 수.
+   * 정산(캐디피 연습 홀·스킨스 후반·핸디 비율)은 이 홀 수로 계산한다. 지우지 않은 라운드엔 없음
+   */
+  plannedHoles?: number;
   /** 몇 인 플레이인지 (2~5, 라운드 만들 때 고른다. 등수별 금액 칸 수). 예전 라운드엔 없음 → 참여 인원 */
   playerCount?: number;
   payment?: PaymentMethod;
@@ -193,6 +198,8 @@ export interface GameConfig {
   teeRatings: Partial<Record<TeeBox, CourseRating>>;
   /** 그린스피드 (m). 넣지 않았으면 null */
   greenSpeed: number | null;
+  /** 원래 홀 수: 중간에 끝내며 뒤쪽 홀을 지웠으면 지우기 전 홀 수 (없으면 홀 수 그대로). 정산이 쓴다 */
+  plannedHoles?: number;
   /** 날씨 (받은 라운드만) */
   weather: RoundWeather | null;
 }

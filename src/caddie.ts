@@ -1,4 +1,4 @@
-import { judgedScore, splitThousands } from "./betting";
+import { judgedScore, plannedHoleCount, splitThousands } from "./betting";
 import { CADDIE_PER_HOLE } from "./util";
 import type { GameConfig, HoleScore } from "./types";
 
@@ -63,8 +63,10 @@ export function caddieSummary(fee: number, holeCount: number) {
 export function caddieResult(config: GameConfig, holes: HoleScore[], finished = false): CaddieResult {
   const { players } = config;
   const zero = () => Object.fromEntries(players.map((p) => [p.id, 0])) as Record<string, number>;
-  const counted = caddieCounted(config.rules.caddie?.fee ?? 0, holes.length);
-  const practice = holes.length - counted;
+  // 뒤쪽 홀을 지운 라운드도 원래 홀 수로 연습 홀·낼 홀을 정한다 (지운 홀 몫은 끝나고 나눠 낸다)
+  const total = plannedHoleCount(config, holes);
+  const counted = caddieCounted(config.rules.caddie?.fee ?? 0, total);
+  const practice = total - counted;
   const paid = zero();
   const restShare = zero();
   let collected = 0;

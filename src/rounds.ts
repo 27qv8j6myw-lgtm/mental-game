@@ -389,6 +389,13 @@ export async function setRoundStatus(
   if (error) throw error;
 }
 
+/** 방장: 중간에 끝낸 라운드의 입력 안 된 뒤쪽 홀을 지우고 keep 홀 라운드로 남긴다 (trimholes.sql) */
+export async function trimRoundHoles(roundId: string, keep: number): Promise<void> {
+  const db = requireDb();
+  const { error } = await db.rpc("trim_round_holes", { p_round_id: roundId, p_keep: keep });
+  if (error) throw error;
+}
+
 export async function leaveOrDeleteRound(
   roundId: string,
   userUid: string,

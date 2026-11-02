@@ -1,4 +1,13 @@
-import { birdieNet, gameNet, handicapNet, judgedScore, settleNet, skinsResult, splitThousands } from "./betting";
+import {
+  birdieNet,
+  gameNet,
+  handicapNet,
+  judgedScore,
+  plannedHoleCount,
+  settleNet,
+  skinsResult,
+  splitThousands,
+} from "./betting";
 import { DEFAULT_RANK_RULES, HANDICAP_MODE_LABEL, RANK_METHOD_LABEL } from "./util";
 import type { GameConfig, HandicapMode, HoleScore, RankRules, Transfer } from "./types";
 
@@ -103,10 +112,12 @@ export function rankScores(config: GameConfig, holes: HoleScore[]) {
     for (const p of config.players)
       score[p.id] = holes.reduce((s, h) => s + (judgedScore(h, p) ?? 0), 0);
   } else if (r.method === "net") {
+    // 뒤쪽 홀을 지운 라운드도 원래 홀 수 기준 (친 홀 비율만큼 핸디를 뺀다)
+    const total = plannedHoleCount(config, holes);
     for (const p of config.players) {
       const rel = holes.reduce((s, h) => s + (h.scores[p.id] ?? 0), 0);
-      const hc = effHandicap(p.handicap, holes.length);
-      score[p.id] = round1(rel - (holes.length ? (hc * played[p.id]) / holes.length : 0));
+      const hc = effHandicap(p.handicap, total);
+      score[p.id] = round1(rel - (total ? (hc * played[p.id]) / total : 0));
     }
   } else {
     const res = skinsResult({ ...config, unit: 1 }, holes);

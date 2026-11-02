@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import TrimHolesCard from "./TrimHoles";
 import {
   adjustedRel,
   birdieEvents,
@@ -6,6 +7,7 @@ import {
   gameNet,
   handicapNet,
   holeBreakdowns,
+  plannedHoleCount,
   skinsResult,
   totalNet,
 } from "../betting";
@@ -334,7 +336,7 @@ export default function ResultsScreen({
         <div style={{ opacity: 0.82, marginTop: 5, fontSize: 13 }}>
           {savingNow ? `저장된 ${savedCount}/${holes.length}홀 기준` : `${playedHoles}개 홀 진행`} ·{" "}
           {config.gameMode === "caddie" ? (
-            caddieSummary(config.rules.caddie?.fee ?? 0, holes.length)
+            caddieSummary(config.rules.caddie?.fee ?? 0, plannedHoleCount(config, holes))
           ) : config.gameMode === "rank" ? (
             <>
               {rankSummary(rankRules(config), config.handicapMode)}
@@ -377,6 +379,7 @@ export default function ResultsScreen({
             </button>
           </div>
         )}
+        <TrimHolesCard />
 
         <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
           <Icon name="share" size={17} />

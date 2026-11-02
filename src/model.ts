@@ -49,7 +49,39 @@ export function bundleConfig(bundle: RoundBundle): GameConfig {
     teeRatings: r.rules.teeRatings ?? {},
     greenSpeed: greenSpeedOf(r.rules),
     weather: weatherOf(r.rules),
+    plannedHoles: Math.max(r.hole_count, r.rules.plannedHoles ?? 0),
   };
+}
+
+/**
+ * 중간에 끝낸 라운드에서 지울 수 있는 뒤쪽 홀: 마지막으로 친 홀 다음부터 끝까지.
+ * 친 홀 = 홀 저장 라운드는 저장된 홀, 기록 모드·예전 라운드는 누구든 스코어를 넣은 홀.
+ * 지울 홀이 없거나 한 홀도 치지 않았으면 null
+ */
+export interface EmptyTail {
+  /** 남길 홀 수 */
+  keep: number;
+  /** 지울 홀 번호 (1부터) */
+  from: number;
+  to: number;
+  /** 홀 저장 라운드 (저장 안 된 홀) / 기록 모드·예전 라운드 (입력 안 된 홀) */
+  holeSave: boolean;
+}
+
+/** "14~18번" / "18번" */
+export const tailRange = (t: EmptyTail) => (t.from === t.to ? `${t.to}번` : `${t.from}~${t.to}번`);
+/** "저장 안 된" / "입력 안 된" */
+export const tailWord = (t: EmptyTail) => (t.holeSave ? "저장 안 된" : "입력 안 된");
+
+export function emptyTail(bundle: RoundBundle): EmptyTail | null {
+  const count = bundle.round.hole_count;
+  const holeSave = usesHoleSave(bundle.round);
+  const played = holeSave
+    ? bundle.holes.filter((h) => h.saved_at).map((h) => h.hole_index)
+    : bundle.scores.map((s) => s.hole_index);
+  const keep = played.reduce((m, i) => Math.max(m, i + 1), 0);
+  if (keep < 1 || keep >= count) return null;
+  return { keep, from: keep + 1, to: count, holeSave };
 }
 
 /**

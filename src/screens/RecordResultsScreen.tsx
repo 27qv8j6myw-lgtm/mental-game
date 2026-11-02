@@ -1,5 +1,6 @@
 import { playerRating } from "../model";
 import { useMemo, useState } from "react";
+import TrimHolesCard from "./TrimHoles";
 import { useRound } from "../round";
 import { EMPTY_STAT, halfHoles, loadRecordRounds, summarize, type HoleRecord } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
@@ -175,6 +176,7 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
             </button>
           </div>
         )}
+        <TrimHolesCard />
         {players.length > 1 && (
           <>
             <div className="section-title">타수 순위</div>

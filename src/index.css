@@ -3233,6 +3233,48 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   text-align: center;
 }
 
+/* 종료된 라운드(방장): 입력 안 된 뒤쪽 홀 지우기 */
+.trim-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.trim-card .trim-t {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.trim-card .hint {
+  margin: 0;
+}
+.trim-card .trim-err {
+  color: var(--loss);
+  font-weight: 600;
+}
+.trim-actions {
+  display: flex;
+  gap: 8px;
+}
+.trim-card button {
+  flex: 1;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.trim-card button.trim-go {
+  border-color: var(--loss);
+  background: var(--loss);
+  color: #fff;
+}
+.trim-card button:disabled {
+  opacity: 0.6;
+}
+
 /* 정산: 방장 수정 버튼 / 설정 시트 */
 .host-edit {
   display: flex;
@@ -7171,6 +7213,12 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 }
 .fin-box .btn-primary {
   margin-top: 6px;
+}
+.fin-box .fin-trim {
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--line);
+  border-bottom: none;
+  cursor: pointer;
 }
 
 /* 이름(실명) 정하기 팝업 */

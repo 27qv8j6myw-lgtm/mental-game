@@ -25,6 +25,7 @@ export interface RoundScoreLine {
   live: boolean;
   /** 가장 많이 친 사람 기준 친 홀 수 */
   played: number;
+  /** 라운드 홀 수. 중간에 끝내며 뒤쪽 홀을 지웠으면 원래 홀 수 (목록에 "(13홀)"로 보이게) */
   holeCount: number;
 }
 
@@ -59,7 +60,12 @@ export function scoreLine(
     if (played < holes.length) unfinished = true;
     players[p.user_uid] = { strokes: par + rel, toPar: rel, played };
   }
-  return { players, live: r.status !== "done" && unfinished, played: maxPlayed, holeCount: holes.length };
+  return {
+    players,
+    live: r.status !== "done" && unfinished,
+    played: maxPlayed,
+    holeCount: Math.max(holes.length, r.rules.plannedHoles ?? 0),
+  };
 }
 
 /** 라운드들의 타수를 받아 계산한다 (대기 중 라운드는 칠 홀이 없어 뺀다) */

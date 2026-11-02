@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { caddieRanks, caddieResult, caddieSummary, type CaddieResult } from "../caddie";
 import { pointsConfig, rankHandicapPoints, rankResult, rankScoreText, rankSummary, type RankResult } from "../rankGame";
-import { holeBreakdowns, skinsResult } from "../betting";
+import { holeBreakdowns, plannedHoleCount, skinsResult } from "../betting";
 import { adjLabel, HANDICAP_MODE_LABEL, PAYMENT_LABEL, relLabel, won, wonSigned } from "../util";
 import { Avatar } from "../icons";
 import type { GameConfig, HoleScore, Player, Transfer } from "../types";
@@ -391,7 +391,7 @@ export function sideSettlement(
     const order = [...config.players].sort((a, b) => cd.paid[a.id] - cd.paid[b.id]);
     return {
       title: savingNow ? "중간 캐디피" : "캐디피 정산",
-      chips: [savedLabel, caddieSummary(config.rules.caddie?.fee ?? 0, holes.length), "타수 보정"],
+      chips: [savedLabel, caddieSummary(config.rules.caddie?.fee ?? 0, plannedHoleCount(config, holes)), "타수 보정"],
       listTitle: "사람별 낸 캐디피",
       transfersTitle: `캐디피 ${won(cd.target)}`,
       players: order.map((p) => ({

@@ -32,6 +32,7 @@ import {
   updateOfflinePlayer as apiUpdateOfflinePlayer,
   leaveOrDeleteRound,
   setRoundStatus,
+  trimRoundHoles,
   subscribeRound,
   updateMyPlayer,
   updateRound as apiUpdateRound,
@@ -80,7 +81,10 @@ interface RoundCtx {
   /** 방장 전용: 규칙·핸디 정산 시점·기준 인원·핸디 수정 */
   updateRound: (patch: RoundPatch) => Promise<void>;
   start: () => Promise<void>;
-  finish: () => Promise<void>;
+  /** 방장: 라운드 종료. keep 이 있으면 입력 안 된 뒤쪽 홀을 먼저 지우고 keep 홀 라운드로 끝낸다 */
+  finish: (keep?: number) => Promise<void>;
+  /** 방장(종료 후): 입력 안 된 뒤쪽 홀을 지우고 keep 홀 라운드로 남긴다 */
+  trimHoles: (keep: number) => Promise<void>;
   /** 방장(대기실): 참여자 내보내기 */
   kickPlayer: (userUid: string) => Promise<void>;
   /** 방장(대기실): 폰 없는 동반자 넣기 */
@@ -497,7 +501,8 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     return {
       config,
       holes,
-      currentHole,
+      // 방장이 뒤쪽 홀을 지우면(trimholes.sql) 보던 홀이 없어질 수 있다: 남은 마지막 홀로
+      currentHole: Math.min(currentHole, Math.max(0, holes.length - 1)),
       goHole: (i) =>
         setCurrentHole(Math.max(0, Math.min((bundle?.round.hole_count ?? 18) - 1, i))),
       setPar,
@@ -536,11 +541,24 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [activeRoundId, refresh]);
 
-  const finish = useCallback(async () => {
-    if (!activeRoundId) return;
-    await setRoundStatus(activeRoundId, "done");
-    await refresh();
-  }, [activeRoundId, refresh]);
+  const finish = useCallback(
+    async (keep?: number) => {
+      if (!activeRoundId) return;
+      if (keep) await trimRoundHoles(activeRoundId, keep);
+      await setRoundStatus(activeRoundId, "done");
+      await refresh();
+    },
+    [activeRoundId, refresh]
+  );
+
+  const trimHoles = useCallback(
+    async (keep: number) => {
+      if (!activeRoundId) return;
+      await trimRoundHoles(activeRoundId, keep);
+      await refresh();
+    },
+    [activeRoundId, refresh]
+  );
 
   // 대기실: 실시간 연결이 끊겨도 참여자·시작을 놓치지 않게 몇 초마다 다시 불러온다
   // (내보내진 사람은 실시간 알림을 못 받으므로 이것으로 알아챈다)
@@ -613,6 +631,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     updateRound,
     start,
     finish,
+    trimHoles,
     leave,
     kickPlayer,
     addOfflinePlayer,

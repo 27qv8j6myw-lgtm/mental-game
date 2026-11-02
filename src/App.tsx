@@ -25,6 +25,7 @@ import { useOnline } from "./online";
 import { useUnfolded } from "./rail";
 import { onNoticePage, type NoticePage } from "./notices";
 import { loadDraft } from "./drafts";
+import { emptyTail } from "./model";
 import type { Session } from "./types";
 
 export default function App() {
@@ -251,11 +252,11 @@ function RoundPlay({ session }: { session: Session }) {
   /** 방장: 최종 확정 (확정하면 방장만 고칠 수 있다) */
   const finishing = useRef(false);
   /** 종료(확정)를 보낸다. 통신 실패면 알려 주고 다시 누를 수 있게 둔다 */
-  const doFinish = async () => {
+  const doFinish = async (keep?: number) => {
     if (finishing.current) return;
     finishing.current = true;
     try {
-      await round.finish();
+      await round.finish(keep);
     } catch (e) {
       console.error(e);
       session.setNotice(
@@ -375,12 +376,13 @@ function RoundPlay({ session }: { session: Session }) {
       {confirming && (
         <FinishDialog
           pars={session.holes.map((h) => h.par)}
+          tail={round.bundle ? emptyTail(round.bundle) : null}
           notes={finishNotes}
           warn={draft ? `${draft.hole + 1}번 홀에 저장하지 않은 입력이 있어요. 종료 전에 저장해 주세요.` : null}
           confirmLabel={isRecord ? "종료" : "확정"}
-          onConfirm={() => {
+          onConfirm={(keep) => {
             setConfirming(false);
-            void doFinish();
+            void doFinish(keep);
           }}
           onClose={() => setConfirming(false)}
         />

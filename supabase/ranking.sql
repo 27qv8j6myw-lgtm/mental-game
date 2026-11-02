@@ -204,7 +204,10 @@ as $$
     select
       r.id, r.date, r.created_at, r.course_name, r.course_tee, r.hole_count, r.rules, rp.gender,
       -- 사람별 티 (lobby.sql 의 tee 칸. 칸이 없는 DB 에서도 돌게 행 전체에서 꺼낸다)
-      to_jsonb(rp) ->> 'tee' as ptee
+      to_jsonb(rp) ->> 'tee' as ptee,
+      -- 홀 저장 라운드는 저장된 홀만 (저장하지 않고 끝난 홀의 스코어·기록은 앱 정산처럼 뺀다)
+      (coalesce(r.rules ->> 'gameMode', 'stroke') <> 'record'
+        and coalesce(r.rules ->> 'holeSave', '') = 'true') as hole_save
     from public.rounds r
     join public.round_players rp
       on rp.round_id = r.id and rp.user_uid = p_uid and not rp.offline_player
@@ -239,13 +242,21 @@ as $$
     'scores', coalesce((
       select jsonb_agg(jsonb_build_object('round_id', s.round_id, 'hole_index', s.hole_index, 'rel', s.rel))
       from public.round_scores s
-      where s.round_id in (select id from mine) and s.player_uid = p_uid), '[]'::jsonb),
+      join mine m on m.id = s.round_id
+      where s.player_uid = p_uid
+        and (not m.hole_save or exists (
+          select 1 from public.round_holes h
+          where h.round_id = s.round_id and h.hole_index = s.hole_index and h.saved_at is not null))), '[]'::jsonb),
     'stats', coalesce((
       select jsonb_agg(jsonb_build_object(
         'round_id', st.round_id, 'hole_index', st.hole_index, 'putts', st.putts,
         'fairway', st.fairway, 'lie', st.lie, 'ob', st.ob, 'hazard', st.hazard, 'sand', st.sand))
       from public.round_hole_stats st
-      where st.round_id in (select id from mine) and st.player_uid = p_uid), '[]'::jsonb)
+      join mine m on m.id = st.round_id
+      where st.player_uid = p_uid
+        and (not m.hole_save or exists (
+          select 1 from public.round_holes h
+          where h.round_id = st.round_id and h.hole_index = st.hole_index and h.saved_at is not null))), '[]'::jsonb)
   )
   where auth.uid() is not null;
 $$;
