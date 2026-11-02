@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRound } from "../round";
-import { inviteLink } from "../invite";
+import { inviteMessage } from "../invite";
 import { useAuth } from "../auth";
 import { handicapNet } from "../betting";
 import { Avatar, Icon } from "../icons";
@@ -136,16 +136,29 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
   const me = bundle.players.find((p) => p.user_uid === myUid);
   const nameOf = (id: string) => players.find((p) => p.id === id)!;
 
+  /** 게임 방식 한 줄 (아래 초대 코드 카드와 같은 내용) */
+  const gameText = isRecord
+    ? "기록 모드 (내기 없음)"
+    : gameMode === "caddie"
+    ? caddieSummary(round.rules.caddie?.fee ?? 0, round.hole_count)
+    : rank
+    ? `${rankSummary(rank, hm)}${rank.prize === "exchange" ? ` · ${PAYMENT_LABEL[pay]}` : ""}`
+    : `${gameMode === "skins" ? "스킨스 · 스킨 1개 " : "타당 "}${round.unit.toLocaleString()}원 · ${PAYMENT_LABEL[pay]}`;
+
   const share = async () => {
-    // 링크를 누르면 로그인 뒤 바로 이 라운드에 참여된다 (앱 안에서 코드를 입력해도 된다)
-    const link = inviteLink(round.join_code);
-    const text =
-      `멘탈게임 라운드에 초대해요 (${round.course_name || "골프"})\n` +
-      `링크를 누르면 앱 설치 없이 바로 참여할 수 있어요. 아이폰에 앱이 있으면 앱에서 열려요.\n` +
-      `초대 코드: ${round.join_code}`;
+    // 링크를 누르면 로그인 뒤 바로 이 라운드에 참여된다 (앱 안에서 코드를 입력해도 된다).
+    // 링크는 글 안에 넣는다 (url 을 따로 주면 공유받는 앱이 링크를 앞뒤에 붙여 문단이 흐트러진다)
+    const text = inviteMessage({
+      code: round.join_code,
+      course: round.course_name,
+      date: round.date,
+      teeTime: round.tee_time,
+      holes: round.hole_count,
+      game: gameText,
+    });
     try {
       if (navigator.share) {
-        await navigator.share({ title: "멘탈게임", text, url: link });
+        await navigator.share({ title: "멘탈게임", text });
         return;
       }
     } catch (e) {
@@ -153,7 +166,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
       if ((e as { name?: string } | null)?.name === "AbortError") return;
     }
     try {
-      await navigator.clipboard.writeText(`${text}\n${link}`);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
