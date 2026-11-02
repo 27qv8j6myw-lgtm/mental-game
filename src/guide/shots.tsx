@@ -76,16 +76,18 @@ export function ShotRoundItem() {
 export function ShotCode() {
   return (
     <div className="code-card gd-mb0">
-      <div className="cc-label">초대 코드</div>
-      <div className="cc-code">4827</div>
-      <div className="cc-actions">
-        <button className="btn-line" {...btn}>
-          <Icon name="share" size={15} className="inline-ic" />
-          코드 공유하기
-        </button>
-        <button className="btn-line" {...btn}>
-          설정 수정
-        </button>
+      <div className="cc-codebox">
+        <div className="cc-label">초대 코드</div>
+        <div className="cc-code">4827</div>
+        <div className="cc-actions">
+          <button className="btn-line" {...btn}>
+            <Icon name="share" size={14} className="inline-ic" />
+            코드 공유
+          </button>
+          <button className="btn-line" {...btn}>
+            수정
+          </button>
+        </div>
       </div>
       <div className="cc-course">베어크리크 춘천</div>
       <div className="cc-meta">2026-10-25 · 07:30 · 18홀 · 화이트 티 · 타당 1,000원 · 계좌이체</div>

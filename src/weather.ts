@@ -123,6 +123,69 @@ export async function captureWeather(roundId: string, slot: WeatherSlot, at: Coo
   return data === true;
 }
 
+/** 대기실 예보 한 시간 (api/weather.ts 와 같다) */
+export interface ForecastHour {
+  /** 골프장 현지 시각 "2026-11-02T07:00" */
+  time: string;
+  temp: number;
+  humidity: number | null;
+  uv: number | null;
+  /** WMO 날씨 코드 */
+  code: number;
+  isDay: boolean;
+  precip: number | null;
+}
+
+const FORECAST_KEY = "mentalgame-forecast";
+/** 같은 골프장·시간 예보는 이 시간 동안 다시 받지 않는다 */
+const FORECAST_TTL = 60 * 60_000;
+type ForecastCache = Record<string, { at: number; hours: ForecastHour[] }>;
+
+function readForecasts(): ForecastCache {
+  try {
+    return (JSON.parse(localStorage.getItem(FORECAST_KEY) ?? "null") as ForecastCache | null) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * 대기실 예보: 티오프(골프장 현지 시각) 정시부터 5시간 (api/weather: 골프장 좌표·해외는 Open-Meteo,
+ * 국내 폰 위치는 기상청 단기예보). 한 시간 동안은 기기에 보관한 것을 쓴다 (위치는 보관하지 않고 cacheKey 로만).
+ * 받지 못했거나 예보 기간 밖이면 []
+ */
+export async function roundForecast(
+  at: Coords,
+  src: "course" | "device",
+  date: string,
+  time: string,
+  cacheKey: string
+): Promise<ForecastHour[]> {
+  const c = coarse(at);
+  const key = `${cacheKey}|${src}|${date}|${time}`;
+  const cache = readForecasts();
+  const hit = cache[key];
+  if (hit && Date.now() - hit.at < FORECAST_TTL) return hit.hours;
+  if (!supabase || (typeof navigator !== "undefined" && !navigator.onLine)) return hit?.hours ?? [];
+  const token = (await supabase.auth.getSession()).data.session?.access_token;
+  const res = await fetch(apiUrl("weather"), {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(token && { authorization: `Bearer ${token}` }) },
+    body: JSON.stringify({ lat: c.lat, lon: c.lon, date, time, src }),
+  });
+  if (!res.ok) return hit?.hours ?? [];
+  const hours = ((await res.json()) as { hours?: ForecastHour[] }).hours ?? [];
+  try {
+    // 오래된 것은 지우고 넣는다
+    const next = Object.fromEntries(Object.entries(cache).filter(([, v]) => Date.now() - v.at < FORECAST_TTL));
+    next[key] = { at: Date.now(), hours };
+    localStorage.setItem(FORECAST_KEY, JSON.stringify(next));
+  } catch {
+    /* 보관하지 못해도 화면에는 보인다 */
+  }
+  return hours;
+}
+
 /** 이번 앱 실행에서 이미 시도한 라운드 칸 (같은 홀을 여러 번 저장해도 한 번만) */
 const tried = new Set<string>();
 

@@ -16,6 +16,7 @@ import type { RoundPlayerRow, TeeBox } from "../types";
 import { playerRating } from "../model";
 import { ratingFor, teeSex } from "../kga";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
+import { ForecastSide, useRoundForecast, WeatherScene } from "./RoundWeather";
 
 const STROKE_PRESETS = [5, 10];
 
@@ -105,6 +106,8 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
     () => (session ? handicapNet(session.config) : null),
     [session]
   );
+  // 초대 코드 카드 날씨: 티오프부터 5시간 예보 (애플 날씨 같은 하늘 + 오른쪽에 기온·습도·자외선)
+  const wx = useRoundForecast(bundle?.round);
 
   if (!bundle || !session) return null;
   const round = bundle.round;
@@ -265,49 +268,45 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
 
       <div className="sheet with-actionbar">
         <h2 className="page-title">대기실</h2>
-        <div className="code-card">
-          <div className="cc-label">초대 코드</div>
-          <div className="cc-code">{round.join_code}</div>
-          <div className="cc-actions">
-            <button className="btn-line" onClick={share}>
-              <Icon name="share" size={15} className="inline-ic" />
-              {copied ? "복사됨!" : "코드 공유하기"}
-            </button>
-            {/* 시작 전에 금액·홀 수·규칙이 틀렸으면 다시 만들지 않고 고친다 */}
-            {isHost && !isRecord && session && (
-              <button className="btn-line" onClick={() => setEditing(true)}>
-                설정 수정
-              </button>
-            )}
+        <div
+          className={`code-card ${wx ? "wx-on" : ""}`}
+          data-scene={wx?.kind}
+          data-day={wx ? String(wx.isDay) : undefined}
+        >
+          {wx && <WeatherScene kind={wx.kind} isDay={wx.isDay} />}
+          <div className="cc-top">
+            {/* 코드 바로 아래 공유·수정 (시작 전에 금액·홀 수·규칙이 틀렸으면 다시 만들지 않고 고친다) */}
+            <div className="cc-codebox">
+              <div className="cc-label">초대 코드</div>
+              <div className="cc-code">{round.join_code}</div>
+              <div className="cc-actions">
+                <button className="btn-line" onClick={share}>
+                  <Icon name="share" size={14} className="inline-ic" />
+                  {copied ? "복사됨!" : "코드 공유"}
+                </button>
+                {isHost && !isRecord && session && (
+                  <button className="btn-line" onClick={() => setEditing(true)}>
+                    수정
+                  </button>
+                )}
+              </div>
+            </div>
+            {wx && <ForecastSide f={wx} />}
           </div>
-          <div className="cc-course">{round.course_name || "이름 없는 라운드"}</div>
-          {/* 날짜·시간·홀 (티는 사람마다 달라서 뺀다) / 내 티 기준 코스 난이도 / 내기 방식 */}
-          <div className="cc-meta">
-            {[round.date, round.tee_time, `${round.hole_count}홀`].filter(Boolean).join(" · ")}
+          {/* 골프장 + 내 티 기준 난이도 / 보기 플레이어 예상 / 날짜·시간·홀 (티는 사람마다 달라서 뺀다) / 내기 방식 */}
+          <div className="cc-course">
+            {round.course_name || "이름 없는 라운드"}
+            {myRating && <DifficultyChip slope={myRating.slope} />}
           </div>
           {myRating && (
             <div className="cc-meta cc-diff">
-              <DifficultyChip slope={myRating.slope} />
               <BogeyExpect cr={myRating.cr} slope={myRating.slope} par={myRating.par} />
             </div>
           )}
           <div className="cc-meta">
-            {isRecord ? (
-              "기록 모드 (내기 없음)"
-            ) : gameMode === "caddie" ? (
-              caddieSummary(round.rules.caddie?.fee ?? 0, round.hole_count)
-            ) : rank ? (
-              <>
-                {rankSummary(rank, hm)}
-                {rank.prize === "exchange" && ` · ${PAYMENT_LABEL[pay]}`}
-              </>
-            ) : (
-              <>
-                {gameMode === "skins" ? "스킨스 · 스킨 1개 " : "타당 "}
-                {round.unit.toLocaleString()}원 · {PAYMENT_LABEL[pay]}
-              </>
-            )}
+            {[round.date, round.tee_time, `${round.hole_count}홀`].filter(Boolean).join(" · ")}
           </div>
+          <div className="cc-meta">{gameText}</div>
         </div>
 
         <div className="section-title">
@@ -320,7 +319,7 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
             <div className="bp-title">등수 금액 합이 0원이 아니에요</div>
             <p className="hint" style={{ marginTop: 6 }}>
               {bundle.players.length}명 기준으로 받는 돈과 내는 돈의 합이 0원이어야 송금을 계산해요.
-              {isHost ? " 설정 수정에서 고쳐 주세요." : " 방장이 설정에서 고칠 수 있어요."}
+              {isHost ? " 초대 코드 아래 '수정'에서 고쳐 주세요." : " 방장이 설정에서 고칠 수 있어요."}
             </p>
           </div>
         )}
