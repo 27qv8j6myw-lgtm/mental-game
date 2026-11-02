@@ -127,6 +127,17 @@ export interface CourseRating {
   edition: string;
 }
 
+/** 방장이 정한 로컬룰 한 줄 (LocalRules.tsx). 보여 줄 글자(설정한 문구)를 그대로 저장한다 */
+export interface LocalRule {
+  /** 앱 목록 룰 (LocalRules.tsx LOCAL_RULE_PRESETS). 직접 쓴 룰엔 없음 */
+  id?: string;
+  title: string;
+  /** 설정한 문구 (여러 줄이면 줄바꿈) */
+  desc?: string;
+  /** 앱 목록 룰의 설정값 (대기실에서 다시 고칠 때) */
+  opt?: Record<string, string | number | boolean>;
+}
+
 /** rounds.rules(jsonb)에 저장되는 값. 지불 방법·핸디 방식도 스키마 변경 없이 함께 저장한다. */
 export interface StoredRules extends BetRules {
   /**
@@ -165,6 +176,8 @@ export interface StoredRules extends BetRules {
   greenSpeed?: number;
   /** 날씨: 첫 홀 · 끝나기 2홀 전 스코어 저장 때 받은 기온·습도 (weather.ts, record.sql set_round_weather) */
   weather?: RoundWeather;
+  /** 방장이 정한 로컬룰 (보여 주기만, 점수 계산엔 쓰지 않는다). 정하지 않은 라운드엔 없음 */
+  localRules?: LocalRule[];
 }
 
 /** '수정 완료' 한 번에 바뀐 항목들. items 는 "1번 홀 박영수: 5타(+1) → 4타(E)" 같은 문장 */

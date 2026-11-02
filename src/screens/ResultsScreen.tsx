@@ -24,7 +24,7 @@ import {
   wonSigned,
 } from "../util";
 import { Avatar, Icon } from "../icons";
-import type { HoleScore, Session, Transfer } from "../types";
+import type { HoleScore, Session, StoredRules, Transfer } from "../types";
 import RoundSettingsSheet from "./RoundSettingsSheet";
 import AccountField from "./AccountField";
 import { useRound } from "../round";
@@ -32,6 +32,7 @@ import { useAuth } from "../auth";
 import { settledHoles } from "../model";
 import ShareImageSheet from "./ShareImageSheet";
 import RoundAwards from "./Awards";
+import { LocalRulesButton } from "./LocalRules";
 import { courseTitle, renderSettlement } from "../shareImage";
 import SideGameResults, { sideSettlement } from "./SideGameResults";
 import { caddieSummary } from "../caddie";
@@ -385,6 +386,8 @@ export default function ResultsScreen({
           <Icon name="share" size={17} />
           {savingNow ? "중간 결과 이미지로 공유·저장" : isSide ? "결과 이미지로 공유·저장" : "정산 결과 이미지로 공유·저장"}
         </button>
+        {/* 로컬룰: 방장이 정했을 때만, 시상식 바로 위 (config.rules 는 rounds.rules 를 그대로 담는다) */}
+        <LocalRulesButton rules={config.rules as StoredRules} />
         {/* 시상식: 누르면 바로 아래로 펼쳐진다 (돈과 상관없는 재미 상) */}
         <RoundAwards players={config.players} holes={holes} stats={session.holeStats} midway={savingNow} />
 

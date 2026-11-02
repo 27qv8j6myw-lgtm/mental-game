@@ -6,6 +6,7 @@ import type {
   CourseRating,
   GameMode,
   HandicapMode,
+  LocalRule,
   PaymentMethod,
   RankRules,
   SettleTiming,
@@ -39,6 +40,7 @@ import { Icon } from "../icons";
 import TopBar, { BackButton } from "./TopBar";
 import { LogoHead } from "./PaneHead";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
+import { defaultLocalRules, LocalRulesField } from "./LocalRules";
 import {
   CaddieFeeField,
   GameModeField,
@@ -72,6 +74,8 @@ interface LastSetup {
   caddieFee?: number;
   /** 등수 내기 설정 (예전 기록엔 없음) */
   rankRules?: RankRules;
+  /** 체크한 로컬룰 (예전 기록엔 없음) */
+  localRules?: LocalRule[];
 }
 const SETUP_KEY = "mentalgame-last-setup";
 /** 라운드 기본 티 박스 (대기실에서 티를 고르지 않은 사람) */
@@ -132,6 +136,8 @@ export default function CreateRoundScreen({
   }));
   const [caddieFee, setCaddieFee] = useState(last?.caddieFee ?? 160000);
   const [rankRules, setRankRules] = useState<RankRules>(last?.rankRules ?? DEFAULT_RANK_RULES);
+  // 처음엔 '버디 퍼트는 OK 없음'만 체크 (지난번에 다 껐으면 그대로)
+  const [localRules, setLocalRules] = useState<LocalRule[]>(() => last?.localRules ?? defaultLocalRules());
 
   const [holeCount, setHoleCount] = useState(last?.holeCount ?? 18);
   /** 몇 인 플레이 (기본 4인): 등수별 금액 칸 수 */
@@ -243,6 +249,7 @@ export default function CreateRoundScreen({
           ...(rating && { rating }),
           ...(teeRatings && { teeRatings }),
           ...(!isRecord && { playerCount }),
+          ...(localRules.length > 0 && { localRules }),
         },
         handicapSettle: isMoney ? handicapSettle : rankPays && payment === "transfer" ? "post" : "pre",
         holeCount,
@@ -265,6 +272,7 @@ export default function CreateRoundScreen({
         rules,
         caddieFee,
         rankRules,
+        localRules,
       } satisfies LastSetup);
       const name = courseName.trim();
       writeJson(COURSES_KEY, [name, ...recentCourses.filter((c) => c !== name)].slice(0, 5));
@@ -639,6 +647,12 @@ export default function CreateRoundScreen({
             </div>
           </>
         )}
+
+        {/* 로컬룰: 보여 주기만 (대기실 카드 아래 · 결과 화면 시상식 위 '로컬룰 확인하기') */}
+        <div className="section-title">
+          로컬룰 <span className="title-opt">(선택)</span>
+        </div>
+        <LocalRulesField value={localRules} onChange={setLocalRules} />
 
         {err && (
           <div className="auth-err" style={{ color: "var(--loss)" }}>

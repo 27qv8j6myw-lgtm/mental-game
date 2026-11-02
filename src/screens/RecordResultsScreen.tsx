@@ -1,6 +1,7 @@
 import { playerRating } from "../model";
 import { useMemo, useState } from "react";
 import TrimHolesCard from "./TrimHoles";
+import { LocalRulesButton } from "./LocalRules";
 import { useRound } from "../round";
 import { EMPTY_STAT, halfHoles, loadRecordRounds, summarize, type HoleRecord } from "../recordStats";
 import { GAME_MODE_LABEL, relLabel, teeLabel } from "../util";
@@ -241,6 +242,8 @@ export default function RecordResultsScreen({ session }: { session: Session }) {
                 gross={holes.length === 18 && mine.s.holesPlayed === 18 ? mine.s.strokes : null}
               />
             </div>
+            {/* 로컬룰: 방장이 정했을 때만 (시상식이 없어 공유 버튼 바로 위) */}
+            {bundle && <LocalRulesButton rules={bundle.round.rules} />}
             {mine.s.holesPlayed > 0 && (
               <button className="btn-line wide share-btn" onClick={() => setSharing(true)}>
                 <Icon name="share" size={17} />

@@ -17,6 +17,7 @@ import { playerRating } from "../model";
 import { ratingFor, teeSex } from "../kga";
 import { BogeyExpect, DifficultyChip } from "./CourseDifficulty";
 import { ForecastSide, useRoundForecast, WeatherScene } from "./RoundWeather";
+import { LocalRulesButton } from "./LocalRules";
 
 const STROKE_PRESETS = [5, 10];
 
@@ -308,6 +309,8 @@ export default function LobbyScreen({ embedded = false }: { embedded?: boolean }
           </div>
           <div className="cc-meta">{gameText}</div>
         </div>
+        {/* 방장이 로컬룰을 정했을 때만 (없으면 버튼도 없다) */}
+        <LocalRulesButton rules={round.rules} />
 
         <div className="section-title">
           참여자 {bundle.players.length}

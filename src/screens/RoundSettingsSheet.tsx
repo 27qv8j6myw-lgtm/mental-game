@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRound } from "../round";
 import { useBack } from "../back";
 import { Avatar } from "../icons";
+import { LocalRulesField } from "./LocalRules";
 import {
   adjLabel,
   appendEditLog,
@@ -23,6 +24,7 @@ import type {
   BetRules,
   GameMode,
   HandicapMode,
+  LocalRule,
   PaymentMethod,
   RankRules,
   Session,
@@ -129,6 +131,8 @@ export default function RoundSettingsSheet({
   const [names, setNames] = useState<Record<string, string>>(() =>
     Object.fromEntries(cfg.players.map((p) => [p.id, p.name]))
   );
+  /** 대기실에서만 고친다 (시작한 뒤엔 정한 룰 그대로) */
+  const [localRules, setLocalRules] = useState<LocalRule[]>(bundle?.round.rules.localRules ?? []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -234,6 +238,7 @@ export default function RoundSettingsSheet({
           ...(usesSkins && { skins }),
           ...modeRules,
           playerCount,
+          localRules: localRules.length ? localRules : undefined,
         };
         await updateRound({
           handicap_settle: settle,
@@ -523,6 +528,15 @@ export default function RoundSettingsSheet({
             <div className="card">
               <RuleToggles rules={rules} onChange={setRules} />
             </div>
+          </>
+        )}
+
+        {inLobby && (
+          <>
+            <div className="section-title">
+              로컬룰 <span className="title-opt">(선택)</span>
+            </div>
+            <LocalRulesField value={localRules} onChange={setLocalRules} />
           </>
         )}
 

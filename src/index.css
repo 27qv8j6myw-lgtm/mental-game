@@ -10623,3 +10623,408 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   font-size: 12px;
   border-bottom-left-radius: 16px;
 }
+
+/* ============ 로컬룰 (LocalRules.tsx): 만들기·대기실 수정의 체크 목록, 대기실·결과의 '로컬룰 확인하기' ============ */
+.section-title .title-opt {
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.card.lr-card {
+  padding-top: 14px;
+  padding-bottom: 12px;
+}
+/* 꼭 따라야 하는 룰은 아니라는 안내 */
+.lr-notice {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mustard-soft);
+  color: #8a4b08;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.lr-note {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  color: var(--ink-faint);
+  line-height: 1.5;
+}
+.lr-row {
+  border-bottom: 1px solid var(--line);
+}
+.lr-main {
+  display: flex;
+  align-items: center;
+}
+.lr-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  text-align: left;
+  background: none;
+  color: inherit;
+}
+/* 둥근 체크: 켜면 파란 원 안에 흰 체크 */
+.lr-check {
+  flex: none;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--paper);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.lr-row.on > .lr-main .lr-check,
+.lr-sub.on .lr-check {
+  border-color: var(--olive);
+  background: var(--olive);
+}
+.lr-row.on > .lr-main .lr-check::after,
+.lr-sub.on .lr-check::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 3.5px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.lr-check.sm {
+  width: 18px;
+  height: 18px;
+}
+.lr-sub.on .lr-check.sm::after {
+  left: 5.5px;
+  top: 2.5px;
+  width: 4px;
+  height: 8px;
+}
+.lr-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lr-text .t {
+  font-weight: 600;
+  font-size: 14.5px;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+/* 설정한 문구 (여러 줄일 수 있다) */
+.lr-text .s {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  line-height: 1.45;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+.lr-row.on > .lr-main .lr-text .s {
+  color: var(--olive-deep);
+  font-weight: 600;
+}
+.lr-del {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--ink-faint);
+}
+/* 체크하면 펼치는 설정 칸 (글자 줄에 맞춰 들여 쓴다). '완료'로 닫으면 설정한 문구만 남는다 */
+.lr-opts {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 12px 34px;
+}
+.lr-done {
+  align-self: flex-end;
+  margin-top: 10px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--olive);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.lr-edit {
+  flex: none;
+  margin-left: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.segmented.lr-seg button {
+  padding: 8px 6px;
+  font-size: 13px;
+}
+.lr-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lr-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  word-break: keep-all;
+}
+.lr-choice.on {
+  border-color: var(--olive);
+  background: var(--olive-soft);
+  color: var(--ink);
+}
+.lr-radio {
+  flex: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--paper);
+}
+.lr-choice.on .lr-radio {
+  border-color: var(--olive);
+}
+.lr-choice.on .lr-radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--olive);
+}
+.lr-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.lr-count-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.lr-count-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.stepper.lr-stepper {
+  gap: 4px;
+}
+.stepper.lr-stepper button {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+.stepper.lr-stepper button:disabled {
+  opacity: 0.35;
+}
+.stepper.lr-stepper .hval {
+  min-width: 22px;
+  font-size: 17px;
+}
+.lr-opt-hint {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+.lr-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lr-sub {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  line-height: 1.4;
+  word-break: keep-all;
+}
+.lr-sub.on {
+  color: var(--ink);
+}
+/* 특설티 설정 맨 아래: 잠정구를 고르면 붙는 * 문구 */
+.lr-sub-note {
+  margin-top: 4px;
+  padding-left: 26px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  line-height: 1.5;
+}
+.lr-line-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 0 4px 26px;
+}
+.lr-count-field.row {
+  flex-direction: row;
+  justify-content: space-between;
+}
+.lr-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.lr-add .input {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.lr-add-btn {
+  flex: none;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  background: var(--olive);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+.lr-add-btn:disabled {
+  background: var(--line-strong);
+}
+.lr-err {
+  margin-top: 6px;
+  color: var(--loss);
+}
+/* '로컬룰 확인하기' (시상식 버튼과 같은 줄 모양) */
+.btn-line.wide.lr-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+}
+.lr-btn .lr-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 12px;
+  font-weight: 800;
+}
+/* 대기실: 초대 코드 카드 바로 아래 */
+.code-card + .lr-btn {
+  margin: -8px 0 20px;
+}
+/* 기록 결과: 기록 카드와 공유 버튼 사이 */
+.rr-sum + .lr-btn {
+  margin-top: 12px;
+}
+.lr-btn + .share-btn {
+  margin: 8px 0 24px;
+}
+/* 로컬룰 목록 팝업 */
+.alert-box.lr-box {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 18px 16px;
+  text-align: left;
+}
+.lr-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+.lr-head b {
+  font-size: 19px;
+  font-weight: 800;
+}
+.lr-head span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.lr-sub-title {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.lr-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: lr;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.lr-list li {
+  counter-increment: lr;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0 10px 32px;
+  border-bottom: 1px solid var(--line);
+}
+.lr-list li:last-child {
+  border-bottom: none;
+}
+.lr-list li::before {
+  content: counter(lr);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--olive-soft);
+  color: var(--olive-deep);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: center;
+}
+.lr-list b {
+  font-size: 14.5px;
+  font-weight: 700;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.lr-list span {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  white-space: pre-line;
+  word-break: keep-all;
+}
