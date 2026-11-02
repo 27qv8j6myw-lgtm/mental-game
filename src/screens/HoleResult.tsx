@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useBack } from "../back";
-import { holeBreakdowns, skinsResult } from "../betting";
+import { holeBreakdowns, judgedScore, skinsResult } from "../betting";
 import { caddieResult } from "../caddie";
-import { Avatar } from "../icons";
 import { settledHoles } from "../model";
 import { pointsConfig, rankResult, rankRules, rankScoreText } from "../rankGame";
 import { relLabel, won, wonSigned } from "../util";
@@ -110,10 +109,17 @@ function holeView(config: GameConfig, holes: HoleScore[], h: number): View {
   const cfg = isRank ? pointsConfig(config) : config;
   const bd = holeBreakdowns(cfg, upTo)[h];
   const withBirdie = !isRank || rank!.multipliers;
+  // 배판 조건(트리플보기·더블파)은 보정 전 실제 타수로 본다: 표에는 보정 타수가 나오니 걸린 사람의 실제 타수를 덧붙인다
+  const hole = upTo[h];
+  const raws = config.players.map((p) => hole.scores[p.id]).filter((v): v is number => v != null);
+  const worst = raws.length ? Math.max(...raws) : 0;
+  const hidden = config.players.filter((p) => hole.scores[p.id] === worst && judgedScore(hole, p) !== worst);
+  const scoreBae = bd.reasons.some((r) => r.includes("보기+") || r === "더블파");
+  const realNote = scoreBae && hidden.length ? ` (${hidden.map((p) => p.name || "?").join("·")} 실제 ${relLabel(worst)})` : "";
   const banner: View["banner"] = bd.allTie
     ? { text: bd.nextCarry && bd.nextCarry > 1 ? `전원 동타 · 다음 홀 ×${bd.nextCarry} 이월` : "전원 동타 · 정산 없음", kind: "carry" }
     : bd.multiplier > 1
-    ? { text: `×${bd.multiplier} 배판 · ${bd.reasons.join(" · ")}`, kind: "bae" }
+    ? { text: `×${bd.multiplier} 배판 · ${bd.reasons.join(" · ")}${realNote}`, kind: "bae" }
     : null;
   const birdies = withBirdie ? config.players.filter((p) => bd.birdie[p.id] > 0).map((p) => p.name || "?") : [];
   return {
@@ -155,7 +161,7 @@ export default function HoleResultPopup({
   if (!h) return null;
 
   return createPortal(
-    <div className="alert-backdrop" onClick={() => Date.now() - opened.current > 600 && onClose()}>
+    <div className="alert-backdrop hr-backdrop" onClick={() => Date.now() - opened.current > 600 && onClose()}>
       <div className="alert-box hr-box" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="hr-head">
           <b>{hole + 1}번 홀 결과</b>
@@ -171,12 +177,15 @@ export default function HoleResultPopup({
           </div>
           {config.players.map((p) => {
             const r = v.rows.find((x) => x.id === p.id)!;
-            const rel = h.scores[p.id];
+            // 타수 보정을 받는 사람은 보정된 타수(계산에 쓴 타수)로, 이름 옆에 잡아준 타수
+            const rel = judgedScore(h, p);
+            const adj = p.strokeAdj ?? 0;
             return (
               <div className="hr-row" key={p.id}>
+                {/* 한 줄에 이름 + 보정 칩 (사진은 빼서 자리를 낸다) */}
                 <span className="hr-name">
-                  <Avatar photoUrl={p.photoUrl} size={22} />
                   <b>{p.name || "?"}</b>
+                  {adj > 0 && <span className="adj-chip">{adj}타 보정</span>}
                 </span>
                 <span className={`hr-rel ${rel == null ? "" : rel < 0 ? "under" : rel > 0 ? "over" : "even"}`}>
                   {rel == null ? "–" : relLabel(rel)}

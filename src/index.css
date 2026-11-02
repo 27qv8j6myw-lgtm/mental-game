@@ -3233,13 +3233,17 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   text-align: center;
 }
 
-/* 홀 저장 → 다음 홀: 전 홀 결과 팝업 */
+/* 홀 저장 → 다음 홀: 전 홀 결과 팝업 (이름 + 보정 칩이 한 줄에 들어가게 폭을 넉넉히) */
+.alert-backdrop.hr-backdrop {
+  padding-left: calc(12px + var(--safe-left));
+  padding-right: calc(12px + var(--safe-right));
+}
 .alert-box.hr-box {
-  max-width: 360px;
+  max-width: 380px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 22px 18px 16px;
+  padding: 22px 16px 16px;
   text-align: left;
 }
 .hr-head {
@@ -3284,7 +3288,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 }
 .hr-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px 86px 92px;
+  grid-template-columns: minmax(0, 1fr) 34px 80px 84px;
   align-items: center;
   gap: 6px;
   padding: 9px 0;
@@ -3292,7 +3296,7 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   font-size: 14px;
 }
 .hr-table.no-hole .hr-row {
-  grid-template-columns: minmax(0, 1fr) 40px 110px;
+  grid-template-columns: minmax(0, 1fr) 34px 110px;
 }
 .hr-row:last-child {
   border-bottom: none;
@@ -3310,14 +3314,20 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
 .hr-name {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
 }
 .hr-name b {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 700;
+}
+.hr-name .adj-chip {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-size: 10.5px;
 }
 .hr-rel {
   font-weight: 800;
