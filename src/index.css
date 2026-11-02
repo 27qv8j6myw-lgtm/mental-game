@@ -10644,11 +10644,29 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   line-height: 1.5;
   word-break: keep-all;
 }
-.lr-note {
+.lr-note-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
   margin: 8px 0 2px;
+}
+.lr-note {
+  margin: 0;
   font-size: 12px;
   color: var(--ink-faint);
   line-height: 1.5;
+}
+/* 기본 체크로 되돌리기 */
+.lr-reset {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
 }
 .lr-row {
   border-bottom: 1px solid var(--line);

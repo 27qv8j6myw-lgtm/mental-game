@@ -45,11 +45,10 @@ const WHITE_GUIDE = { men: 200, women: 250 };
 
 /** 특설티가 없을 때: 다음 샷 지점 (N번째 선상 · 화이트티 기준 거리 중 하나) + 워터해저드 */
 function noTeeText(o: Opt): string {
-  const which = o.ob && o.hazard ? "OB·해저드" : o.hazard ? "해저드" : "OB";
   const lines = [
     o.spot === "white"
-      ? `${which}는 화이트티 기준 남성 ${num(o, "men") || WHITE_GUIDE.men}m / 여성 ${num(o, "women") || WHITE_GUIDE.women}m 지점 이용`
-      : `${which}는 ${num(o, "nth") <= 1 ? "가장" : `${num(o, "nth")}번째로`} 멀리 친 사람과 동일 선상에서 플레이`,
+      ? `화이트티 기준 남성 ${num(o, "men") || WHITE_GUIDE.men}m / 여성 ${num(o, "women") || WHITE_GUIDE.women}m 지점 이용`
+      : `${num(o, "nth") <= 1 ? "가장" : `${num(o, "nth")}번째로`} 멀리 친 사람과 동일 선상에서 플레이`,
   ];
   if (o.water) lines.push("워터해저드에 빠졌을 경우 넘어가서 드롭 가능");
   return lines.length > 1 ? lines.map((l) => `· ${l}`).join("\n") : lines[0];
@@ -102,7 +101,7 @@ export const LOCAL_RULE_PRESETS: Preset[] = [
   {
     id: "no-tee",
     title: "특설티가 없을 때",
-    init: { ob: true, hazard: false, spot: "nth", nth: 2, men: WHITE_GUIDE.men, women: WHITE_GUIDE.women, water: false },
+    init: { spot: "nth", nth: 2, men: WHITE_GUIDE.men, women: WHITE_GUIDE.women, water: false },
     text: noTeeText,
     options: (o, set) => <NoTeeFields o={o} set={set} />,
   },
@@ -153,6 +152,9 @@ function build(p: Preset, o: Opt): LocalRule {
   const desc = p.text(o);
   return { id: p.id, title: p.title, ...(desc && { desc }), ...(p.init && { opt: o }) };
 }
+
+/** 목록·기본 체크가 바뀌면 올린다: 지난번 체크 기억(만들기 화면)을 한 번 새 기본값으로 바꾼다 */
+export const LOCAL_RULES_VERSION = 2;
 
 /** 처음부터 체크해 두는 룰 (처음 설정 그대로: 컨시드 퍼터 그립까지 · 버디 퍼트는 컨시드 없음, 멀리건 없음) */
 const DEFAULT_IDS = ["concede", "mulligan", "divot", "bunker", "max-score"];
@@ -258,35 +260,13 @@ function Meters({ label, value, onChange }: { label: string; value: number; onCh
   );
 }
 
-/**
- * 특설티가 없을 때: OB·해저드 중 어디에 쓸지 → 다음 샷 지점은 'N번째로 멀리 친 사람 선상'과 '화이트티 기준 거리' 중 하나만,
- * 워터해저드 넘어가서 드롭은 따로 고른다
- */
+/** 특설티가 없을 때: 다음 샷 지점은 'N번째로 멀리 친 사람 선상'과 '화이트티 기준 거리' 중 하나만, 워터해저드 넘어가서 드롭은 따로 */
 function NoTeeFields({ o, set }: { o: Opt; set: (patch: Opt) => void }) {
   const nth = num(o, "nth") || 2;
   const white = o.spot === "white";
   return (
     <div className="lr-subs">
-      {/* 어디에 쓰는지: OB만 · 해저드만 · 둘 다 */}
-      <div className="segmented lr-seg">
-        {(
-          [
-            ["OB", true, false],
-            ["해저드", false, true],
-            ["둘 다", true, true],
-          ] as const
-        ).map(([label, ob, hazard]) => (
-          <button
-            type="button"
-            key={label}
-            className={!!o.ob === ob && !!o.hazard === hazard ? "active" : ""}
-            onClick={() => set({ ob, hazard })}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div role="radiogroup" className="lr-subs lr-gap">
+      <div role="radiogroup" className="lr-subs">
         <SubRadio on={!white} onClick={() => set({ spot: "nth" })}>
           N번째로 멀리 친 사람과 동일 선상에서 플레이
         </SubRadio>
@@ -454,7 +434,20 @@ export function LocalRulesField({ value, onChange }: { value: LocalRule[]; onCha
   return (
     <div className="card lr-card">
       <div className="lr-notice">{OPTIONAL_NOTE}</div>
-      <p className="lr-note">체크한 룰만 참여자에게 보여요. 점수 계산은 입력한 타수 그대로예요.</p>
+      <div className="lr-note-row">
+        <p className="lr-note">체크한 룰만 참여자에게 보여요. 점수 계산은 입력한 타수 그대로예요.</p>
+        <button
+          type="button"
+          className="lr-reset"
+          onClick={() => {
+            setDrafts({});
+            setOpenId(null);
+            onChange(defaultLocalRules());
+          }}
+        >
+          기본값으로
+        </button>
+      </div>
       {LOCAL_RULE_PRESETS.map((p) => {
         const o = optOf(p);
         return row(p.id, p.title, p.text(o), { options: p.options?.(o, (patch) => setOpt(p, patch)) });
