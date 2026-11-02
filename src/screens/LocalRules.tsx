@@ -131,7 +131,7 @@ export const LOCAL_RULE_PRESETS: Preset[] = [
       </div>
     ),
   },
-  { id: "divot", title: "디봇 구제", text: () => "페어웨이 디봇에 들어가면 벌타 없이 후방 1클럽 이내 드롭 가능" },
+  { id: "divot", title: "디봇 구제", text: () => "페어웨이 디봇에 들어가면 후방 드롭 가능" },
   { id: "bunker", title: "벙커 발자국 구제", text: () => "벙커 발자국에 들어가면 벙커 정리 후 리플레이스 가능" },
   { id: "preferred", title: "프리퍼드 라이", text: () => "페어웨이에서는 공을 집어서 닦고 플레이 가능 (러프는 불가)" },
   {
@@ -143,7 +143,7 @@ export const LOCAL_RULE_PRESETS: Preset[] = [
   {
     id: "max-score",
     title: "맥시멈스코어",
-    text: () => "스코어는 더블파(양파)까지 반영 (맥시멈스코어에 도달 시 즉시 중단)",
+    text: () => "스코어는 더블파(양파)까지 반영",
   },
 ];
 
