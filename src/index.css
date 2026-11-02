@@ -10874,14 +10874,43 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 .lr-sub.on {
   color: var(--ink);
 }
-/* 특설티 설정 맨 아래: 잠정구를 고르면 붙는 * 문구 */
-.lr-sub-note {
-  margin-top: 4px;
-  padding-left: 26px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-faint);
-  line-height: 1.5;
+/* 하나만 고르기 (특설티 지점) */
+.lr-sub.on .lr-radio {
+  border-color: var(--olive);
+}
+.lr-sub.on .lr-radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--olive);
+}
+.lr-sub .lr-radio {
+  width: 18px;
+  height: 18px;
+}
+/* 설정 칸 안에서 위 칸과 띄우기 */
+.lr-gap {
+  margin-top: 8px;
+}
+/* 화이트티 기준 거리 (남성 · 여성) */
+.lr-ms {
+  display: flex;
+  gap: 12px;
+}
+.lr-m {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.lr-m .input {
+  width: 64px;
+  padding: 7px 8px;
+  font-size: 14px;
+  text-align: center;
 }
 .lr-line-opts {
   display: flex;

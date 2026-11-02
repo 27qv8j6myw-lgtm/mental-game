@@ -26,27 +26,33 @@ interface Preset {
 
 const num = (o: Opt, k: string) => Number(o[k] ?? 0);
 
-/** 멀리건: 전반·후반을 넣으면 각각, 전체만 넣으면 전체만 */
+/** 컨시드: 길이 + 버디 퍼트는 컨시드 없음 */
+function concedeText(o: Opt): string {
+  const len = o.len === "below" ? "퍼터 그립 아래 (그립 뺀 길이)" : "퍼터 그립까지 (퍼터 전체 길이)";
+  return [len, o.noBirdie && "버디 퍼트는 컨시드 없음"].filter(Boolean).join("\n");
+}
+
+/** 멀리건: 없음, 또는 전반·후반을 넣으면 각각 · 전체만 넣으면 전체만 */
 function mulliganText(o: Opt): string {
+  if (o.none) return "없음";
   const [f, b, t] = [num(o, "front"), num(o, "back"), num(o, "total")];
   if (f || b) return [f && `전반 ${f}개`, b && `후반 ${b}개`].filter(Boolean).join(" · ");
   return `전체 ${t}개`;
 }
 
-/** 특설티가 없을 때 (세 가지 중복 선택) */
-const NO_TEE_KEYS = ["provisional", "line", "water"] as const;
-/** 잠정구를 고르면 맨 아래 * 로 함께 적는 문구 */
-const PROVISIONAL_NOTES = ["잠정구는 취소 불가", "잠정구 OUT 시 2벌타 후 특설티 이용 가능"];
+/** 화이트티 기준 지점 가이드 (m) */
+const WHITE_GUIDE = { men: 200, women: 250 };
+
+/** 특설티가 없을 때: 다음 샷 지점 (N번째 선상 · 화이트티 기준 거리 중 하나) + 워터해저드 */
 function noTeeText(o: Opt): string {
-  const lines: string[] = [];
-  if (o.provisional) lines.push("OB는 잠정구 플레이 가능");
-  if (o.line) {
-    const which = o.ob && o.hazard ? "OB·해저드" : o.hazard ? "해저드" : "OB";
-    const nth = num(o, "nth");
-    lines.push(`${which}는 ${nth <= 1 ? "가장" : `${nth}번째로`} 멀리 친 사람과 동일 선상에서 플레이`);
-  }
+  const which = o.ob && o.hazard ? "OB·해저드" : o.hazard ? "해저드" : "OB";
+  const lines = [
+    o.spot === "white"
+      ? `${which}는 화이트티 기준 남성 ${num(o, "men") || WHITE_GUIDE.men}m / 여성 ${num(o, "women") || WHITE_GUIDE.women}m 지점 이용`
+      : `${which}는 ${num(o, "nth") <= 1 ? "가장" : `${num(o, "nth")}번째로`} 멀리 친 사람과 동일 선상에서 플레이`,
+  ];
   if (o.water) lines.push("워터해저드에 빠졌을 경우 넘어가서 드롭 가능");
-  return [...lines.map((l) => `· ${l}`), ...(o.provisional ? PROVISIONAL_NOTES.map((n) => `* ${n}`) : [])].join("\n");
+  return lines.length > 1 ? lines.map((l) => `· ${l}`).join("\n") : lines[0];
 }
 
 /** 자주 쓰는 로컬룰 */
@@ -54,31 +60,49 @@ export const LOCAL_RULE_PRESETS: Preset[] = [
   {
     id: "concede",
     title: "컨시드 (OK)",
-    init: { len: "below" },
-    text: (o) => (o.len === "to" ? "퍼터 그립까지 (퍼터 전체 길이)" : "퍼터 그립 아래 (그립 뺀 길이)"),
+    init: { len: "to", noBirdie: true },
+    text: concedeText,
     options: (o, set) => (
-      <div className="segmented lr-seg">
-        <button type="button" className={o.len !== "to" ? "active" : ""} onClick={() => set({ len: "below" })}>
-          퍼터 그립 아래
-        </button>
-        <button type="button" className={o.len === "to" ? "active" : ""} onClick={() => set({ len: "to" })}>
-          퍼터 그립까지
-        </button>
-      </div>
+      <>
+        <div className="segmented lr-seg">
+          <button type="button" className={o.len === "below" ? "active" : ""} onClick={() => set({ len: "below" })}>
+            퍼터 그립 아래
+          </button>
+          <button type="button" className={o.len !== "below" ? "active" : ""} onClick={() => set({ len: "to" })}>
+            퍼터 그립까지
+          </button>
+        </div>
+        <div className="lr-subs lr-gap">
+          <SubCheck on={!!o.noBirdie} onClick={() => set({ noBirdie: !o.noBirdie })}>
+            버디 퍼트는 컨시드 없음
+          </SubCheck>
+        </div>
+      </>
     ),
   },
-  { id: "birdie-no-ok", title: "버디 퍼트는 OK 없음", text: () => "" },
   {
     id: "mulligan",
     title: "멀리건",
-    init: { front: 1, back: 1, total: 0 },
+    init: { none: true, front: 1, back: 1, total: 0 },
     text: mulliganText,
-    options: (o, set) => <MulliganFields o={o} set={set} />,
+    options: (o, set) => (
+      <>
+        <div className="segmented lr-seg">
+          <button type="button" className={o.none ? "active" : ""} onClick={() => set({ none: true })}>
+            없음
+          </button>
+          <button type="button" className={!o.none ? "active" : ""} onClick={() => set({ none: false })}>
+            있음
+          </button>
+        </div>
+        {!o.none && <MulliganFields o={o} set={set} />}
+      </>
+    ),
   },
   {
     id: "no-tee",
     title: "특설티가 없을 때",
-    init: { provisional: true, line: false, water: false, ob: true, hazard: false, nth: 2 },
+    init: { ob: true, hazard: false, spot: "nth", nth: 2, men: WHITE_GUIDE.men, women: WHITE_GUIDE.women, water: false },
     text: noTeeText,
     options: (o, set) => <NoTeeFields o={o} set={set} />,
   },
@@ -130,9 +154,10 @@ function build(p: Preset, o: Opt): LocalRule {
   return { id: p.id, title: p.title, ...(desc && { desc }), ...(p.init && { opt: o }) };
 }
 
-/** 처음 만드는 사람의 기본: 버디 퍼트는 OK 없음 */
+/** 처음부터 체크해 두는 룰 (처음 설정 그대로: 컨시드 퍼터 그립까지 · 버디 퍼트는 컨시드 없음, 멀리건 없음) */
+const DEFAULT_IDS = ["concede", "mulligan", "divot", "bunker", "max-score"];
 export function defaultLocalRules(): LocalRule[] {
-  return LOCAL_RULE_PRESETS.filter((p) => p.id === "birdie-no-ok").map((p) => build(p, {}));
+  return LOCAL_RULE_PRESETS.filter((p) => DEFAULT_IDS.includes(p.id)).map((p) => build(p, { ...p.init }));
 }
 
 /** 꼭 따라야 하는 룰은 아니라는 안내 (만들기 화면 · 확인 팝업) */
@@ -178,7 +203,7 @@ function MulliganFields({ o, set }: { o: Opt; set: (patch: Opt) => void }) {
   const half = (k: "front" | "back", v: number) => set(v > 0 ? { [k]: v, total: 0 } : { [k]: v });
   return (
     <>
-      <div className="lr-counts">
+      <div className="lr-counts lr-gap">
         <Count label="전반" value={f} min={b || t ? 0 : 1} max={9} onChange={(v) => half("front", v)} />
         <Count label="후반" value={b} min={f || t ? 0 : 1} max={9} onChange={(v) => half("back", v)} />
         <Count
@@ -204,53 +229,90 @@ function SubCheck({ on, onClick, children }: { on: boolean; onClick: () => void;
   );
 }
 
-/** 특설티가 없을 때: 잠정구 · N번째로 멀리 친 사람 선상 · 워터해저드 넘어가서 드롭 (여럿 고를 수 있고, 하나는 남긴다) */
+/** 체크 안의 하나만 고르기 */
+function SubRadio({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" role="radio" aria-checked={on} className={`lr-sub ${on ? "on" : ""}`} onClick={onClick}>
+      <span className="lr-radio" aria-hidden />
+      <span>{children}</span>
+    </button>
+  );
+}
+
+/** 화이트티 기준 거리 (m) */
+function Meters({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <label className="lr-m">
+      <span>{label}</span>
+      <input
+        className="input"
+        type="number"
+        inputMode="numeric"
+        min={50}
+        max={400}
+        value={value || ""}
+        onChange={(e) => onChange(Math.min(400, Math.max(0, Math.round(Number(e.target.value) || 0))))}
+      />
+      <span>m</span>
+    </label>
+  );
+}
+
+/**
+ * 특설티가 없을 때: OB·해저드 중 어디에 쓸지 → 다음 샷 지점은 'N번째로 멀리 친 사람 선상'과 '화이트티 기준 거리' 중 하나만,
+ * 워터해저드 넘어가서 드롭은 따로 고른다
+ */
 function NoTeeFields({ o, set }: { o: Opt; set: (patch: Opt) => void }) {
   const nth = num(o, "nth") || 2;
-  const onCount = NO_TEE_KEYS.filter((k) => o[k]).length;
-  const flip = (k: (typeof NO_TEE_KEYS)[number]) => (!o[k] || onCount > 1) && set({ [k]: !o[k] });
+  const white = o.spot === "white";
   return (
     <div className="lr-subs">
-      <SubCheck on={!!o.provisional} onClick={() => flip("provisional")}>
-        OB는 잠정구 플레이 가능
-      </SubCheck>
-      <SubCheck on={!!o.line} onClick={() => flip("line")}>
-        N번째로 멀리 친 사람과 동일 선상에서 플레이
-      </SubCheck>
-      {o.line && (
-        <div className="lr-line-opts">
-          {/* 어디에 쓰는지: OB만 · 해저드만 · 둘 다 */}
-          <div className="segmented lr-seg">
-            {(
-              [
-                ["OB", true, false],
-                ["해저드", false, true],
-                ["둘 다", true, true],
-              ] as const
-            ).map(([label, ob, hazard]) => (
-              <button
-                type="button"
-                key={label}
-                className={!!o.ob === ob && !!o.hazard === hazard ? "active" : ""}
-                onClick={() => set({ ob, hazard })}
-              >
-                {label}
-              </button>
-            ))}
+      {/* 어디에 쓰는지: OB만 · 해저드만 · 둘 다 */}
+      <div className="segmented lr-seg">
+        {(
+          [
+            ["OB", true, false],
+            ["해저드", false, true],
+            ["둘 다", true, true],
+          ] as const
+        ).map(([label, ob, hazard]) => (
+          <button
+            type="button"
+            key={label}
+            className={!!o.ob === ob && !!o.hazard === hazard ? "active" : ""}
+            onClick={() => set({ ob, hazard })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div role="radiogroup" className="lr-subs lr-gap">
+        <SubRadio on={!white} onClick={() => set({ spot: "nth" })}>
+          N번째로 멀리 친 사람과 동일 선상에서 플레이
+        </SubRadio>
+        {!white && (
+          <div className="lr-line-opts">
+            <Count label="몇 번째로 멀리 친 사람" row value={nth} min={1} max={5} onChange={(v) => set({ nth: v })} />
           </div>
-          <Count label="몇 번째로 멀리 친 사람" row value={nth} min={1} max={5} onChange={(v) => set({ nth: v })} />
-        </div>
-      )}
-      <SubCheck on={!!o.water} onClick={() => flip("water")}>
+        )}
+        <SubRadio on={white} onClick={() => set({ spot: "white" })}>
+          화이트티 기준 남성·여성 지점 이용
+        </SubRadio>
+        {white && (
+          <div className="lr-line-opts">
+            <div className="lr-ms">
+              <Meters label="남성" value={num(o, "men")} onChange={(v) => set({ men: v })} />
+              <Meters label="여성" value={num(o, "women")} onChange={(v) => set({ women: v })} />
+            </div>
+            <p className="lr-opt-hint">
+              가이드: 남성 {WHITE_GUIDE.men}m, 여성 {WHITE_GUIDE.women}m
+            </p>
+          </div>
+        )}
+      </div>
+      <SubCheck on={!!o.water} onClick={() => set({ water: !o.water })}>
         워터해저드에 빠졌을 경우 넘어가서 드롭 가능
       </SubCheck>
-      {o.provisional && (
-        <div className="lr-sub-note">
-          {PROVISIONAL_NOTES.map((n) => (
-            <div key={n}>* {n}</div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
