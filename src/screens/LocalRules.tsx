@@ -134,6 +134,7 @@ export const LOCAL_RULE_PRESETS: Preset[] = [
   { id: "divot", title: "디봇 구제", text: () => "페어웨이 디봇에 들어가면 후방 드롭 가능" },
   { id: "bunker", title: "벙커 발자국 구제", text: () => "벙커 발자국에 들어가면 벙커 정리 후 리플레이스 가능" },
   { id: "preferred", title: "프리퍼드 라이", text: () => "페어웨이에서는 공을 집어서 닦고 플레이 가능 (러프는 불가)" },
+  { id: "cart-path", title: "카트도로", text: () => "페어웨이 쪽으로 1클럽 이내 드롭" },
   {
     id: "injury",
     title: "부상 위험 방지",
