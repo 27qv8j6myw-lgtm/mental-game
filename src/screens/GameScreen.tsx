@@ -25,6 +25,7 @@ import ParPicker, { ParAskStatus, useParAsk } from "./ParPicker";
 import { useHoleCoach } from "../coach";
 import { useAiAccess } from "./Insight";
 import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
+import HoleResultPopup from "./HoleResult";
 
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
 // → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
@@ -183,6 +184,8 @@ export default function GameScreen({
 
   /** 홀이 저장돼 넘어왔을 때 상태 줄에 잠깐 띄우는 한 줄 (팝업 아님) */
   const [moved, setMoved] = useState<{ hole: number; text: string } | null>(null);
+  /** 홀 저장 → 다음 홀로 넘어가며 띄우는 전 홀 결과 팝업 (내가 저장했든 다른 사람이 저장했든) */
+  const [resultHole, setResultHole] = useState<number | null>(null);
   useEffect(() => {
     if (!moved) return;
     const t = setTimeout(() => setMoved(null), 3000);
@@ -211,6 +214,7 @@ export default function GameScreen({
       lockUntil.current = Date.now() + 600;
       const by = nameOf(hole.savedBy)?.name || "?";
       setMoved({ hole: to, text: `${by}님이 ${idx + 1}번 홀 저장${to !== idx ? ` → ${to + 1}번 홀` : ""}` });
+      setResultHole(idx);
     }
     goHole(to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,6 +342,7 @@ export default function GameScreen({
     // (내 기록 초안이 있으면 이 버튼이 숨겨져 있다: 내 기록을 먼저 저장/취소)
     if (!live || !allIn) return;
     session.saveHole(idx, view.par, fullScores(), []);
+    setResultHole(idx);
     if (idx < lastIdx) {
       setMoved({ hole: idx + 1, text: `✓ ${idx + 1}번 홀 저장 → ${idx + 2}번 홀` });
       goHole(idx + 1);
@@ -758,6 +763,9 @@ export default function GameScreen({
             ) : undefined
           }
         />
+      )}
+      {resultHole != null && (
+        <HoleResultPopup config={config} holes={holes} hole={resultHole} onClose={() => setResultHole(null)} />
       )}
     </>
   );
