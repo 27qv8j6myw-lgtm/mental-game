@@ -11277,6 +11277,11 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   background: var(--olive-soft);
   color: var(--olive);
 }
+/* 종 알림: 새 기능 */
+.notice-item .ni-ic.feature {
+  background: var(--terra-soft);
+  color: var(--terra);
+}
 
 /* ============ 개발용 듀오 흉내 (rail.ts ?duo=1): 오른쪽 막대 위쪽 가짜 시계·와이파이 ============ */
 .duo-sim {

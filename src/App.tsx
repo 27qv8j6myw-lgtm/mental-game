@@ -23,7 +23,9 @@ import { Avatar, Icon } from "./icons";
 import { useBack } from "./back";
 import { useOnline } from "./online";
 import { useUnfolded } from "./rail";
-import { onNoticePage, type NoticePage } from "./notices";
+import { onNoticeGuide, onNoticePage, type NoticePage } from "./notices";
+import Guide from "./guide/Guide";
+import type { TopicId } from "./guide/content";
 import { loadDraft } from "./drafts";
 import { emptyTail } from "./model";
 import type { Session } from "./types";
@@ -47,8 +49,16 @@ export default function App() {
     <>
       <MemberFlow />
       <NamePrompt />
+      <NoticeGuide />
     </>
   );
+}
+
+/** 종 알림(새 기능)에서 연 사용 방법 */
+function NoticeGuide() {
+  const [topic, setTopic] = useState<TopicId | null>(null);
+  useEffect(() => onNoticeGuide(setTopic), []);
+  return topic ? <Guide key={topic} topic={topic} onClose={() => setTopic(null)} /> : null;
 }
 
 /** 처음 로그인했을 때: 앱에서 쓸 이름(실명)을 정하기 전까지 띄운다 (게스트는 묻지 않는다) */

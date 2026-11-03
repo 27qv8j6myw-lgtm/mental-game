@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useAuth } from "../auth";
 import { useBack } from "../back";
 import { Icon, Wordmark } from "../icons";
-import { NOTICE_STALE_MS, markNoticesSeen, openNoticePage, refreshMyRounds, useNotices } from "../notices";
+import { NOTICE_STALE_MS, markNoticesSeen, openNoticeGuide, openNoticePage, refreshMyRounds, useNotices } from "../notices";
 import { checkGoalNotices } from "../goals";
 import { loadBadges } from "../badges";
 import { useRound } from "../round";
@@ -148,12 +148,23 @@ export function NoticeButton() {
                         setOpen(false);
                         if (i.roundId) openRound(i.roundId);
                         else if (i.page) openNoticePage(i.page);
+                        else if (i.guide) openNoticeGuide(i.guide);
                         else if (i.href) window.location.assign(i.href);
                       }}
                     >
                       <span className={`ni-ic ${i.kind}`}>
                         <Icon
-                          name={i.kind === "goal" ? "target" : i.kind === "badge" ? "medal" : i.kind === "policy" ? "shield" : "flag"}
+                          name={
+                            i.kind === "goal"
+                              ? "target"
+                              : i.kind === "badge"
+                                ? "medal"
+                                : i.kind === "policy"
+                                  ? "shield"
+                                  : i.kind === "feature"
+                                    ? "spark"
+                                    : "flag"
+                          }
                           size={18}
                         />
                       </span>
@@ -162,7 +173,7 @@ export function NoticeButton() {
                         <span>{i.sub}</span>
                         {i.hint && <em>{i.hint}</em>}
                       </span>
-                      <Icon name="chevronRight" size={16} className="ni-go" />
+                      {(i.roundId || i.page || i.guide || i.href) && <Icon name="chevronRight" size={16} className="ni-go" />}
                     </button>
                   ))}
                 </div>
