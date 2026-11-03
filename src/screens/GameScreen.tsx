@@ -18,7 +18,7 @@ import { pointsConfig, rankResult, rankRules, rankScoreText } from "../rankGame"
 import { useRound } from "../round";
 import { useUnfolded } from "../rail";
 import { firstUnsaved, settledHoles } from "../model";
-import { EMPTY_STAT, girOf } from "../recordStats";
+import { EMPTY_STAT, girOf, sameStat } from "../recordStats";
 import HoleStatFields from "./HoleStatFields";
 import CoachCard from "./CoachCard";
 import ParPicker, { ParAskStatus, useParAsk } from "./ParPicker";
@@ -30,14 +30,6 @@ import HoleResultPopup from "./HoleResult";
 // 아래로는 홀인원(1타)까지, 위로는 더블파(파 대비 +par)까지만 PAR 에 맞춰 보여준다
 // → 파3: -2~+3, 파4: -3(알바트로스)~+4, 파5: -3~+5
 export const SCORE_OPTS = [-3, -2, -1, 0, 1, 2, 3, 4, 5];
-
-const sameStat = (a: HoleStat, b: HoleStat) =>
-  a.putts === b.putts &&
-  a.fairway === b.fairway &&
-  a.lie === b.lie &&
-  a.ob === b.ob &&
-  a.hazard === b.hazard &&
-  a.sand === b.sand;
 
 /** 저장된 홀을 고치는 중인 초안 (이 홀만) */
 interface HoleDraft {
@@ -579,6 +571,7 @@ export default function GameScreen({
                       );
                     })()}
                     <HoleStatFields
+                      key={idx}
                       par={view.par}
                       strokes={rel == null ? null : view.par + rel}
                       stat={rec}

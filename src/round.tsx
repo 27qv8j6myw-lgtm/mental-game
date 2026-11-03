@@ -13,6 +13,7 @@ import { useAuth } from "./auth";
 import { patchListRound } from "./notices";
 import { maybeCaptureWeather } from "./weather";
 import { bundleConfig, bundleHoleStats, bundleHoles, firstUnsaved, usesHoleSave } from "./model";
+import { cleanDetail } from "./detail";
 import {
   applyOp,
   clearPending,
@@ -467,9 +468,15 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     [save]
   );
 
+  // 디테일 기록은 빈 칸을 떼고 퍼트 칸을 퍼트 수에 맞춰 저장한다 (다 비었으면 null)
   const setStat = useCallback(
     (holeIndex: number, playerId: string, stat: HoleStat) =>
-      save({ kind: "stat", hole: holeIndex, player: playerId, stat }),
+      save({
+        kind: "stat",
+        hole: holeIndex,
+        player: playerId,
+        stat: { ...stat, detail: cleanDetail(stat.detail, stat.putts) },
+      }),
     [save]
   );
 

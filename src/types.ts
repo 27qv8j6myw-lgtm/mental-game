@@ -1,4 +1,5 @@
 import type { RoundWeather } from "./weather";
+import type { Club } from "./bag";
 export interface Player {
   id: string;
   name: string;
@@ -34,6 +35,34 @@ export type Fairway = "left" | "hit" | "short" | "right";
 /** 티샷이 떨어진 곳: 벙커·OB·해저드. 방향과 함께 고를 수 있다 (DB 의 예전 값 'penalty' 는 읽을 때 OB/해저드로 바꾼다) */
 export type TeeLie = "bunker" | "ob" | "hazard";
 
+/**
+ * 디테일 기록의 샷 하나 (티샷부터 순서대로, 퍼트는 빼고). 모든 칸은 넣지 않아도 된다.
+ * 파4·파5 티샷의 방향·벙커/OB/해저드는 HoleStat.fairway·lie 에 두고, 여기(shots[0])에는 클럽·거리만 둔다
+ */
+export interface ShotDetail {
+  club?: Club | null;
+  /** 이 샷을 치기 전 핀까지 남은 거리 */
+  dist?: number | null;
+  unit?: "m" | "y";
+  /** 결과: 왼쪽 · 적중(페어웨이·그린) · 짧음 · 오른쪽 */
+  dir?: Fairway | null;
+  /** 떨어진 곳: 벙커·OB·해저드 */
+  lie?: TeeLie | null;
+}
+/** 퍼트 라이: 훅(왼쪽으로 휨) · 똑바로 · 슬라이스(오른쪽으로 휨) · 더블 브레이크 */
+export type PuttLine = "hook" | "straight" | "slice" | "double";
+/** 디테일 기록의 퍼트 하나: 홀컵까지 거리(m)·라이·경사 (경사를 안 고르면 평지) */
+export interface PuttDetail {
+  dist?: number | null;
+  line?: PuttLine | null;
+  slope?: "up" | "down" | null;
+}
+/** 디테일 기록 (round_hole_stats.detail, supabase/record.sql) */
+export interface HoleDetail {
+  shots: ShotDetail[];
+  putts: PuttDetail[];
+}
+
 /** 기록 모드 홀별 상세 기록 (round_hole_stats 행). 스코어는 HoleScore 에 있다 */
 export interface HoleStat {
   /** 퍼트 수 (0~6). 입력 전이면 null */
@@ -45,6 +74,8 @@ export interface HoleStat {
   hazard: number;
   /** 샌드샷 (벙커에서 친 샷) 수 */
   sand: number;
+  /** 디테일 기록 (켜고 넣었을 때만). 없으면 null 이거나 칸이 없다 */
+  detail?: HoleDetail | null;
 }
 /**
  * avg: 평균 타수로 핸디 산출 / stroke: 최고수 대비 +N타로 직접 설정

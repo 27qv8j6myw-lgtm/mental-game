@@ -34,6 +34,13 @@ update public.round_hole_stats
 alter table public.round_hole_stats add constraint round_hole_stats_lie_check
   check (lie in ('bunker', 'ob', 'hazard', 'penalty'));
 
+-- 디테일 기록 (앱의 '디테일 기록'을 켰을 때만): 샷마다 클럽·핀까지 거리·결과, 퍼트마다 거리·라이·경사.
+-- { shots: [{ club, dist, unit, dir, lie }], putts: [{ dist, line, slope }] } (src/detail.ts). 넣지 않았으면 null
+alter table public.round_hole_stats add column if not exists detail jsonb;
+alter table public.round_hole_stats drop constraint if exists round_hole_stats_detail_check;
+alter table public.round_hole_stats add constraint round_hole_stats_detail_check
+  check (detail is null or (jsonb_typeof(detail) = 'object' and pg_column_size(detail) <= 8000));
+
 create index if not exists round_hole_stats_round_idx on public.round_hole_stats (round_id);
 create index if not exists round_hole_stats_player_idx on public.round_hole_stats (player_uid);
 

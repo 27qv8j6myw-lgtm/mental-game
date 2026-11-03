@@ -4,7 +4,8 @@ import { weatherOf, type RoundWeather } from "./weather";
 import { playerRating, teeLie, usesHoleSave } from "./model";
 import { listMyRounds } from "./rounds";
 import { fetchRows } from "./stats";
-import type { CourseRating, Fairway, GameMode, HoleStat, RoundListItem, TeeBox, TeeLie } from "./types";
+import { cleanDetail, sameDetail } from "./detail";
+import type { CourseRating, Fairway, GameMode, HoleDetail, HoleStat, RoundListItem, TeeBox, TeeLie } from "./types";
 
 /*
  * 기록 모드 라운드 분석.
@@ -27,6 +28,8 @@ export interface HoleRecord {
   ob: number;
   hazard: number;
   sand: number;
+  /** 디테일 기록 (샷마다 클럽·거리·결과, 퍼트마다 거리·라이). 없으면 null */
+  detail?: HoleDetail | null;
 }
 
 /** 비율과 그 근거(분자·분모)를 함께 */
@@ -42,6 +45,16 @@ export const EMPTY_STAT: HoleStat = {
   hazard: 0,
   sand: 0,
 };
+
+/** 같은 기록인가 (디테일 기록은 빈 칸을 뗀 모양으로 비교) */
+export const sameStat = (a: HoleStat, b: HoleStat) =>
+  a.putts === b.putts &&
+  a.fairway === b.fairway &&
+  a.lie === b.lie &&
+  a.ob === b.ob &&
+  a.hazard === b.hazard &&
+  a.sand === b.sand &&
+  sameDetail(a.detail, b.detail);
 
 /** GIR 자동 판정: (타수 − 퍼트) ≤ 파 − 2. 스코어나 퍼트가 없으면 판정하지 않는다(null) */
 export function girOf(par: number, rel: number | null, putts: number | null): boolean | null {
@@ -245,14 +258,18 @@ export interface RecordRound {
 
 type StatRow = HoleStat & { round_id: string; hole_index: number; player_uid: string };
 
-/** 홀별 상세 기록 테이블(record.sql)을 아직 만들지 않았으면 상세 기록 없이 계산한다 */
+const STAT_COLS = "round_id,hole_index,player_uid,putts,fairway,lie,ob,hazard,sand";
+
+/**
+ * 홀별 상세 기록 테이블(record.sql)을 아직 만들지 않았으면 상세 기록 없이 계산한다.
+ * 디테일 기록 칸(detail)이 아직 없는 DB 면 그 칸 없이
+ */
 async function fetchStatRows(ids: string[]): Promise<StatRow[]> {
   try {
-    return await fetchRows<StatRow>(
-      "round_hole_stats",
-      "round_id,hole_index,player_uid,putts,fairway,lie,ob,hazard,sand",
-      ids
-    );
+    return await fetchRows<StatRow>("round_hole_stats", `${STAT_COLS},detail`, ids).catch((e) => {
+      if (e?.code !== "42703") throw e;
+      return fetchRows<StatRow>("round_hole_stats", STAT_COLS, ids);
+    });
   } catch (e) {
     const code = (e as { code?: string } | null)?.code;
     if (code === "PGRST205" || code === "42P01") return [];
@@ -411,6 +428,7 @@ export function roundHoles(
       ob: st.ob,
       hazard: st.hazard,
       sand: st.sand,
+      detail: cleanDetail(st.detail),
     };
   });
 }

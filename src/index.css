@@ -5939,6 +5939,243 @@ input[type="time"].input::-webkit-calendar-picker-indicator {
   background: #6b7280;
   border-color: #6b7280;
 }
+/* ============ 디테일 기록 (HoleStatFields) ============ */
+.dt-switch {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  text-align: left;
+  color: var(--ink);
+}
+.dt-switch-t {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.dt-switch-t small {
+  margin-left: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.dt-switch .switch {
+  display: block;
+}
+/* 샷 탭: [티샷 드라이버] [2번째 7I] [+] (넘치면 옆으로 밀어 본다) */
+.dt-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.dt-tabs::-webkit-scrollbar {
+  display: none;
+}
+.dt-tab {
+  flex: none;
+  min-width: 60px;
+  height: 44px;
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-soft);
+  line-height: 1.15;
+}
+.dt-tab small {
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.dt-tab b {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.dt-tab.on {
+  background: #374151;
+  border-color: #374151;
+  color: #fff;
+}
+.dt-tab.add {
+  min-width: 44px;
+  border-style: dashed;
+  color: var(--olive);
+}
+.dt-shot {
+  margin-top: 8px;
+  padding: 10px 10px 12px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+/* 상자 안이라 결과 줄(7칸)이 좁아서 사이를 줄인다 */
+.dt-shot .rec-fw-row {
+  gap: 6px;
+}
+.dt-sub {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.dt-shot > .dt-sub:first-child {
+  margin-top: 0;
+}
+.dt-sub small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.dt-clubs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dt-club {
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.dt-club small {
+  margin-left: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.dt-club.on {
+  background: #374151;
+  border-color: #374151;
+  color: #fff;
+}
+.dt-hint {
+  margin: 7px 2px 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+.dt-hint.on {
+  color: var(--olive-deep);
+  font-weight: 700;
+}
+.dt-dist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.input.dt-num {
+  width: 92px;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.segmented.dt-unit {
+  width: 96px;
+}
+.segmented.dt-unit button {
+  padding: 6px;
+}
+.dt-remove {
+  margin-top: 12px;
+  padding: 4px 2px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--loss);
+}
+/* 퍼트 칸: 위 제목 · 홀컵까지 거리, 아래 왼쪽 오르막/내리막 · 오른쪽 라이 4칸 */
+.dt-putts {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dt-putt {
+  padding: 10px 10px 9px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+.dt-putt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dt-putt-head b {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.dt-putt-dist {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dt-putt-dist small {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.dt-putt-dist .input.dt-num {
+  width: 64px;
+  height: 34px;
+}
+.dt-putt-dist span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.dt-putt-row {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.dt-slope {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+.dt-lines {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.sbtn.dt-slope-btn {
+  font-size: 12px;
+  letter-spacing: -0.02em;
+}
+.sbtn.dt-slope-btn.active,
+.sbtn.dt-line.active {
+  background: #374151;
+  border-color: #374151;
+  color: #fff;
+}
+.dt-putt-note {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
 /* 반원 양 끝 바로 밑 방향 비율: 왼쪽 훅 · 오른쪽 슬라이스 (비율 크게, 홀 수 작게)
    반원(viewBox -14~182)의 양 끝 가운데는 폭의 16%·84% → 폭 32% 칸의 가운데에 퍼센트를 둔다 */
 .ts-dirs {
@@ -9612,6 +9849,142 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
 }
 .ml-row.pf-acct .ml-name {
   font-size: 15px;
+}
+
+/* ============ 골프백 (GolfBag) ============ */
+.bag-over {
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.bag-over b {
+  display: block;
+  font-weight: 800;
+}
+.bag-count {
+  margin: 0 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-align: right;
+}
+.bag-count b {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.bag-count b.over {
+  color: var(--loss);
+}
+.bag-row {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+}
+.bag-row + .bag-row {
+  border-top: var(--border);
+}
+.bag-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px 10px 16px;
+  text-align: left;
+  color: var(--ink);
+}
+.bag-name:active {
+  background: var(--paper-2);
+}
+.bag-loft-v {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.bag-name b {
+  font-size: 15px;
+  font-weight: 700;
+}
+.bag-del {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: 4px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+}
+.bag-empty {
+  padding: 18px 16px;
+  font-size: 13.5px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+.bag-add {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 14px;
+  border: 1.5px dashed var(--line-strong);
+  background: var(--paper);
+  color: var(--olive);
+  font-size: 15px;
+  font-weight: 800;
+}
+.bag-add:active {
+  background: var(--paper-2);
+}
+.bag-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bag-kinds .chip:disabled {
+  opacity: 0.35;
+}
+.sbtn.bag-wedge {
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.1;
+}
+.sbtn.bag-wedge b {
+  font-size: 15px;
+}
+.sbtn.bag-wedge small {
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.bag-loft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 160px;
+}
+.bag-loft span {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.bag-note {
+  margin-top: 14px;
+}
+.bag-sheet .sm-body {
+  padding-bottom: 18px;
 }
 
 /* 종 알림: 시즌 목표 달성 */

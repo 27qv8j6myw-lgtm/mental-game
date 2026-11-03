@@ -13,6 +13,7 @@ import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import Dash from "./Dash";
 import SeasonGoals from "./SeasonGoals";
 import Badges from "./Badges";
+import GolfBag from "./GolfBag";
 import { BADGES, useBadgeCount } from "../badges";
 import { goalSummary, hasGoal } from "../goals";
 import type { NoticePage } from "../notices";
@@ -24,8 +25,13 @@ const LINKABLE: { id: OAuthProvider; label: string }[] = [
 const PROVIDER_LABEL: Record<string, string> = { kakao: "카카오", google: "Google", apple: "Apple" };
 
 /** 한 단계 들어가는 페이지 (펼친 iPhone Duo 에서는 오른쪽 칸) */
-type Sub = "accounts" | NoticePage;
-const SUB_TITLE: Record<Sub, string> = { accounts: "로그인 계정 연결", goals: "시즌 목표", badges: "배지" };
+type Sub = "accounts" | "bag" | NoticePage;
+const SUB_TITLE: Record<Sub, string> = {
+  accounts: "로그인 계정 연결",
+  bag: "골프백",
+  goals: "시즌 목표",
+  badges: "배지",
+};
 
 /**
  * 내 정보 (인스타그램 '설정 및 활동'처럼): 아래 탭 오른쪽 내 사진을 누르면 열리는 페이지.
@@ -131,6 +137,13 @@ export default function ProfileScreen({
           on={split && shown === "badges"}
           onClick={() => setSub("badges")}
         />
+        <Row
+          icon="bag"
+          label="골프백"
+          value={user?.bag.length ? `${user.bag.length}개` : "정하기"}
+          on={split && shown === "bag"}
+          onClick={() => setSub("bag")}
+        />
       </div>
 
       <div className="section-title">계정</div>
@@ -179,7 +192,15 @@ export default function ProfileScreen({
   );
 
   const detail =
-    shown === "accounts" ? <Accounts /> : shown === "goals" ? <SeasonGoals /> : shown === "badges" ? <Badges /> : null;
+    shown === "accounts" ? (
+      <Accounts />
+    ) : shown === "bag" ? (
+      <GolfBag />
+    ) : shown === "goals" ? (
+      <SeasonGoals />
+    ) : shown === "badges" ? (
+      <Badges />
+    ) : null;
 
   return (
     <div className="app">

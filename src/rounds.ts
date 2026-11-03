@@ -38,6 +38,8 @@ export interface RoundBundle {
   stats?: HoleStatRow[];
 }
 
+const STAT_COLS = "hole_index,player_uid,putts,fairway,lie,ob,hazard,sand";
+
 /** 홀별 상세 기록 테이블(supabase/record.sql)을 아직 만들지 않은 경우: 기록 없이 동작 */
 const isMissingTable = (e: { code?: string } | null) =>
   e?.code === "PGRST205" || e?.code === "42P01";
@@ -176,9 +178,17 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
       .eq("round_id", roundId),
     db
       .from("round_hole_stats")
-      .select("hole_index,player_uid,putts,fairway,lie,ob,hazard,sand")
+      .select(`${STAT_COLS},detail`)
       .eq("round_id", roundId),
   ]);
+  // 디테일 기록 칸(record.sql 의 detail)이 아직 없는 DB: 그 칸 없이 다시 받는다
+  let statData = stats.data as HoleStatRow[] | null;
+  let statErr = stats.error;
+  if (stats.error?.code === "42703") {
+    const old = await db.from("round_hole_stats").select(STAT_COLS).eq("round_id", roundId);
+    statData = old.data as HoleStatRow[] | null;
+    statErr = old.error;
+  }
   // holesave.sql 을 아직 실행하지 않은 DB: 저장 칸 없이 파만 받는다 (라운드는 열리게)
   let holeData = holes.data as HoleRow[] | null;
   let holeError = holes.error;
@@ -188,7 +198,7 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
     holeError = old.error;
   }
   // 통신이 약해 일부만 실패하면 빈 스코어로 덮어 화면에서 사라지므로 하나라도 실패하면 전체를 실패로 본다
-  const statsError = isMissingTable(stats.error) ? null : stats.error;
+  const statsError = isMissingTable(statErr) ? null : statErr;
   const error = round.error ?? players.error ?? holeError ?? scores.error ?? statsError;
   if (error) throw error;
   return {
@@ -198,7 +208,7 @@ export async function getRoundBundle(roundId: string): Promise<RoundBundle> {
     scores:
       (scores.data as { hole_index: number; player_uid: string; rel: number }[]) ??
       [],
-    stats: (stats.data as HoleStatRow[] | null) ?? [],
+    stats: statData ?? [],
   };
 }
 
@@ -294,6 +304,11 @@ export async function setScore(
   }
 }
 
+/** 디테일 기록 칸(detail)이 없는 DB 라는 걸 한 번 알았으면 그 칸 없이 저장한다 */
+let noDetailColumn = false;
+const isMissingDetail = (e: { code?: string; message?: string } | null) =>
+  !!e && (e.code === "PGRST204" || e.code === "42703") && /detail/.test(e.message ?? "");
+
 /** 기록 모드 홀별 상세 기록 저장 (RLS: 본인 것만) */
 export async function setHoleStat(
   roundId: string,
@@ -303,10 +318,19 @@ export async function setHoleStat(
   signal: AbortSignal
 ): Promise<void> {
   const db = requireDb();
-  const { error } = await db
-    .from("round_hole_stats")
-    .upsert({ round_id: roundId, hole_index: holeIndex, player_uid: playerUid, ...stat })
-    .abortSignal(signal);
+  const { detail, ...rest } = stat;
+  const row: Record<string, unknown> = { round_id: roundId, hole_index: holeIndex, player_uid: playerUid, ...rest };
+  const send = (withDetail: boolean) =>
+    db
+      .from("round_hole_stats")
+      .upsert(withDetail ? { ...row, detail: detail ?? null } : row)
+      .abortSignal(signal);
+  let { error } = await send(!noDetailColumn);
+  // record.sql 의 detail 칸을 아직 넣지 않은 DB: 디테일 기록만 빼고 저장한다
+  if (error && !noDetailColumn && isMissingDetail(error)) {
+    noDetailColumn = true;
+    ({ error } = await send(false));
+  }
   if (error) throw error;
 }
 

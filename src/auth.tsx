@@ -10,6 +10,7 @@ import { isSupabaseConfigured, supabase } from "./supabase";
 import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin, requestAppleLogin } from "./native";
 import { apiUrl } from "./scorecard";
 import { parseGoal, type SeasonGoal } from "./goals";
+import { parseBag, type Club } from "./bag";
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
@@ -31,6 +32,8 @@ export interface AuthUser {
   providerName: string | null;
   /** 시즌 목표 (goals.ts). 정한 적 없으면 null */
   goal: SeasonGoal | null;
+  /** 내 골프백 (bag.ts). 정한 적 없으면 빈 목록 */
+  bag: Club[];
 }
 
 interface AuthCtx {
@@ -55,6 +58,8 @@ interface AuthCtx {
   saveName: (name: string) => Promise<boolean>;
   /** 시즌 목표 저장 (null 이면 지운다). 성공하면 true */
   saveGoal: (goal: SeasonGoal | null) => Promise<boolean>;
+  /** 골프백 저장. 성공하면 true */
+  saveBag: (bag: Club[]) => Promise<boolean>;
   error: string | null;
   clearError: () => void;
   /** 게스트 세션에서 로그인해 게스트로 친 라운드를 이 계정으로 옮겼으면 그 결과 (홈에 알린다) */
@@ -213,6 +218,7 @@ function mapUser(u: {
         ? { name: meta.bank_name, account: meta.bank_account }
         : null,
     goal: parseGoal(meta.mg_goal),
+    bag: parseBag(meta.mg_bag),
   };
 }
 
@@ -399,6 +405,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       saveGoal: async (goal) => {
         if (!supabase) return false;
         const { data, error: e } = await supabase.auth.updateUser({ data: { mg_goal: goal } });
+        if (e) {
+          console.error(e);
+          return false;
+        }
+        if (data.user) setUser(mapUser(data.user));
+        return true;
+      },
+      saveBag: async (bag) => {
+        if (!supabase) return false;
+        const { data, error: e } = await supabase.auth.updateUser({ data: { mg_bag: bag } });
         if (e) {
           console.error(e);
           return false;

@@ -2,6 +2,7 @@ import type { RoundBundle } from "./rounds";
 import { greenSpeedOf } from "./greenSpeed";
 import { weatherOf } from "./weather";
 import type { CourseRating, GameConfig, HoleScore, HoleStat, ParValue, Player, RoundRow, TeeBox, TeeLie } from "./types";
+import { cleanDetail } from "./detail";
 
 /*
  * DB 라운드 묶음(RoundBundle) → 정산 계산에 쓰는 GameConfig·HoleScore.
@@ -149,6 +150,7 @@ export function bundleHoleStats(bundle: RoundBundle): Record<string, HoleStat>[]
       ob: s.ob,
       hazard: s.hazard,
       sand: s.sand,
+      detail: cleanDetail(s.detail),
     };
   }
   return out;

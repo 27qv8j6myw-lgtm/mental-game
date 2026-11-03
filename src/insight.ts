@@ -1,7 +1,9 @@
 import { supabase } from "./supabase";
 import { girOf, HALF_LABEL, summarize, type Frac, type Half, type HoleRecord, type RecordSummary } from "./recordStats";
 import { apiUrl } from "./scorecard";
-import type { CourseRating } from "./types";
+import { clubName } from "./bag";
+import { PUTT_LINE_LABEL, SLOPE_LABEL, distMeters } from "./detail";
+import type { CourseRating, Fairway, ShotDetail, TeeLie } from "./types";
 
 /*
  * 라운드 기록 AI 분석 (관리자와 관리자가 허용한 사람): 기록 → 서버(api/insight.ts) → 칸마다 붙일 문단.
@@ -59,9 +61,18 @@ export function isSameCourse(a: CourseOf, b: CourseOf): boolean {
   return !a.rating || !b.rating || a.rating.course === b.rating.course;
 }
 
-/** 분석할 때의 기록 요약: 홀별 파·타수·퍼트·티샷·벌타·샌드샷 (바뀌면 '기록이 바뀌었어요') */
+/**
+ * 분석할 때의 기록 요약: 홀별 파·타수·퍼트·티샷·벌타·샌드샷 (바뀌면 '기록이 바뀌었어요').
+ * 디테일 기록은 있는 홀만 뒤에 붙인다 (디테일이 없던 라운드의 예전 분석은 그대로 맞게)
+ */
 export function insightFingerprint(recs: HoleRecord[]): string {
-  const s = recs.map((h) => [h.par, h.rel, h.putts, h.fairway, h.lie, h.ob, h.hazard, h.sand].join(",")).join(";");
+  const s = recs
+    .map(
+      (h) =>
+        [h.par, h.rel, h.putts, h.fairway, h.lie, h.ob, h.hazard, h.sand].join(",") +
+        (h.detail ? `|${JSON.stringify(h.detail)}` : "")
+    )
+    .join(";");
   let hash = 5381;
   for (let i = 0; i < s.length; i++) hash = ((hash * 33) ^ s.charCodeAt(i)) >>> 0;
   return hash.toString(36);
@@ -95,6 +106,156 @@ function strokeLeaks(recs: HoleRecord[]) {
     beyondBogey: list((h) => Math.max(0, (h.rel ?? 0) - 1)),
     missedGreenHoles: p.filter((h) => girOf(h.par, h.rel, h.putts) === false).map((h) => h.hole + 1),
     girThreePuttHoles: p.filter((h) => girOf(h.par, h.rel, h.putts) && (h.putts ?? 0) >= 3).map((h) => h.hole + 1),
+  };
+}
+
+/* ---- 디테일 기록 (detail.ts): 샷마다 클럽·핀까지 거리·결과, 퍼트마다 거리·라이·경사 ---- */
+
+const RESULT_TEXT: Record<"tee" | "par3" | "next", Record<Fairway, string>> = {
+  tee: { left: "왼쪽(훅)", hit: "페어웨이", short: "짧음(안 뜸)", right: "오른쪽(슬라이스)" },
+  par3: { left: "그린 왼쪽 미스", hit: "온그린", short: "그린 짧음", right: "그린 오른쪽 미스" },
+  next: { left: "왼쪽 미스", hit: "목표 적중(페어웨이·그린)", short: "짧음", right: "오른쪽 미스" },
+};
+const LIE_TEXT: Record<TeeLie, string> = { bunker: "벙커", ob: "OB", hazard: "해저드" };
+
+/** 디테일 샷 하나를 결과까지 (파4·파5 티샷의 방향·벙커/OB/해저드는 예전 칸에 있다) */
+interface ShotView {
+  i: number;
+  shot: ShotDetail;
+  dir: Fairway | null;
+  lie: TeeLie | null;
+  /** 핀까지 거리 m (야드면 바꾼 값) */
+  toPinM: number | null;
+}
+function shotViews(h: HoleRecord): ShotView[] {
+  return (h.detail?.shots ?? []).map((shot, i) => {
+    const old = i === 0 && h.par >= 4;
+    return {
+      i,
+      shot,
+      dir: (old ? h.fairway : shot.dir) ?? null,
+      lie: (old ? h.lie : shot.lie) ?? null,
+      toPinM: distMeters(shot),
+    };
+  });
+}
+const ctxOf = (h: HoleRecord, i: number) => (i > 0 ? "next" : h.par === 3 ? "par3" : "tee");
+const m1 = (v: number) => Math.round(v * 10) / 10;
+
+/** 홀별 기록에 붙일 샷 (디테일이 없으면 null) */
+function holeShots(h: HoleRecord) {
+  const views = shotViews(h);
+  if (!views.length) return null;
+  return views.map(({ i, shot, dir, lie, toPinM }) => ({
+    shot: i + 1,
+    club: shot.club ? clubName(shot.club) : null,
+    // 야드로 적었으면 원래 값과 m 를 함께
+    toPin: shot.dist == null ? null : shot.unit === "y" ? `${shot.dist}y (${Math.round(toPinM!)}m)` : `${shot.dist}m`,
+    result: dir ? RESULT_TEXT[ctxOf(h, i)][dir] : null,
+    lie: lie ? LIE_TEXT[lie] : null,
+    ...(i > 0 && shot.club?.kind === "putter" && { putterFromOffGreen: true }),
+  }));
+}
+
+/** 홀별 기록에 붙일 퍼트 (디테일이 없으면 null) */
+function holePutts(h: HoleRecord) {
+  const ps = h.detail?.putts ?? [];
+  if (!ps.length) return null;
+  return ps.map((p, i) => ({
+    putt: i + 1,
+    toHoleM: p.dist ?? null,
+    line: p.line ? PUTT_LINE_LABEL[p.line] : null,
+    slope: p.slope ? SLOPE_LABEL[p.slope] : "평지",
+  }));
+}
+
+/** 거리 구간 이름 */
+const band = (v: number, cuts: [number, string][], last: string) => cuts.find(([c]) => v < c)?.[1] ?? last;
+
+/**
+ * 라운드 디테일 요약 (디테일을 남긴 홀이 없으면 null):
+ * 클럽별 결과, 핀까지 거리 구간별 목표 적중, 첫 퍼트 거리 구간별 퍼트 수·라이·경사
+ */
+function detailSummary(recs: HoleRecord[]) {
+  const holes = playedHoles(recs).filter((h) => h.detail);
+  if (!holes.length) return null;
+
+  type ClubRow = { shots: number; hit: number; left: number; right: number; short: number; bunker: number; ob: number; hazard: number; toPinM: number[] };
+  const clubs: Record<string, ClubRow> = {};
+  const bands: Record<string, { shots: number; hit: number }> = {};
+  for (const h of holes) {
+    for (const v of shotViews(h)) {
+      if (v.shot.club) {
+        const c = (clubs[clubName(v.shot.club)] ??= { shots: 0, hit: 0, left: 0, right: 0, short: 0, bunker: 0, ob: 0, hazard: 0, toPinM: [] });
+        c.shots++;
+        if (v.dir) c[v.dir === "hit" ? "hit" : v.dir]++;
+        if (v.lie) c[v.lie]++;
+        if (v.toPinM != null) c.toPinM.push(v.toPinM);
+      }
+      // 거리 구간: 그린을 노린 샷 (파3 티샷 · 두 번째 샷부터), 결과를 적은 것만 (벙커·OB·해저드면 놓친 것)
+      if ((v.i > 0 || h.par === 3) && v.toPinM != null && (v.dir || v.lie)) {
+        const b = band(v.toPinM, [[100, "~100m"], [150, "100~150m"]], "150m~");
+        const x = (bands[b] ??= { shots: 0, hit: 0 });
+        x.shots++;
+        if (v.dir === "hit") x.hit++;
+      }
+    }
+  }
+
+  const firsts = holes
+    .map((h) => ({ h, p: h.detail!.putts[0] }))
+    .filter(({ h, p }) => p?.dist != null && h.putts != null);
+  const puttBands: Record<string, { holes: number; putts: number; onePutts: number; threePutts: number }> = {};
+  for (const { h, p } of firsts) {
+    const b = band(p.dist!, [[3, "~3m"], [8, "3~8m"]], "8m~");
+    const x = (puttBands[b] ??= { holes: 0, putts: 0, onePutts: 0, threePutts: 0 });
+    x.holes++;
+    x.putts += h.putts!;
+    if (h.putts === 1) x.onePutts++;
+    if (h.putts! >= 3) x.threePutts++;
+  }
+  const allPutts = holes.flatMap((h) => h.detail!.putts);
+  const count = <K extends string>(keys: (K | null | undefined)[]) => {
+    const out: Record<string, number> = {};
+    for (const k of keys) if (k) out[k] = (out[k] ?? 0) + 1;
+    return out;
+  };
+
+  return {
+    holesWithDetail: holes.length,
+    clubs: Object.fromEntries(
+      Object.entries(clubs).map(([name, c]) => [
+        name,
+        {
+          shots: c.shots,
+          onTarget: c.hit,
+          left: c.left,
+          right: c.right,
+          short: c.short,
+          bunker: c.bunker,
+          ob: c.ob,
+          hazard: c.hazard,
+          avgToPinM: c.toPinM.length ? Math.round(c.toPinM.reduce((a, b) => a + b, 0) / c.toPinM.length) : null,
+        },
+      ])
+    ),
+    approachByDistance: Object.fromEntries(
+      Object.entries(bands).map(([b, x]) => [b, { shots: x.shots, onTarget: x.hit, pct: Math.round((x.hit / x.shots) * 1000) / 10 }])
+    ),
+    firstPutt: firsts.length
+      ? {
+          holes: firsts.length,
+          avgToHoleM: m1(firsts.reduce((a, { p }) => a + p.dist!, 0) / firsts.length),
+          // 3퍼트 이상 한 홀의 첫 퍼트 거리
+          threePuttFirstM: firsts.filter(({ h }) => h.putts! >= 3).map(({ h, p }) => ({ hole: h.hole + 1, toHoleM: p.dist })),
+          byDistance: Object.fromEntries(
+            Object.entries(puttBands).map(([b, x]) => [b, { ...x, puttsPerHole: r2(x.putts / x.holes) }])
+          ),
+        }
+      : null,
+    // 적은 퍼트 전체의 라이·경사 (경사를 안 고른 퍼트는 평지)
+    puttLines: count(allPutts.map((p) => (p.line ? PUTT_LINE_LABEL[p.line] : null))),
+    puttSlopes: count(allPutts.filter((p) => p.dist != null || p.line).map((p) => (p.slope ? SLOPE_LABEL[p.slope] : "평지"))),
   };
 }
 
@@ -208,7 +369,12 @@ export function buildInsightInput(
         ob: h.ob,
         hazard: h.hazard,
         sand: h.sand,
+        // 디테일 기록을 남긴 홀만
+        ...(holeShots(h) && { shots: holeShots(h) }),
+        ...(holePutts(h) && { puttDetail: holePutts(h) }),
       })),
+    // 디테일 기록 요약 (남긴 홀이 없으면 null)
+    detail: detailSummary(recs),
   };
   const usualRounds = played(others);
   const courseRounds = played(sameCourse);

@@ -36,7 +36,10 @@ type IconName =
   | "help"
   | "medal"
   | "graph"
-  | "home";
+  | "home"
+  | "bag"
+  | "up"
+  | "sbreak";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -232,6 +235,27 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M12 5v13" />
       <path d="M7 13l5 5 5-5" />
+    </>
+  ),
+  // 골프백: 가방 위로 클럽 셋
+  bag: (
+    <>
+      <path d="M7.5 9h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5z" />
+      <path d="M7.5 13h9" />
+      <path d="M9.5 9V4.5H8M12 9V3.5M14.5 9V5.2l1.6-1" />
+    </>
+  ),
+  // 퍼트 라이: 똑바로 (위 화살표) / 더블 브레이크 (S자)
+  up: (
+    <>
+      <path d="M12 20V5" />
+      <path d="M7 10l5-5 5 5" />
+    </>
+  ),
+  sbreak: (
+    <>
+      <path d="M12 21c0-2 4-3 4-5.5s-8-2.5-8-5 4-3.5 4-6" />
+      <path d="M12 4.5 9 7.5M12 4.5l3 3" />
     </>
   ),
   // 스코어카드 사진으로 기록 추가

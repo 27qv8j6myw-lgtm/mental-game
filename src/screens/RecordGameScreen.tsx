@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRound } from "../round";
-import { EMPTY_STAT, girOf } from "../recordStats";
+import { EMPTY_STAT, girOf, sameStat } from "../recordStats";
 import { relLabel, scoreLabel, teeLabel } from "../util";
 import { Avatar, Icon } from "../icons";
 import PlayBar, { DockButton } from "./PlayBar";
@@ -15,13 +15,6 @@ import { clearDraft, loadDraft, saveDraft, type StoredDraft } from "../drafts";
 
 const scoreClass = (rel: number) => (rel < 0 ? "under" : rel > 0 ? "over" : "even");
 
-const sameStat = (a: HoleStat, b: HoleStat) =>
-  a.putts === b.putts &&
-  a.fairway === b.fairway &&
-  a.lie === b.lie &&
-  a.ob === b.ob &&
-  a.hazard === b.hazard &&
-  a.sand === b.sand;
 
 /** 이 홀에서 입력 중인 내 기록 (저장 전) */
 interface Draft {
@@ -229,7 +222,7 @@ export default function RecordGameScreen({
                 ))}
               </div>
 
-              <HoleStatFields par={par} strokes={strokes} stat={stat} onChange={update} />
+              <HoleStatFields key={idx} par={par} strokes={strokes} stat={stat} onChange={update} />
             </div>
           </>
         )}
