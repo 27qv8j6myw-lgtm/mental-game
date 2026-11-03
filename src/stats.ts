@@ -2,7 +2,6 @@ import { supabase } from "./supabase";
 import { totalNet } from "./betting";
 import { caddieRanks, caddieResult } from "./caddie";
 import { rankResult, rankScoreText } from "./rankGame";
-import { won } from "./util";
 import { bundleConfig, bundleHoles } from "./model";
 import { listMyRounds, type RoundBundle } from "./rounds";
 import type { GameMode, RoundListItem, RoundPlayerRow } from "./types";
@@ -10,6 +9,8 @@ import type { GameMode, RoundListItem, RoundPlayerRow } from "./types";
 /*
  * 전적: 내가 볼 수 있는(=내가 참여한) 정산 확정 라운드로 사람마다 기록과 누적 금액을 모은다.
  * 금액은 핸디캡까지 포함해 실제로 주고받은 돈 (사전·사후 정산 모두, 타수 보정은 핸디 금액 0).
+ * 캐디피·등수 내기(내는 돈)는 사람끼리 오간 돈이 없어서, 똑같이 나눠 냈을 때보다 덜 낸 만큼 +, 더 낸 만큼 − 로 본다.
+ * 등수 내기(금액 없음)는 금액이 없다 (타당 포인트면 '포인트'에서 본다).
  */
 
 /** 한 사람의 한 라운드 기록 */
@@ -24,10 +25,14 @@ export interface RoundRecord {
   /** 금액 기준 순위 (같은 금액은 같은 순위). 캐디피는 적게 낸 순, 등수 내기는 그 등수 */
   rank: number;
   net: number;
-  /** 사람끼리 돈을 주고받은 라운드 (캐디피·등수 내기의 내는 돈·금액 없음은 아님): 승패·누적 금액에 넣는다 */
+  /** 금액이 있는 라운드 (등수 내기의 금액 없음만 아님): 승패·누적 금액에 넣는다 */
   money: boolean;
-  /** 돈을 주고받지 않은 라운드의 오른쪽 표시: "캐디피 30,000원", "+12점" */
+  /** 캐디피·등수 내기(내는 돈)에서 실제로 낸 돈 (net 은 똑같이 나눠 냈을 때와 비교한 득실) */
+  paid?: number;
+  /** 금액이 없는 라운드의 오른쪽 표시: "+12점" */
   detail?: string;
+  /** 등수 내기를 타당 포인트로 친 라운드의 내 포인트 (핸디 포인트 포함, 한 판의 합은 0) */
+  points?: number;
   /** 모든 홀을 쳤을 때의 타수, 아니면 null */
   gross: number | null;
   birdies: number;
@@ -58,6 +63,21 @@ export interface PersonStats {
   vsMe: { win: number; loss: number; draw: number; myTotal: number; theirTotal: number } | null;
   /** 나와 함께한 라운드 중 둘 다 끝까지 친 라운드의 타수 맞대결. 그런 라운드가 없거나 나 자신이면 null */
   strokesVsMe: StrokesVsMe | null;
+  /** 등수 내기 타당 포인트 판만 모은 기록. 그런 판이 없으면 null */
+  points: PointStats | null;
+}
+
+/** 포인트 판 기록: 승·패·무는 그 판 포인트가 + / − / 0 */
+export interface PointStats {
+  rounds: number;
+  total: number;
+  /** 그 판 1등 */
+  firsts: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  /** 나와 함께한 포인트 판에서 내 포인트가 더 많았던(win)·적었던(loss)·같았던(draw) 횟수. 나 자신이면 null */
+  vsMe: { win: number; loss: number; draw: number; myTotal: number; theirTotal: number } | null;
 }
 
 export interface StrokesVsMe {
@@ -78,6 +98,8 @@ export interface StatsResult {
   /** 누적 금액 순 (나 포함) */
   people: PersonStats[];
   roundCount: number;
+  /** 그중 등수 내기를 타당 포인트로 친 라운드 수 (0이면 '포인트' 보기를 숨긴다) */
+  pointRoundCount: number;
 }
 
 /** 라운드 묶음들 → 사람별 전적 (네트워크 없이 계산만, 테스트 가능) */
@@ -87,6 +109,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
   const netByRound = new Map<string, Map<string, number>>();
   /** 전적에 넣은 라운드 수 (캐디피·등수 내기 포함) */
   let included = 0;
+  let pointRounds = 0;
 
   // 오래된 라운드부터 → 이름·사진은 가장 최근 라운드 것으로 덮인다
   const ordered = [...bundles].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
@@ -95,15 +118,18 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
     const config = bundleConfig(bundle);
     const holes = bundleHoles(bundle);
     if (config.players.length < 2 || config.gameMode === "record") continue;
-    const { net } = totalNet(config, holes, true);
     included++;
-    // 캐디피·등수(내는 돈·금액 없음)는 사람끼리 오간 돈이 없어 승패·누적 금액·맞대결에서 뺀다
-    const isMoney =
-      config.gameMode !== "caddie" && !(config.gameMode === "rank" && config.rules.rank?.prize !== "exchange");
-    if (isMoney) netByRound.set(bundle.round.id, new Map(Object.entries(net)));
     const caddie = config.gameMode === "caddie" ? caddieResult(config, holes, true) : null;
     const caddieRank = caddie ? caddieRanks(caddie) : null;
     const rankGame = config.gameMode === "rank" ? rankResult(config, holes) : null;
+    // 캐디피·등수(내는 돈): 사람끼리 오간 돈이 없어 똑같이 나눠 냈을 때와 비교한 득실
+    const paidIn = caddie ? caddie.paid : rankGame?.rules.prize === "pay" ? rankGame.amounts : null;
+    const net = paidIn ? splitGain(paidIn) : totalNet(config, holes, true).net;
+    // 등수(금액 없음)만 승패·누적 금액·맞대결에서 뺀다
+    const isMoney = rankGame?.rules.prize !== "none";
+    if (isMoney) netByRound.set(bundle.round.id, new Map(Object.entries(net)));
+    const isPoints = rankGame?.rules.method === "points";
+    if (isPoints) pointRounds++;
 
     // 폰 없는 동반자는 라운드마다 새 id 라 이름으로 한 사람으로 묶는다
     const offline = new Set(bundle.players.filter((r) => r.offline_player).map((r) => r.user_uid));
@@ -139,8 +165,9 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
         rank,
         net: mine,
         money: isMoney,
-        ...(caddie && { detail: `캐디피 ${won(caddie.paid[p.id])}` }),
+        ...(paidIn && { paid: paidIn[p.id] ?? 0 }),
         ...(rankGame && !isMoney && { detail: rankScoreText(rankGame.rules.method, rankGame.score[p.id]) }),
+        ...(isPoints && { points: round1(rankGame.score[p.id] ?? 0) }),
         gross: complete ? gross : null,
         birdies,
         eagles,
@@ -165,11 +192,12 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
           history: [],
           vsMe: null,
           strokesVsMe: null,
+          points: null,
         } as PersonStats);
       cur.name = p.name || cur.name;
       cur.photoUrl = p.photoUrl ?? cur.photoUrl;
       cur.rounds++;
-      // 1위: 돈을 주고받은 라운드는 딴 1위만, 캐디피·등수 내기는 그 라운드 1등
+      // 1위: 금액이 있는 라운드는 딴(캐디피·내는 돈은 덜 낸) 1위만, 등수(금액 없음)는 그 라운드 1등
       if (rank === 1 && (isMoney ? mine > 0 : true)) cur.firsts++;
       if (isMoney) {
         if (mine > 0) cur.wins++;
@@ -194,6 +222,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
       person.best18 = Math.min(...full.map((r) => r.gross as number));
     }
     person.history.reverse();
+    person.points = pointStats(person.history, person.uid === myUid ? null : myRounds);
 
     if (person.uid !== myUid) {
       const vs = { win: 0, loss: 0, draw: 0, myTotal: 0, theirTotal: 0 };
@@ -218,6 +247,7 @@ export function computeStats(bundles: RoundBundle[], myUid: string): StatsResult
     me: people.get(myUid) ?? null,
     people: list,
     roundCount: included,
+    pointRoundCount: pointRounds,
   };
 }
 
@@ -240,6 +270,44 @@ function strokesVs(history: RoundRecord[], mine: Map<string, RoundRecord>): Stro
     diff: round1(pairs.reduce((s, x) => s + x.them - x.me, 0) / pairs.length),
     myAvg18: avgOf(full.map((x) => x.me)),
     theirAvg18: avgOf(full.map((x) => x.them)),
+  };
+}
+
+/** 사람별 낸 돈 → 똑같이 나눠 냈을 때보다 덜 낸 만큼 + / 더 낸 만큼 − (합 0) */
+function splitGain(paid: Record<string, number>): Record<string, number> {
+  const ids = Object.keys(paid);
+  const share = ids.reduce((s, id) => s + paid[id], 0) / Math.max(1, ids.length);
+  return Object.fromEntries(ids.map((id) => [id, share - paid[id]]));
+}
+
+/** 그 사람의 포인트 판들 → 포인트 기록. mine: 다른 사람이면 내 라운드별 기록 (맞대결용) */
+function pointStats(history: RoundRecord[], mine: Map<string, RoundRecord> | null): PointStats | null {
+  const recs = history.filter((r) => r.points != null);
+  if (recs.length === 0) return null;
+  const pts = recs.map((r) => r.points as number);
+  const sum = (xs: number[]) => round1(xs.reduce((a, b) => a + b, 0));
+  let vsMe: PointStats["vsMe"] = null;
+  if (mine) {
+    const pairs = recs.flatMap((r) => {
+      const m = mine.get(r.roundId)?.points;
+      return m != null ? [{ me: m, them: r.points as number }] : [];
+    });
+    vsMe = {
+      win: pairs.filter((x) => x.me > x.them).length,
+      loss: pairs.filter((x) => x.me < x.them).length,
+      draw: pairs.filter((x) => x.me === x.them).length,
+      myTotal: sum(pairs.map((x) => x.me)),
+      theirTotal: sum(pairs.map((x) => x.them)),
+    };
+  }
+  return {
+    rounds: recs.length,
+    total: sum(pts),
+    firsts: recs.filter((r) => r.rank === 1).length,
+    wins: pts.filter((v) => v > 0).length,
+    losses: pts.filter((v) => v < 0).length,
+    draws: pts.filter((v) => v === 0).length,
+    vsMe,
   };
 }
 

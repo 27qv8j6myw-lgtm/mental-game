@@ -2,14 +2,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../auth";
 import { useRound } from "../round";
 import { useBack } from "../back";
-import { loadStats, type PersonStats, type StatsResult } from "../stats";
+import { loadStats, type PersonStats, type PointStats, type StatsResult } from "../stats";
 import { Avatar, Icon } from "../icons";
 import TopBar, { BackButton, NoticeButton } from "./TopBar";
 import { LogoHead } from "./PaneHead";
 import Dash from "./Dash";
 import { useUnfolded } from "../rail";
 import RecDate from "./RecDate";
-import { GAME_MODE_LABEL, wonSigned } from "../util";
+import { GAME_MODE_LABEL, won, wonSigned } from "../util";
 import { cachedRanking, loadRanking, overall, type RankingData } from "../ranking";
 
 const tone = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
@@ -21,6 +21,10 @@ const record = (p: PersonStats) =>
 
 /** 금액 (딴 돈 초록, 잃은 돈 빨강) */
 const Amt = ({ v }: { v: number }) => <b className={tone(v)}>{money(v)}</b>;
+
+/** 포인트: +12점 / −3점 / ±0점 (핸디 포인트가 있으면 소수 첫째 자리까지) */
+const pts = (n: number) => (n === 0 ? "±0점" : `${n > 0 ? "+" : "−"}${Math.round(Math.abs(n) * 10) / 10}점`);
+const Pt = ({ v }: { v: number }) => <b className={tone(v)}>{pts(v)}</b>;
 
 /** 승·무·패 막대. 위에는 승패 수, 막대 아래에는 양쪽 값 (금액 또는 평균 타수) */
 function WinLossBar({
@@ -187,6 +191,61 @@ function StrokeHero({ p, label, onOpen }: { p: PersonStats; label: string; onOpe
   );
 }
 
+/** 포인트 요약 카드: 누적 포인트 + 라운드·1등·승패. onOpen 이 있으면 눌러서 상세로 */
+function PointHero({
+  p,
+  s,
+  label,
+  onOpen,
+}: {
+  p: PersonStats;
+  s: PointStats;
+  label: string;
+  onOpen?: () => void;
+}) {
+  return (
+    <div
+      className={`card st-hero ${onOpen ? "st-hero-btn" : ""}`}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
+    >
+      <div className="st-hero-top">
+        <Avatar photoUrl={p.photoUrl} size={56} />
+        <div className="st-hero-name">
+          <span>{label}</span>
+          <b>{p.name || "?"}</b>
+        </div>
+        <div className="st-hero-end">
+          <div className={`st-hero-amt ${tone(s.total)}`}>{pts(s.total)}</div>
+          {onOpen && <Icon name="chevronRight" size={18} className="st-row-go" />}
+        </div>
+      </div>
+      <div className="st-golf">
+        <span>
+          <b>{s.rounds}</b>라운드
+        </span>
+        <span>
+          1등 <b>{s.firsts}</b>번
+        </span>
+        {/* 승패(포인트가 +·− 인 판)는 내 카드에만. 다른 사람은 아래 '나와 포인트 맞대결'과 헷갈리지 않게 뺀다 */}
+        {!s.vsMe && (
+          <span>
+            <b>{s.wins}</b>승 <b>{s.losses}</b>패
+            {s.draws > 0 && (
+              <>
+                {" "}
+                <b>{s.draws}</b>무
+              </>
+            )}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** 나와의 평균 타수 차이: −3.2타 / +1.5타 / ±0타 */
 const diffLabel = (d: number) => (d === 0 ? "±0타" : `${d > 0 ? "+" : "−"}${Math.abs(d)}타`);
 const avgText = (v: number | null | undefined) => (v == null ? "–" : v.toFixed(1));
@@ -227,8 +286,11 @@ function AvgCompare({
  * 전적 화면을 닫으면 지운다.
  */
 let lastSelected: string | null = null;
-/** 순위 기준: 금액(누적 금액) / 타수(18홀 평균). 화면을 다시 열어도 마지막에 고른 기준으로 */
-type RankBy = "money" | "strokes";
+/**
+ * 순위 기준: 금액(누적 금액) / 타수(18홀 평균) / 포인트(등수 내기 타당 포인트 누적).
+ * 화면을 다시 열어도 마지막에 고른 기준으로. 포인트는 포인트 판이 있을 때만
+ */
+type RankBy = "money" | "strokes" | "points";
 let lastBy: RankBy = "money";
 
 /** 전적: 나와 함께한 정산 확정 라운드 기준, 사람마다 기록과 누적 금액 */
@@ -281,6 +343,13 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
     ...vsOthers.filter((p) => p.strokesVsMe!.diff >= 0),
     ...others.filter((p) => !p.strokesVsMe),
   ];
+  // 포인트 순위: 포인트 판을 친 사람만 누적 포인트 순
+  const pointRows = others
+    .filter((p) => p.points)
+    .sort((a, b) => b.points!.total - a.points!.total || b.points!.rounds - a.points!.rounds);
+  // 포인트 판이 없으면 '포인트' 보기 대신 금액
+  const hasPoints = (stats?.pointRoundCount ?? 0) > 0;
+  const view: RankBy = by === "points" && !hasPoints ? "money" : by;
   // 라운드별 내 기록 (사람 상세의 타수 비교)
   const myRec = new Map((stats?.me?.history ?? []).map((r) => [r.roundId, r]));
   // 전체 라운드 평균 (나와 치지 않은 라운드 포함): 랭킹 자료로. 랭킹에서 숨긴 사람·폰 없는 동반자는 없음
@@ -363,6 +432,42 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         </>
       )}
 
+      {stats && stats.roundCount > 0 && !person && by === "points" && (
+        <>
+          {hero && stats.me?.points && (
+            <PointHero p={stats.me} s={stats.me.points} label="내 누적 포인트" onOpen={() => open(myUid)} />
+          )}
+
+          <div className="section-title">함께한 사람들 {pointRows.length}명</div>
+          <div className="card st-list">
+            {pointRows.map((p, i) => {
+              const s = p.points!;
+              const vs = s.vsMe;
+              return (
+                <button className="st-row" key={p.uid} onClick={() => open(p.uid)}>
+                  <span className={`rank ${i === 0 && s.total > 0 ? "top" : ""}`}>{i + 1}</span>
+                  <Avatar photoUrl={p.photoUrl} size={30} />
+                  <span className="st-row-main">
+                    <span className="st-row-name">{p.name || "?"}</span>
+                    {/* 누르면 나오는 '나와 포인트 맞대결'과 같은 기준: 내 승수 먼저 */}
+                    <span className="st-row-sub">
+                      {vs
+                        ? `${vs.win + vs.loss + vs.draw}라운드 · ${vs.win}승 ${vs.loss}패${vs.draw > 0 ? ` ${vs.draw}무` : ""}`
+                        : `${s.rounds}라운드`}
+                    </span>
+                  </span>
+                  <span className={`st-row-amt ${tone(s.total)}`}>{pts(s.total)}</span>
+                  <Icon name="chevronRight" size={16} className="st-row-go" />
+                </button>
+              );
+            })}
+          </div>
+          <p className="hint" style={{ margin: "8px 2px 0" }}>
+            등수 내기를 타당 포인트로 친 라운드만 모았어요. 한 판의 포인트 합은 0이라 +면 그 판에서 잘 친 거예요.
+          </p>
+        </>
+      )}
+
       {stats && stats.roundCount > 0 && !person && by === "money" && (
         <>
           {hero && stats.me && <PersonHero p={stats.me} onOpen={() => open(myUid)} />}
@@ -387,6 +492,9 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
+          <p className="hint" style={{ margin: "8px 2px 0" }}>
+            캐디피·등수 내기(내는 돈)는 똑같이 나눠 냈을 때보다 덜 낸 만큼 +, 더 낸 만큼 −로 넣었어요.
+          </p>
         </>
       )}
 
@@ -474,6 +582,86 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         </>
       )}
 
+      {person && by === "points" &&
+        (person.points ? (
+          <>
+            <PointHero
+              p={person}
+              s={person.points}
+              label={person.uid === myUid ? "내 누적 포인트" : "나와 누적"}
+            />
+
+            {person.points.vsMe ? (
+              <>
+                <div className="section-title">나와 포인트 맞대결</div>
+                <WinLossBar
+                  win={person.points.vsMe.win}
+                  draw={person.points.vsMe.draw}
+                  loss={person.points.vsMe.loss}
+                  winLabel="나"
+                  middle={`${person.points.vsMe.draw}무`}
+                  lossLabel={person.name || "?"}
+                  left={<Pt v={person.points.vsMe.myTotal} />}
+                  right={<Pt v={person.points.vsMe.theirTotal} />}
+                />
+              </>
+            ) : (
+              <>
+                <div className="section-title">내 승패</div>
+                <WinLossBar
+                  win={person.points.wins}
+                  draw={person.points.draws}
+                  loss={person.points.losses}
+                  winLabel=""
+                  middle={`${person.points.draws}무 · 승률 ${Math.round((person.points.wins / Math.max(1, person.points.rounds)) * 100)}%`}
+                  lossLabel=""
+                  left={<Pt v={person.history.reduce((t, r) => t + Math.max(0, r.points ?? 0), 0)} />}
+                  right={<Pt v={person.history.reduce((t, r) => t + Math.min(0, r.points ?? 0), 0)} />}
+                />
+              </>
+            )}
+
+            <div className="section-title">라운드별 포인트 {person.points.rounds}개</div>
+            <div className="card st-list">
+              {person.history
+                .filter((r) => r.points != null)
+                .map((r) => {
+                  const v = r.points!;
+                  const m = person.uid === myUid ? null : myRec.get(r.roundId)?.points;
+                  // 내 기준 승패
+                  const res = m == null ? null : m > v ? "win" : m < v ? "loss" : "draw";
+                  return (
+                    <button className="st-rec st-rec-btn" key={r.roundId} onClick={() => openRound(r.roundId)}>
+                      <RecDate date={r.date} />
+                      <span className="st-row-main">
+                        <span className="st-row-name">
+                          <span className="ri-title">{r.courseName || "이름 없는 라운드"}</span>
+                        </span>
+                        {/* 다른 사람: 그 라운드 내 포인트와 비교 / 나: 타수 */}
+                        <span className="st-row-sub">
+                          {r.playerCount}명 중 {r.rank}위
+                          {m != null ? ` · 나 ${pts(m)}` : r.gross != null ? ` · ${r.gross}타` : ""}
+                          {r.holeCount !== 18 && ` · ${r.holeCount}홀`}
+                        </span>
+                      </span>
+                      <span className={`st-row-amt ${tone(v)}`}>{pts(v)}</span>
+                      {res && (
+                        <span className={`st-res ${res}`}>
+                          {res === "win" ? "승" : res === "loss" ? "패" : "무"}
+                        </span>
+                      )}
+                      <Icon name="chevronRight" size={16} className="st-row-go" />
+                    </button>
+                  );
+                })}
+            </div>
+          </>
+        ) : (
+          <div className="card">
+            <div className="empty-note">포인트로 친 라운드가 없어요.</div>
+          </div>
+        ))}
+
       {person && by === "money" && (
         <>
           <PersonHero
@@ -524,12 +712,14 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                   </span>
                   <span className="st-row-sub">
                     {r.playerCount}명 중 {r.rank}위
+                    {/* 캐디피·등수(내는 돈): 오른쪽 금액은 똑같이 나눠 냈을 때와 비교한 득실, 여기에는 실제로 낸 돈 */}
+                    {r.paid != null && ` · ${r.gameMode === "caddie" ? "캐디피 " : ""}${won(r.paid)} 냄`}
                     {r.gross != null && ` · ${r.gross}타`}
                     {r.birdies > 0 && ` · 버디 ${r.birdies}`}
                     {r.eagles > 0 && ` · 이글 ${r.eagles}`}
                   </span>
                 </span>
-                {/* 캐디피·등수 내기(내는 돈·금액 없음)는 주고받은 돈 대신 낸 캐디피·점수 */}
+                {/* 등수 내기(금액 없음)는 금액 대신 점수 */}
                 {r.money ? (
                   <span className={`st-row-amt ${tone(r.net)}`}>{money(r.net)}</span>
                 ) : (
@@ -544,16 +734,17 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
     </>
   );
 
-  /** 금액 순 / 타수 순 */
+  /** 금액 순 / 타수 순 / 포인트 순 (포인트 판이 있을 때만) */
   const byToggle = (
     <div className="segmented st-by">
       {(
         [
           ["money", "금액"],
           ["strokes", "타수"],
+          ...(hasPoints ? ([["points", "포인트"]] as const) : []),
         ] as const
       ).map(([k, label]) => (
-        <button key={k} className={by === k ? "active" : ""} onClick={() => setBy(k)}>
+        <button key={k} className={view === k ? "active" : ""} onClick={() => setBy(k)}>
           {label}
         </button>
       ))}
@@ -573,7 +764,7 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         // 펼친 화면 대시보드: 왼쪽 줄 내 금액·타수 카드, 오른쪽 줄 금액/타수 순 사람들 (누르면 그 사람 상세)
         <Dash
           title="전적"
-          sub="함께 친 사람과의 금액 · 타수"
+          sub={`함께 친 사람과의 금액 · 타수${hasPoints ? " · 포인트" : ""}`}
           side={
             <>
               {status}
@@ -581,6 +772,9 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
                 <>
                   <PersonHero p={stats.me} onOpen={() => open(myUid)} />
                   <StrokeHero p={stats.me} label="내 평균 타수 (18홀)" onOpen={() => open(myUid)} />
+                  {stats.me.points && (
+                    <PointHero p={stats.me} s={stats.me.points} label="내 누적 포인트" onOpen={() => open(myUid)} />
+                  )}
                 </>
               )}
             </>
@@ -588,14 +782,14 @@ export default function StatsScreen({ onClose }: { onClose: () => void }) {
         >
           {person && <LogoHead onBack={() => setSelected(null)} label="함께한 사람들" />}
           {stats && stats.roundCount > 0 && byToggle}
-          {body(by, person, open, false)}
+          {body(view, person, open, false)}
         </Dash>
       ) : (
         <div className="sheet">
           <h2 className="page-title">{person ? person.name || "전적" : "전적"}</h2>
           {status}
           {stats && stats.roundCount > 0 && !person && byToggle}
-          {body(by, person, open)}
+          {body(view, person, open)}
         </div>
       )}
     </div>
