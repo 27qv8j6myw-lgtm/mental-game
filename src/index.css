@@ -9987,6 +9987,297 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   padding-bottom: 18px;
 }
 
+/* ============ 라운드 일기 (RoundDiary) ============ */
+.card.dy-cal {
+  padding: 12px 10px 10px;
+}
+.dy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dy-head b {
+  font-size: 16px;
+  font-weight: 800;
+}
+.dy-nav {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--ink-soft);
+}
+.dy-nav:disabled {
+  opacity: 0.25;
+}
+.dy-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.dy-week span {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.dy-week .sun,
+.dy-day.sun .dy-num {
+  color: var(--loss);
+}
+.dy-week .sat,
+.dy-day.sat .dy-num {
+  color: var(--olive);
+}
+.dy-day {
+  position: relative;
+  height: 54px;
+  padding: 5px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+  color: var(--ink);
+}
+.dy-day:active:not(:disabled) {
+  background: var(--paper-2);
+}
+.dy-day:disabled {
+  opacity: 0.35;
+}
+.dy-day.today {
+  box-shadow: inset 0 0 0 1.5px var(--olive);
+}
+.dy-day.round {
+  background: var(--olive-soft);
+}
+.dy-num {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.dy-score {
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--olive-deep);
+  font-variant-numeric: tabular-nums;
+}
+.dy-score.under {
+  color: var(--terra);
+}
+.dy-score small {
+  font-size: 9.5px;
+  font-weight: 800;
+  margin-left: 1px;
+}
+.dy-tag {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--gain-soft);
+  color: var(--gain);
+  font-size: 10px;
+  font-weight: 800;
+}
+.dy-dot {
+  position: absolute;
+  bottom: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--terra);
+}
+.dy-sum {
+  margin-top: 8px;
+  padding-top: 9px;
+  border-top: var(--border);
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+/* 그날 페이지: 라운드 하늘 카드 (대기실 초대 코드 카드와 같은 장면) */
+.dy-round + .dy-round {
+  margin-top: 28px;
+}
+.code-card.dy-sky {
+  text-align: left;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.code-card.dy-sky .cc-top {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.dy-who {
+  min-width: 0;
+}
+.dy-course {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.dy-strokes {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.dy-strokes b {
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.dy-strokes span {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  font-size: 13px;
+  font-weight: 800;
+}
+.code-card .cc-meta.dy-obs {
+  margin-top: 12px;
+}
+.card.dy-stats {
+  padding: 14px;
+  margin-bottom: 18px;
+}
+.dy-dist {
+  display: flex;
+  gap: 4px;
+}
+.dy-dist span {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--paper-2);
+  color: var(--ink-faint);
+}
+.dy-dist span.on {
+  color: var(--ink);
+}
+.dy-dist small {
+  font-size: 11px;
+  font-weight: 700;
+}
+.dy-dist b {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.dy-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.dy-tile {
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dy-tile small {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.dy-tile b {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.dy-tile span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dy-none {
+  margin: 10px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+.card.dy-ai {
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.card.dy-ai p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink);
+  word-break: keep-all;
+}
+.card.dy-ai .dy-none {
+  margin: 0;
+}
+.card.dy-editor {
+  padding: 12px;
+}
+.dy-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.dy-tags .chip {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+.dy-text {
+  display: block;
+  width: 100%;
+  min-height: 150px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.dy-text:focus {
+  outline: none;
+  border-color: var(--olive);
+}
+.dy-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.dy-status.err {
+  color: var(--loss);
+}
+
 /* 종 알림: 시즌 목표 달성 */
 .notice-item .ni-ic.goal {
   background: var(--gain-soft);

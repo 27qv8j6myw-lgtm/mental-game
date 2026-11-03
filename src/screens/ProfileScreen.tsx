@@ -14,6 +14,7 @@ import Dash from "./Dash";
 import SeasonGoals from "./SeasonGoals";
 import Badges from "./Badges";
 import GolfBag from "./GolfBag";
+import RoundDiary from "./RoundDiary";
 import { BADGES, useBadgeCount } from "../badges";
 import { goalSummary, hasGoal } from "../goals";
 import type { NoticePage } from "../notices";
@@ -25,10 +26,11 @@ const LINKABLE: { id: OAuthProvider; label: string }[] = [
 const PROVIDER_LABEL: Record<string, string> = { kakao: "카카오", google: "Google", apple: "Apple" };
 
 /** 한 단계 들어가는 페이지 (펼친 iPhone Duo 에서는 오른쪽 칸) */
-type Sub = "accounts" | "bag" | NoticePage;
+type Sub = "accounts" | "bag" | "diary" | NoticePage;
 const SUB_TITLE: Record<Sub, string> = {
   accounts: "로그인 계정 연결",
   bag: "골프백",
+  diary: "라운드 일기",
   goals: "시즌 목표",
   badges: "배지",
 };
@@ -124,6 +126,12 @@ export default function ProfileScreen({
       <div className="section-title">내 활동</div>
       <div className="card pf-group">
         <Row
+          icon="edit"
+          label="라운드 일기"
+          on={split && shown === "diary"}
+          onClick={() => setSub("diary")}
+        />
+        <Row
           icon="target"
           label="시즌 목표"
           value={goal ? goalSummary(goal) : "정하기"}
@@ -196,6 +204,8 @@ export default function ProfileScreen({
       <Accounts />
     ) : shown === "bag" ? (
       <GolfBag />
+    ) : shown === "diary" ? (
+      <RoundDiary />
     ) : shown === "goals" ? (
       <SeasonGoals />
     ) : shown === "badges" ? (

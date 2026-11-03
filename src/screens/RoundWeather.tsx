@@ -84,9 +84,13 @@ export function forecastSummary(hours: ForecastHour[]): ForecastSummary | null {
   };
 }
 
-/** 대기실 라운드의 티오프 5시간 예보 (라운드가 없거나 좌표를 못 구했거나 예보 기간 밖이면 null) */
+/**
+ * 대기실 라운드의 티오프 5시간 예보 (라운드가 없거나 좌표를 못 구했거나 예보 기간 밖이면 null).
+ * 라운드 일기처럼 지난 라운드면 device: false (그날 폰 위치는 남기지 않아 골프장 좌표가 있을 때만)
+ */
 export function useRoundForecast(
-  round: Pick<RoundRow, "id" | "date" | "tee_time" | "rules"> | null | undefined
+  round: Pick<RoundRow, "id" | "date" | "tee_time" | "rules"> | null | undefined,
+  { device = true }: { device?: boolean } = {}
 ): ForecastSummary | null {
   const [sum, setSum] = useState<ForecastSummary | null>(null);
   const date = round?.date ?? "";
@@ -100,7 +104,7 @@ export function useRoundForecast(
     void (async () => {
       // KGA 목록 골프장은 그 좌표, 아니면 폰의 대략적인 위치 (허락할 때만)
       const course = await courseCoords(rules);
-      const at = course ?? (await deviceCoords());
+      const at = course ?? (device ? await deviceCoords() : null);
       if (!at || !alive) return;
       const hours = await roundForecast(at, course ? "course" : "device", date, time, `${round?.id}|${club}`);
       if (alive) setSum(forecastSummary(hours));

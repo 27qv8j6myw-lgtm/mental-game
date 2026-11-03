@@ -8,14 +8,16 @@
  *   - 골프장 좌표(KGA 목록)·해외: Open-Meteo 시간별 예보 (16일)
  *   - 폰 위치이고 한국 안: 기상청 단기예보(getVilageFcst, 사흘쯤). 폰 위치는 국내면 기상청에만 보낸다 (개인정보처리방침).
  *     자외선은 없다
+ *   - 지난 날짜(라운드 일기)라 예보 기간 밖이면 Open-Meteo 지난 예보 보관소(Historical Forecast, 2022년부터)
  * - 필요한 환경변수: KMA_SERVICE_KEY (data.go.kr 일반 인증키, Decoding), VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
- *   (KMA_URL·OPEN_METEO_URL 은 로컬 시험 때만 바꾼다)
+ *   (KMA_URL·OPEN_METEO_URL·OPEN_METEO_HIST_URL 은 로컬 시험 때만 바꾼다)
  */
 
 const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
 
 const KMA = env.KMA_URL ?? "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst";
 const OPEN_METEO = env.OPEN_METEO_URL ?? "https://api.open-meteo.com/v1/forecast";
+const OPEN_METEO_HIST = env.OPEN_METEO_HIST_URL ?? "https://historical-forecast-api.open-meteo.com/v1/forecast";
 const KMA_FCST = env.KMA_FCST_URL ?? "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
 
 const json = (status: number, body: unknown) =>
@@ -164,8 +166,10 @@ async function forecast(lat: number, lon: number, date: string, time: string): P
     // 저녁 티오프면 다음 날 새벽까지
     end_date: start + FORECAST_HOURS >= 24 ? addDay(date) : date,
   });
-  const r = await fetch(`${OPEN_METEO}?${q}`);
-  // 예보 기간 밖(16일 뒤·오래전)이면 400
+  let r = await fetch(`${OPEN_METEO}?${q}`);
+  // 예보 기간 밖이면 400. 지난 날짜(석 달쯤 전부터)면 지난 예보 보관소에서 같은 칸을 받는다
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  if (r.status === 400 && date < today) r = await fetch(`${OPEN_METEO_HIST}?${q}`);
   if (r.status === 400) return [];
   if (!r.ok) throw new Error(`open-meteo ${r.status}`);
   const h = ((await r.json().catch(() => null)) as {
