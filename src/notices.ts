@@ -128,8 +128,15 @@ export interface NoticeItem {
   href?: string;
 }
 
-/** 개인정보처리방침이 바뀔 때 알림 (시행 7일 전부터 시행 뒤 7일까지, public/privacy.html) */
+/** 개인정보처리방침이 바뀔 때 알림 (시행 7일 전부터 시행 뒤 7일까지, public/privacy.html). 새것이 위 */
 const POLICY_CHANGES = [
+  {
+    id: "policy:2026-11-10",
+    from: "2026-11-03",
+    until: "2026-11-17",
+    title: "개인정보처리방침이 바뀌어요",
+    sub: "11월 10일부터 · 골프백·라운드 일기를 저장해요",
+  },
   {
     id: "policy:2026-10-31",
     from: "2026-10-24",
