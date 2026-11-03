@@ -38,7 +38,14 @@ export interface KgaData {
 
 let loading: Promise<KgaData> | null = null;
 export const loadKga = () =>
-  (loading ??= import("./data/kgaCourses.json").then((m) => m.default as KgaData));
+  (loading ??= import("./data/kgaCourses.json").then(
+    (m) => m.default as KgaData,
+    (e) => {
+      // 못 받았으면 다음에 다시 받는다
+      loading = null;
+      throw e;
+    }
+  ));
 
 /** 비교용 이름: 공백·대소문자·"CC/컨트리클럽/골프클럽" 같은 꼬리말을 뺀다 */
 const norm = (s: string) =>
