@@ -7290,6 +7290,18 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   padding-left: 16px;
   padding-right: 16px;
 }
+/* 칠이 카드 둥근 모서리 밖으로 삐져나오지 않게 자르고, 맨 위·아래 줄이면 카드 끝까지 칠한다 */
+.st-list:has(> .st-row-me) {
+  overflow: hidden;
+}
+.st-row.st-row-me:first-child {
+  margin-top: -4px;
+  padding-top: 15px;
+}
+.st-row.st-row-me:last-child {
+  margin-bottom: -4px;
+  padding-bottom: 15px;
+}
 /* 라운드별 타수: 나 기준 승·패·무 */
 .st-res {
   flex: none;
