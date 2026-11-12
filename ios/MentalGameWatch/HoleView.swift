@@ -10,6 +10,21 @@ enum Theme {
     static let pending = Color.orange
     static let finish = Color(red: 0.90, green: 0.26, blue: 0.32)
 
+    /// 고른 티샷 칸 색 (폰 기록 모드·스코어카드와 같은 뜻): 페어웨이 초록, 벙커 갈색, OB·해저드 빨강, 다른 방향은 앱 파랑.
+    /// 갈색은 폰 스코어카드(#92400e)보다 조금 밝게 (어두운 워치 화면에서 보이게)
+    static let fairway = Color(red: 0.02, green: 0.59, blue: 0.41)
+    static let bunker = Color(red: 0.66, green: 0.42, blue: 0.20)
+    static let penalty = Color(red: 0.86, green: 0.15, blue: 0.15)
+
+    static func tee(_ id: String) -> Color {
+        switch id {
+        case "hit": return fairway
+        case "bunker": return bunker
+        case "ob", "hazard": return penalty
+        default: return accent
+        }
+    }
+
     /// PAR 3 · 4 · 5 버튼 색 (파가 한눈에 구분되게: 초록 · 보라 · 주황)
     static func par(_ p: Int) -> Color {
         switch p {
@@ -298,7 +313,7 @@ struct HoleView: View {
                             Image(systemName: o.icon)
                                 .font(.system(size: 17, weight: .bold))
                                 .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(RoundedRectangle(cornerRadius: 12).fill(dir == o.id ? Theme.accent : Theme.control))
+                                .background(RoundedRectangle(cornerRadius: 12).fill(dir == o.id ? Theme.tee(o.id) : Theme.control))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(o.label)
@@ -313,7 +328,7 @@ struct HoleView: View {
                             Text(o.label)
                                 .font(.app(14, .semibold))
                                 .frame(maxWidth: .infinity, minHeight: 40)
-                                .background(RoundedRectangle(cornerRadius: 12).fill(lie == o.id ? Theme.accent : Theme.control))
+                                .background(RoundedRectangle(cornerRadius: 12).fill(lie == o.id ? Theme.tee(o.id) : Theme.control))
                         }
                         .buttonStyle(.plain)
                         // 페어웨이에 떨어졌으면 고를 수 없다 (폰과 같다)
