@@ -25,7 +25,9 @@
    Xcode 에서 Team 을 고르면 Apple 개발자 사이트에 Sign in with Apple 이 켜진 App ID 가 저절로 만들어져요
    (`Config/MentalGame.entitlements`).
 3. **회원 탈퇴**: Supabase SQL Editor 에서 `supabase/account.sql` 을 실행해요.
-4. 웹을 배포해요. 앱 안 로그인·Apple 로그인·회원 탈퇴는 웹의 `src/native.ts`·`src/auth.tsx` 가 배포돼 있어야 동작해요.
+4. **애플워치로 기록하기**: Supabase SQL Editor 에서 `supabase/watch.sql` 을 실행해요.
+   워치는 로그인하지 않고, 폰이 받은 '그 라운드의 내 기록만 쓰는 24시간 열쇠'로 저장해요.
+5. 웹을 배포해요. 앱 안 로그인·Apple 로그인·회원 탈퇴는 웹의 `src/native.ts`·`src/auth.tsx` 가 배포돼 있어야 동작해요.
 
 ## 열고 실행하기
 
@@ -55,8 +57,21 @@ xcrun simctl launch --terminate-running-process booted kr.mentalgame.golf
 | `MentalGame/App/AppConfig.swift` | 웹 주소(`Config/Base.xcconfig` 의 `MG_WEB_HOST`), 로그인 돌아오는 주소, User-Agent |
 | `MentalGame/Web/WebController.swift` | 웹뷰 설정·페이지 이동 규칙·로그인 창·알림 창·내려받기·연결 끊김 |
 | `MentalGame/Web/WebScreen.swift` | 화면 (웹뷰 + 시작 로고 + 다시 시도) |
+| `MentalGame/Web/WatchLink.swift` | 애플워치로 기록하기: 웹이 보낸 라운드 연결 정보를 워치에 넘긴다 (WatchConnectivity) |
+| `MentalGameWatch/` | 워치 앱 (watchOS 10+, iPhone 앱에 들어간다). 홀마다 타수·퍼트·티샷(방향·벙커/OB/해저드)·OB·해저드·샌드샷을 넣고 Supabase 의 `watch_save` 로 바로 저장 |
 | `MentalGame/Info.plist` | 로그인 돌아오는 주소 스킴, 시작 화면, 카메라·사진 권한 안내 |
 | `MentalGame/Resources/ko.lproj/InfoPlist.strings` | 앱 이름 '멘탈게임' |
+
+### 애플워치
+
+- 워치 앱(`MentalGameWatch` 타깃)은 iPhone 앱을 빌드하면 함께 빌드돼 `MentalGame.app/Watch` 에 들어가요.
+- 버전(`MARKETING_VERSION`·`CURRENT_PROJECT_VERSION`)은 iPhone 앱과 워치 앱이 같아야 해요. 올릴 때 두 타깃을 함께 올려요.
+- 워치 앱은 라운드 동안 **골프 운동(HealthKit 운동 세션)**을 켜서 화면을 유지하고, 끝나면 건강 앱에 저장해요 (`MentalGameWatch/Workout.swift`).
+  워치 타깃에 HealthKit 권한(`Config/MentalGameWatch.entitlements`)과 백그라운드 모드 `workout-processing` 이 있어요.
+  App Store Connect 앱 개인정보에는 건강 데이터를 서버로 보내지 않으니 '수집'에 넣지 않지만, 심사 메모에 골프 운동 기록 용도를 적어요.
+- 워치 시뮬레이터로 보려면 Xcode → Settings → Components 에서 watchOS 시뮬레이터를 받아요.
+  짝지은 iPhone·Watch 시뮬레이터에서 iPhone 앱을 띄우고, 위쪽에서 `MentalGameWatch` 스킴과 워치 시뮬레이터를 골라 ▶︎.
+- 명령줄 빌드는 `-sdk` 대신 `-destination 'generic/platform=iOS Simulator'` 를 써요 (`-sdk iphonesimulator` 를 주면 워치 타깃까지 iPhone SDK 로 빌드하려다 실패해요).
 
 ## 앱스토어 심사 제출
 

@@ -28,6 +28,11 @@ final class WebController: NSObject {
     /// 라운드 날씨용 대략적인 위치 (처음 쓸 때 만든다)
     @ObservationIgnored fileprivate lazy var location = LocationOnce()
 
+    /// 웹에 알리는 앱 기능 (src/native.ts nativeCaps). 이 앱부터 애플워치로 기록하기를 쓸 수 있다
+    private static let capsScript = WKUserScript(
+        source: "window.__mgCaps = [\"watch\"]", injectionTime: .atDocumentStart, forMainFrameOnly: true
+    )
+
     override init() {
         let contents = WKUserContentController()
         let config = WKWebViewConfiguration()
@@ -40,6 +45,7 @@ final class WebController: NSObject {
         super.init()
 
         contents.add(WeakMessageHandler(self), name: "mg")
+        contents.addUserScript(Self.capsScript)
         webView.onLayout = { [weak self] in self?.pushLayout() }
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(startLayoutTicker), name: UIApplication.didBecomeActiveNotification, object: nil)
@@ -259,6 +265,7 @@ extension WebController {
         // 다음에 여는 페이지도 처음부터 알게 (src/rail.ts 는 시작할 때 window.__mgLayout 을 읽는다)
         let contents = webView.configuration.userContentController
         contents.removeAllUserScripts()
+        contents.addUserScript(Self.capsScript)
         contents.addUserScript(WKUserScript(
             source: "window.__mgLayout = \(json)", injectionTime: .atDocumentStart, forMainFrameOnly: true
         ))
@@ -308,6 +315,15 @@ extension WebController: WKScriptMessageHandler {
                   let data = Data(base64Encoded: b64), UIImage(data: data) != nil
             else { return }
             saveToPhotos(data, requestID: id)
+        case "watch":
+            // 애플워치로 기록: 라운드 연결 정보를 워치에 넘긴다 (null 이면 내린다)
+            guard let page = message.frameInfo.request.url, isAppPage(page) else { return }
+            WatchLink.shared.send(body["ctx"] as? [String: Any])
+        case "watchStatus":
+            guard let page = message.frameInfo.request.url, isAppPage(page),
+                  let id = body["id"] as? Int
+            else { return }
+            reply(id, WatchLink.shared.status())
         case "location":
             // 라운드 날씨: 목록에 없는 골프장이면 지금 대략적인 위치를 한 번 (저장하지 않는다)
             guard let page = message.frameInfo.request.url, isAppPage(page),

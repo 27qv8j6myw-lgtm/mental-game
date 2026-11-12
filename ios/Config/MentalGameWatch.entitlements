@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 라운드를 건강 앱에 골프 운동으로 기록 (워치 앱 Workout.swift) -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+</dict>
+</plist>

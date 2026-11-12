@@ -39,7 +39,8 @@ type IconName =
   | "home"
   | "bag"
   | "up"
-  | "sbreak";
+  | "sbreak"
+  | "watch";
 
 const PATHS: Record<IconName, JSX.Element> = {
   flag: (
@@ -243,6 +244,14 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M7.5 9h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-6a1.5 1.5 0 0 1-1.5-1.5z" />
       <path d="M7.5 13h9" />
       <path d="M9.5 9V4.5H8M12 9V3.5M14.5 9V5.2l1.6-1" />
+    </>
+  ),
+  // 애플워치: 둥근 네모 화면 위아래 줄, 옆 크라운
+  watch: (
+    <>
+      <rect x="6.5" y="6" width="11" height="12" rx="3" />
+      <path d="M9 6l.6-2.5h4.8L15 6M9 18l.6 2.5h4.8L15 18M17.5 10.5h1" />
+      <path d="M12 9.5V12l1.6 1.2" />
     </>
   ),
   // 퍼트 라이: 똑바로 (위 화살표) / 더블 브레이크 (S자)

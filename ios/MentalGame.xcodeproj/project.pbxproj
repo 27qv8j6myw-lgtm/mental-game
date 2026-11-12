@@ -6,8 +6,37 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0B000000000000000000000A /* MentalGameWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 0B0000000000000000000001 /* MentalGameWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0B000000000000000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0B0000000000000000000003;
+			remoteInfo = MentalGameWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0B000000000000000000000B /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				0B000000000000000000000A /* MentalGameWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		0A0000000000000000000004 /* MentalGame.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MentalGame.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0B0000000000000000000001 /* MentalGameWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MentalGameWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A0000000000000000000007 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -18,6 +47,13 @@
 				Info.plist,
 			);
 			target = 0A0000000000000000000009 /* MentalGame */;
+		};
+		0B000000000000000000000E /* Exceptions for "MentalGameWatch" folder in "MentalGameWatch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0B0000000000000000000003 /* MentalGameWatch */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -30,10 +66,25 @@
 			path = MentalGame;
 			sourceTree = "<group>";
 		};
+		0B0000000000000000000002 /* MentalGameWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0B000000000000000000000E /* Exceptions for "MentalGameWatch" folder in "MentalGameWatch" target */,
+			);
+			path = MentalGameWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		0A000000000000000000000B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0B0000000000000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -47,6 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				0A0000000000000000000005 /* MentalGame */,
+				0B0000000000000000000002 /* MentalGameWatch */,
 				0A0000000000000000000006 /* Config */,
 				0A0000000000000000000003 /* Products */,
 			);
@@ -56,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				0A0000000000000000000004 /* MentalGame.app */,
+				0B0000000000000000000001 /* MentalGameWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -78,10 +131,12 @@
 				0A000000000000000000000A /* Sources */,
 				0A000000000000000000000B /* Frameworks */,
 				0A000000000000000000000C /* Resources */,
+				0B000000000000000000000B /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0B000000000000000000000D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0A0000000000000000000005 /* MentalGame */,
@@ -89,6 +144,26 @@
 			name = MentalGame;
 			productName = MentalGame;
 			productReference = 0A0000000000000000000004 /* MentalGame.app */;
+			productType = "com.apple.product-type.application";
+		};
+		0B0000000000000000000003 /* MentalGameWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0B0000000000000000000007 /* Build configuration list for PBXNativeTarget "MentalGameWatch" */;
+			buildPhases = (
+				0B0000000000000000000004 /* Sources */,
+				0B0000000000000000000005 /* Frameworks */,
+				0B0000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0B0000000000000000000002 /* MentalGameWatch */,
+			);
+			name = MentalGameWatch;
+			productName = MentalGameWatch;
+			productReference = 0B0000000000000000000001 /* MentalGameWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -103,6 +178,9 @@
 				TargetAttributes = {
 					0A0000000000000000000009 = {
 						CreatedOnToolsVersion = 27.1;
+					};
+					0B0000000000000000000003 = {
+						CreatedOnToolsVersion = 27.2;
 					};
 				};
 			};
@@ -121,12 +199,20 @@
 			projectRoot = "";
 			targets = (
 				0A0000000000000000000009 /* MentalGame */,
+				0B0000000000000000000003 /* MentalGameWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		0A000000000000000000000C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0B0000000000000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -143,7 +229,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0B0000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0B000000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0B0000000000000000000003 /* MentalGameWatch */;
+			targetProxy = 0B000000000000000000000C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0A000000000000000000000F /* Debug */ = {
@@ -281,6 +382,78 @@
 			};
 			name = Release;
 		};
+		0B0000000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = 9UK5E72T2X;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/MentalGameWatch.entitlements;
+				INFOPLIST_FILE = MentalGameWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "멘탈게임";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "골프 운동 기록을 건강 앱과 맞추는 데 써요. 건강 데이터는 서버로 보내지 않아요.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "라운드를 건강 앱에 골프 운동(시간·활동 칼로리·심박수)으로 기록해요. 건강 데이터는 서버로 보내지 않아요.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = kr.mentalgame.golf;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = kr.mentalgame.golf.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		0B0000000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = 9UK5E72T2X;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/MentalGameWatch.entitlements;
+				INFOPLIST_FILE = MentalGameWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "멘탈게임";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "골프 운동 기록을 건강 앱과 맞추는 데 써요. 건강 데이터는 서버로 보내지 않아요.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "라운드를 건강 앱에 골프 운동(시간·활동 칼로리·심박수)으로 기록해요. 건강 데이터는 서버로 보내지 않아요.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = kr.mentalgame.golf;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = kr.mentalgame.golf.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -298,6 +471,15 @@
 			buildConfigurations = (
 				0A0000000000000000000011 /* Debug */,
 				0A0000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0B0000000000000000000007 /* Build configuration list for PBXNativeTarget "MentalGameWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B0000000000000000000008 /* Debug */,
+				0B0000000000000000000009 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

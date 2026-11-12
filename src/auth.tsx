@@ -11,6 +11,7 @@ import { isNativeApp, NATIVE_LOGIN_REDIRECT, openNativeLogin, requestAppleLogin 
 import { apiUrl } from "./scorecard";
 import { parseGoal, type SeasonGoal } from "./goals";
 import { parseBag, type Club } from "./bag";
+import { clearWatchLink } from "./watch";
 
 export type AuthMode = "loading" | "signed-in" | "signed-out";
 export type OAuthProvider = "google" | "kakao";
@@ -426,6 +427,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       guestMoved,
       clearGuestMoved: () => setGuestMoved(null),
       signOutUser: async () => {
+        // 워치에서도 라운드를 내린다
+        clearWatchLink();
         if (supabase) await supabase.auth.signOut();
         setUser(null);
         setMode("signed-out");

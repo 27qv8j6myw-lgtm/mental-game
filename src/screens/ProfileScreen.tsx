@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useAuth, type LinkProvider, type OAuthProvider } from "../auth";
-import { isNativeApp } from "../native";
+import { isNativeApp, watchSupported } from "../native";
 import { useBack } from "../back";
 import { AppleLogo, Avatar, GoogleLogo, Icon, KakaoLogo } from "../icons";
 import { isAdmin } from "../admin";
@@ -15,9 +15,11 @@ import SeasonGoals from "./SeasonGoals";
 import Badges from "./Badges";
 import GolfBag from "./GolfBag";
 import RoundDiary from "./RoundDiary";
+import WatchSettings from "./WatchSettings";
 import { BADGES, useBadgeCount } from "../badges";
 import { goalSummary, hasGoal } from "../goals";
 import type { NoticePage } from "../notices";
+import { useWatchSetting } from "../watch";
 
 const LINKABLE: { id: OAuthProvider; label: string }[] = [
   { id: "kakao", label: "카카오" },
@@ -33,6 +35,7 @@ const SUB_TITLE: Record<Sub, string> = {
   diary: "라운드 일기",
   goals: "시즌 목표",
   badges: "배지",
+  watch: "애플워치",
 };
 
 /**
@@ -121,6 +124,7 @@ export default function ProfileScreen({
 
   const goal = hasGoal(user?.goal) ? user?.goal : null;
   const badgeCount = useBadgeCount(user?.uid ?? "");
+  const watchOn = useWatchSetting();
   const list = (
     <>
       <div className="section-title">내 활동</div>
@@ -154,6 +158,20 @@ export default function ProfileScreen({
         />
       </div>
 
+      {watchSupported() && (
+        <>
+          <div className="section-title">기기</div>
+          <div className="card pf-group">
+            <Row
+              icon="watch"
+              label="애플워치"
+              value={watchOn ? "켜짐" : "꺼짐"}
+              on={split && shown === "watch"}
+              onClick={() => setSub("watch")}
+            />
+          </div>
+        </>
+      )}
       <div className="section-title">계정</div>
       <div className="card pf-group">
         <Row
@@ -210,6 +228,8 @@ export default function ProfileScreen({
       <SeasonGoals />
     ) : shown === "badges" ? (
       <Badges />
+    ) : shown === "watch" ? (
+      <WatchSettings />
     ) : null;
 
   return (

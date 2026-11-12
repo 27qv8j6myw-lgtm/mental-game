@@ -97,3 +97,44 @@ export interface LocationResult {
 /** 지금 대략적인 위치 한 번 (iOS 앱 1.0.1 부터. 라운드 날씨에만 쓰고 저장하지 않는다) */
 export const requestNativeLocation = () => ask<LocationResult>("location", {});
 
+
+/** 앱이 시작할 때 심어 둔 기능 목록 (window.__mgCaps). 예: "watch" (워치 연결이 들어간 앱부터) */
+export function nativeCaps(): string[] {
+  const caps = (window as unknown as { __mgCaps?: unknown }).__mgCaps;
+  return isNativeApp() && Array.isArray(caps) ? caps.filter((c): c is string => typeof c === "string") : [];
+}
+
+/** 애플워치로 기록하기를 쓸 수 있는 앱인지 */
+export const watchSupported = () => nativeCaps().includes("watch");
+
+/** 워치에 넘기는 라운드 연결 정보 (워치는 이 열쇠로 Supabase 의 watch_state·watch_save 만 부른다, supabase/watch.sql) */
+export interface WatchContext {
+  url: string;
+  anonKey: string;
+  token: string;
+  roundId: string;
+  course: string;
+  /** 폰에서 보고 있는 홀 (0부터). 워치가 같은 홀을 연다 */
+  hole: number;
+  /** 열쇠가 끝나는 때 (ISO) */
+  expiresAt: string;
+}
+
+/** 워치에 라운드를 보낸다 (null 이면 워치에서 라운드를 내린다) */
+export function sendWatchContext(ctx: WatchContext | null) {
+  bridge()?.postMessage({ type: "watch", ctx });
+}
+
+export interface WatchStatusResult {
+  /** 이 아이폰에 짝지은 애플워치가 있는지 */
+  paired?: boolean;
+  /** 워치에 멘탈게임 앱이 깔려 있는지 */
+  installed?: boolean;
+  /** 지금 워치 앱과 바로 닿는지 */
+  reachable?: boolean;
+  /** 아이폰이 워치 연결을 지원하지 않음 (아이패드 등) */
+  unsupported?: boolean;
+}
+
+/** 애플워치 상태 (워치 연결이 들어간 앱에서만 부른다) */
+export const watchStatus = () => ask<WatchStatusResult>("watchStatus", {});

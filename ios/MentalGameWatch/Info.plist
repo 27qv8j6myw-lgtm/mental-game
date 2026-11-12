@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 개발용 목 서버(127.0.0.1)를 http 로 부를 수 있게 (iPhone 앱과 같다. 실서버는 https) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- 라운드 동안 골프 운동을 켜 두면 손목을 내려도 앱이 계속 돈다 (Workout.swift) -->
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+</dict>
+</plist>

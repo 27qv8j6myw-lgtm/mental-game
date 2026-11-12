@@ -92,6 +92,19 @@ export default function RecordGameScreen({
   useEffect(() => onBusyChange?.(dirty), [dirty, onBusyChange]);
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
+  // 워치(다른 기기)에서 보던 홀의 타수를 처음 저장하면 폰도 다음 홀로 (폰에서 저장할 때와 같다).
+  // 폰이 꺼져 있던 사이 여러 홀을 저장했으면 아직 타수가 없는 다음 홀로. 저장 안 한 입력이 있으면 그대로 둔다
+  const seen = useRef({ idx, rel: savedRel });
+  useEffect(() => {
+    const prev = seen.current;
+    seen.current = { idx, rel: savedRel };
+    if (prev.idx !== idx || prev.rel != null || savedRel == null || dirty || !me) return;
+    const next = holes.findIndex((h, i) => i > idx && h.scores[me.id] == null);
+    const to = next >= 0 ? next : Math.min(idx + 1, holes.length - 1);
+    if (to !== idx) goHole(to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, savedRel]);
+
   const { par, rel, stat } = d;
   const strokes = rel == null ? null : par + rel;
   const gir = girOf(par, rel, stat.putts);

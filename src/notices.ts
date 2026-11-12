@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { listMyRounds } from "./rounds";
 import type { RoundListItem } from "./types";
 import type { TopicId } from "./guide/content";
+import { nativeCaps } from "./native";
 
 /*
  * 내 라운드 목록(홈과 종 알림이 같이 쓴다)과 오른쪽 위 종 알림.
@@ -102,7 +103,7 @@ export function patchListRound(id: string, patch: Partial<RoundListItem> | null)
 // ── 종 알림 ──
 
 /** 알림을 눌러 여는 페이지 (내 정보 안) */
-export type NoticePage = "goals" | "badges" | "bag" | "diary";
+export type NoticePage = "goals" | "badges" | "bag" | "diary" | "watch";
 const PAGE_EVENT = "mg-open-page";
 /** 알림에서 페이지 열기 (App 이 받아 내 정보의 그 페이지로) */
 export const openNoticePage = (page: NoticePage) =>
@@ -145,6 +146,13 @@ export interface NoticeItem {
 /** 개인정보처리방침이 바뀔 때 알림 (시행 7일 전부터 시행 뒤 7일까지, public/privacy.html). 새것이 위 */
 const POLICY_CHANGES = [
   {
+    id: "policy:2026-11-19",
+    from: "2026-11-12",
+    until: "2026-11-26",
+    title: "개인정보처리방침이 바뀌어요",
+    sub: "11월 19일부터 · 애플워치 연결·건강 앱 골프 운동",
+  },
+  {
     id: "policy:2026-11-10",
     from: "2026-11-03",
     until: "2026-11-17",
@@ -170,8 +178,29 @@ export function policyNotices(today = todaySeoul()): NoticeItem[] {
   }));
 }
 
-/** 새 기능 알림 (from 은 내보낸 날, 그날부터 2주). 새것이 위 */
-const FEATURES: { id: string; from: string; title: string; sub: string; hint?: string; page?: NoticePage; guide?: TopicId }[] = [
+/**
+ * 새 기능 알림 (from 은 내보낸 날, 그날부터 2주). 새것이 위.
+ * cap 이 있으면 그 기능이 들어간 앱(window.__mgCaps)에서만, 이 기기에서 처음 보인 날부터 2주
+ */
+const FEATURES: {
+  id: string;
+  from: string;
+  title: string;
+  sub: string;
+  hint?: string;
+  page?: NoticePage;
+  guide?: TopicId;
+  cap?: string;
+}[] = [
+  {
+    id: "feature:watch",
+    from: "2026-11-12",
+    title: "새 기능 · 애플워치로 기록",
+    sub: "기록 모드에서 타수·퍼트·티샷·벌타를 워치로",
+    hint: "눌러서 켜기",
+    page: "watch",
+    cap: "watch",
+  },
   {
     id: "feature:diary",
     from: "2026-11-03",
@@ -217,8 +246,25 @@ const addDays = (d: string, n: number) => {
   t.setUTCDate(t.getUTCDate() + n);
   return t.toISOString().slice(0, 10);
 };
+/** 알림을 보이기 시작하는 날 (앱에 그 기능이 없으면 null) */
+function featureStart(f: (typeof FEATURES)[number], today: string): string | null {
+  if (!f.cap) return f.from;
+  if (!nativeCaps().includes(f.cap)) return null;
+  const key = `mentalgame-feature-seen:${f.id}`;
+  try {
+    const kept = localStorage.getItem(key);
+    if (!kept) localStorage.setItem(key, today);
+    const seenOn = kept ?? today;
+    return seenOn > f.from ? seenOn : f.from;
+  } catch {
+    return today;
+  }
+}
 export function featureNotices(today = todaySeoul()): NoticeItem[] {
-  return FEATURES.filter((f) => today >= f.from && today < addDays(f.from, FEATURE_DAYS)).map((f) => ({
+  return FEATURES.filter((f) => {
+    const from = featureStart(f, today);
+    return from != null && today >= from && today < addDays(from, FEATURE_DAYS);
+  }).map((f) => ({
     id: f.id,
     kind: "feature" as const,
     title: f.title,

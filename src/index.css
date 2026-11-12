@@ -9987,6 +9987,36 @@ button.rr-adj.rr-pick.on .rr-adj-main span {
   padding-bottom: 18px;
 }
 
+/* ============ 애플워치 (WatchSettings) ============ */
+.wt-status {
+  padding: 10px 16px 12px;
+  border-top: var(--border);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+.wt-status.ok {
+  color: var(--gain);
+}
+.wt-status.warn {
+  color: #b45309;
+}
+.card.wt-howto {
+  padding: 14px 16px 14px 14px;
+}
+.wt-howto ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  word-break: keep-all;
+}
+
 /* ============ 라운드 일기 (RoundDiary) ============ */
 .card.dy-cal {
   padding: 12px 10px 10px;

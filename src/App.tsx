@@ -24,6 +24,7 @@ import { useBack } from "./back";
 import { useOnline } from "./online";
 import { useUnfolded } from "./rail";
 import { onNoticeGuide, onNoticePage, type NoticePage } from "./notices";
+import { useWatchLink } from "./watch";
 import Guide from "./guide/Guide";
 import type { TopicId } from "./guide/content";
 import { loadDraft } from "./drafts";
@@ -79,6 +80,8 @@ function NamePrompt() {
 function MemberFlow() {
   const round = useRound();
   const { user } = useAuth();
+  // 애플워치로 기록 (내 정보 → 애플워치를 켠 iOS 앱): 기록 모드 라운드를 열면 워치에 보낸다
+  useWatchLink(round.session, round.activeRoundId, user?.uid ?? "");
   const [view, setView] = useState<"home" | "create" | "admin" | "stats" | "records" | "ranking" | "profile">("home");
   /** 내 정보 → 랭킹 공개 범위로 연 랭킹 관리 (닫으면 내 정보로 돌아간다) */
   const [rankingManage, setRankingManage] = useState(false);
