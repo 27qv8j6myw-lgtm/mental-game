@@ -11,6 +11,8 @@ struct MentalGameWatchApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                // 따로 정하지 않은 글자도 폰 앱처럼 Pretendard (Fonts.swift)
+                .font(.app(16))
                 .environment(store)
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     if phase == .active { store.wake() }
@@ -76,10 +78,10 @@ struct Waiting: View {
                         .font(.system(size: 46, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                     Text(title)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.app(18, .bold))
                         .multilineTextAlignment(.center)
                     Text(text)
-                        .font(.system(size: 14))
+                        .font(.app(14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }

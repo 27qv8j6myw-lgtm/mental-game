@@ -86,7 +86,7 @@ struct HoleView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Text("\(rec.i + 1)번 홀")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.app(18, .bold))
                     .foregroundStyle(Theme.accent)
                     .fixedSize()
                     .offset(y: -10)
@@ -125,10 +125,10 @@ struct HoleView: View {
             } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("PAR")
-                        .font(.system(size: 12, weight: .heavy))
+                        .font(.app(12, .heavy))
                         .foregroundStyle(.white.opacity(0.85))
                     Text("\(par)")
-                        .font(.system(size: 21, weight: .heavy, design: .rounded))
+                        .font(.num(21))
                         .foregroundStyle(.white)
                 }
                 .padding(.horizontal, 12)
@@ -143,10 +143,10 @@ struct HoleView: View {
             // 누적 타수 (파 대비, 지금 홀의 입력 포함)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("누적")
-                    .font(.system(size: 13, weight: .heavy))
+                    .font(.app(13, .heavy))
                     .foregroundStyle(.secondary)
                 Text(totals.counted ? Self.relText(totals.rel) : "–")
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .font(.num(30))
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -190,7 +190,7 @@ struct HoleView: View {
             if isLast { finishAsk = true } else { save() }
         } label: {
             Text(isLast ? "라운드 종료" : saveLabel)
-                .font(.system(size: 17, weight: .bold))
+                .font(.app(17, .bold))
                 .foregroundStyle(isLast ? .white : saveForeground)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(
@@ -311,7 +311,7 @@ struct HoleView: View {
                             setLie(lie == o.id ? nil : o.id)
                         } label: {
                             Text(o.label)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.app(14, .semibold))
                                 .frame(maxWidth: .infinity, minHeight: 40)
                                 .background(RoundedRectangle(cornerRadius: 12).fill(lie == o.id ? Theme.accent : Theme.control))
                         }
@@ -383,7 +383,7 @@ struct HoleView: View {
 
     private var healthNote: some View {
         Text("건강 권한이 없어 화면이 계속 떠 있지 않아요. 아이폰 건강 앱에서 멘탈게임을 허용해 주세요.")
-            .font(.system(size: 12))
+            .font(.app(12))
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -441,12 +441,12 @@ struct BlockTitle: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.app(13, .semibold))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 4)
             if let note {
                 Text(note)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.app(13, .semibold))
                     .foregroundStyle(Theme.accent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -477,7 +477,7 @@ struct StepperBlock: View {
                 .frame(width: RoundButton.size)
                 Spacer(minLength: 4)
                 Text(value)
-                    .font(.system(size: big ? 32 : 26, weight: .bold, design: .rounded))
+                    .font(.num(big ? 32 : 26))
                     .monospacedDigit()
                     .frame(height: RoundButton.size)
                     .accessibilityLabel("\(title) \(value)\(note.map { ", \($0)" } ?? "")")
@@ -495,7 +495,7 @@ struct StepperBlock: View {
     /// 버튼 위 작은 글씨: 버튼 가운데에 맞추고, 버튼보다 조금 넓게까지 쓰다가 더 길면 (알바트로스 등) 살짝 줄인다
     private func caption(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.app(13, .semibold))
             .foregroundStyle(color)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
