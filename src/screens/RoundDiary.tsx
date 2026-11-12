@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useAuth } from "../auth";
 import { useBack } from "../back";
 import { Icon } from "../icons";
-import { listMyRounds } from "../rounds";
+import { listMyRounds, setRoundTeeTime } from "../rounds";
 import { loadRecordRounds, type RecordRound } from "../recordStats";
 import { loadInsight, readCachedInsight } from "../insight";
 import { weatherText } from "../weather";
@@ -288,11 +288,34 @@ function RoundDay({
 }) {
   const { rec, row } = r;
   const s = rec.summary;
-  // 티오프를 모르면 아침 8시 기준
-  const tee = /^\d{1,2}:\d{2}$/.test(row?.tee_time ?? "") ? row!.tee_time.padStart(5, "0") : "08:00";
+  // 날씨는 티오프부터 5시간. 스코어카드로 가져온 지난 라운드처럼 티오프가 비어 있으면 방장이 여기서 넣고,
+  // 넣기 전에는 아침 8시 기준
+  const [teeTime, setTeeTime] = useState(row?.tee_time ?? "");
+  const [teeDraft, setTeeDraft] = useState(teeTime);
+  const [teeErr, setTeeErr] = useState(false);
+  const known = /^\d{1,2}:\d{2}$/.test(teeTime);
+  const tee = known ? teeTime.padStart(5, "0") : "08:00";
+  const canSetTee = !!row && row.host_uid === uid;
   const wx = useRoundForecast(row ? { id: row.id, date: rec.date, tee_time: tee, rules: row.rules } : null, {
     device: false,
   });
+  // 시간 고르기를 마치면(blur) 저장한다 (휠을 돌릴 때마다 저장·예보를 다시 받지 않게)
+  const commitTee = async () => {
+    if (!row || !/^\d{2}:\d{2}$/.test(teeDraft) || teeDraft === teeTime) return;
+    const prev = teeTime;
+    setTeeTime(teeDraft);
+    setTeeErr(false);
+    try {
+      await setRoundTeeTime(row.id, teeDraft);
+      // 이번 실행에서 다시 열 때도 (roundCache 가 같은 행을 들고 있다)
+      row.tee_time = teeDraft;
+    } catch (e) {
+      console.error(e);
+      setTeeTime(prev);
+      setTeeDraft(prev);
+      setTeeErr(true);
+    }
+  };
   const partial = s.holesPlayed < rec.holeCount;
   const tiles: [string, string, string?][] = [];
   if (s.putts != null) tiles.push(["퍼트", `${s.putts}개`, s.avgPutts != null ? `홀당 ${s.avgPutts.toFixed(1)}` : undefined]);
@@ -324,9 +347,33 @@ function RoundDay({
               <span>{s.toPar === 0 ? "E" : s.toPar > 0 ? `+${s.toPar}` : s.toPar}</span>
             </div>
             <div className="cc-meta">
-              {[row?.tee_time, teeLabel(rec.courseTee), partial ? `${s.holesPlayed}/${rec.holeCount}홀` : `${rec.holeCount}홀`]
+              {canSetTee ? (
+                <label className={`dy-tee ${known ? "" : "unset"}`}>
+                  {known ? teeTime : "티오프 넣기"}
+                  <input
+                    type="time"
+                    value={teeDraft}
+                    aria-label="티오프 시각"
+                    onChange={(e) => setTeeDraft(e.target.value)}
+                    onBlur={() => void commitTee()}
+                    // 컴퓨터 브라우저는 투명한 칸을 눌러도 고르는 창이 안 떠서 직접 연다
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker?.();
+                      } catch {
+                        /* 이미 열려 있으면 그대로 */
+                      }
+                    }}
+                  />
+                </label>
+              ) : (
+                known && teeTime
+              )}
+              {(canSetTee || known) && " · "}
+              {[teeLabel(rec.courseTee), partial ? `${s.holesPlayed}/${rec.holeCount}홀` : `${rec.holeCount}홀`]
                 .filter(Boolean)
                 .join(" · ")}
+              {teeErr && <span className="dy-tee-err"> · 티오프를 저장하지 못했어요</span>}
             </div>
           </div>
           {wx && <ForecastSide f={wx} />}

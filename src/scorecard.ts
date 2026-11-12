@@ -10,6 +10,8 @@ import type { Fairway } from "./types";
 /** 서버가 돌려주는 읽은 값 (api/scorecard.ts SCHEMA). 읽지 못한 칸은 null */
 export interface ScorecardRead {
   date: string | null;
+  /** 사진에 인쇄된 티오프 "07:24" (없으면 null, 예전 서버는 칸이 없다) */
+  teeTime?: string | null;
   courseName: string | null;
   teeName: string | null;
   holes: {

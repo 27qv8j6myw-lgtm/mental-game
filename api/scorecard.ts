@@ -28,15 +28,16 @@ const nInt = nullable({ type: "integer" });
 
 /**
  * 돌려받을 모양. 읽을 수 없는 칸은 null.
- * API 는 null 을 허용하는(anyOf) 칸을 16개까지만 받아서, 패널티·샌드샷은 빈칸이면 0 으로 받는다 (지금 14개)
+ * API 는 null 을 허용하는(anyOf) 칸을 16개까지만 받아서, 패널티·샌드샷은 빈칸이면 0 으로 받는다 (지금 15개)
  */
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["isScorecard", "date", "courseName", "teeName", "holes", "totals"],
+  required: ["isScorecard", "date", "teeTime", "courseName", "teeName", "holes", "totals"],
   properties: {
     isScorecard: { type: "boolean" },
     date: nullable({ type: "string", format: "date" }),
+    teeTime: nullable({ type: "string" }),
     courseName: nullable({ type: "string" }),
     teeName: nullable({ type: "string" }),
     holes: {
@@ -77,6 +78,7 @@ const PROMPT = `This image should be a golf scorecard, often a screenshot export
 
 - isScorecard: false if the image is not a golf scorecard (then leave the other fields null or empty).
 - date: the round date as YYYY-MM-DD.
+- teeTime: the tee-off (start) time if it is printed on the card, e.g. next to the date or labeled 티오프 / 티업 / 시작 / Tee Off / Tee Time, as 24-hour HH:MM (오후 1:10 or 1:10 PM → "13:10"). null if no time is printed.
 - courseName: the course name exactly as printed, without a trailing hole count such as "(18)". Example: "클럽72 (오션)".
 - teeName: the label of the yardage row (the tee), e.g. "Regular", "White", "Blue".
 - If there are several players on the card, read only the first player's rows.

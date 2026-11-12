@@ -248,6 +248,13 @@ export async function updateRound(
   if (error) throw error;
 }
 
+/** 방장 전용(RLS): 티오프 시각 "07:24" (스코어카드로 가져와 티오프가 빈 지난 라운드를 라운드 일기에서 채운다) */
+export async function setRoundTeeTime(roundId: string, teeTime: string): Promise<void> {
+  const db = requireDb();
+  const { error } = await db.from("rounds").update({ tee_time: teeTime }).eq("id", roundId);
+  if (error) throw error;
+}
+
 /** 저장 대기열(pending.ts)이 다시 보내기 전에 라운드가 종료·삭제됐는지 확인한다. 볼 수 없으면 null */
 export async function getRoundMeta(
   roundId: string,

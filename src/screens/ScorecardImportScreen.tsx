@@ -71,6 +71,8 @@ export default function ScorecardImportScreen({
   // 라운드 정보
   const [courseName, setCourseName] = useState("");
   const [date, setDate] = useState(() => localDate());
+  // 티오프: 사진에 인쇄돼 있으면 읽은 값 (라운드 일기 날씨를 그 시각부터 5시간 보여 준다). 없으면 비워 둔다
+  const [teeTime, setTeeTime] = useState("");
   const [tee, setTee] = useState<TeeBox>("white");
   const [kga, setKga] = useState<KgaData | null>(null);
   const [club, setClub] = useState<KgaClub | null>(null);
@@ -108,6 +110,7 @@ export default function ScorecardImportScreen({
       const d = toDraft(card);
       setDraft(d);
       if (card.date && /^\d{4}-\d{2}-\d{2}$/.test(card.date)) setDate(card.date);
+      setTeeTime(/^([01]?\d|2[0-3]):[0-5]\d$/.test(card.teeTime ?? "") ? card.teeTime!.padStart(5, "0") : "");
       if (card.teeName) setTee(teeBoxFromName(card.teeName) ?? "white");
       const printed = card.courseName?.trim() ?? "";
       const data = kga ?? (await loadKga().catch(() => null));
@@ -159,7 +162,7 @@ export default function ScorecardImportScreen({
           courseName: courseName.trim(),
           courseTee: tee,
           date,
-          teeTime: "",
+          teeTime,
           rules: {
             parPenalty: false,
             tie: false,
@@ -291,6 +294,15 @@ export default function ScorecardImportScreen({
               <div className="field">
                 <label>날짜</label>
                 <input className="input dt-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>티오프 (모르면 비워 두세요)</label>
+                <input
+                  className="input dt-input"
+                  type="time"
+                  value={teeTime}
+                  onChange={(e) => setTeeTime(e.target.value)}
+                />
               </div>
               <div className="field">
                 <label>티 박스</label>
